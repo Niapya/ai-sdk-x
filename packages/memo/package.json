@@ -1,0 +1,30 @@
+{
+	"name": "@ai-sdk-x/memo",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "dist/cjs/index.js",
+	"types": "dist/esm/index.d.ts",
+	"peerDependencies": {
+		"ai": ">=6.0.97",
+		"zod": ">=4.3.6",
+		"unstorage": ">=1.0.0"
+	},
+	"devDependencies": {
+		"ai": "^6.0.97",
+		"zod": "^4.3.6",
+		"unstorage": "^1.15.0",
+		"@types/bun": "latest",
+		"typescript": "^5.7.0"
+	},
+	"module": "dist/esm/index.js",
+	"exports": {
+		".": {
+			"types": "./dist/esm/index.d.ts",
+			"import": "./dist/esm/index.js",
+			"require": "./dist/cjs/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	]
+}

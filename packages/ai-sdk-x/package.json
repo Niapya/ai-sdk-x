@@ -1,0 +1,27 @@
+{
+	"dependencies": {
+		"@ai-sdk-x/execute": "workspace:*",
+		"@ai-sdk-x/memo": "workspace:*",
+		"@ai-sdk-x/memory": "workspace:*",
+		"@ai-sdk-x/skill": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "^5.7.0"
+	},
+	"main": "dist/cjs/index.js",
+	"name": "ai-sdk-x",
+	"type": "module",
+	"types": "dist/esm/index.d.ts",
+	"version": "0.0.1",
+	"module": "dist/esm/index.js",
+	"exports": {
+		".": {
+			"types": "./dist/esm/index.d.ts",
+			"import": "./dist/esm/index.js",
+			"require": "./dist/cjs/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	]
+}
