@@ -1,6 +1,8 @@
 # @ai-sdk-x/skill
 
-Skill 是一个辅助的上下文工具，等同于本地版的 `Context7` 工具。
+[English](./README.en.md) | 简体中文
+
+Skill 是一个辅助的上下文工具，等同于本地的 `Context7` 工具。
 
 本项目主要为 Serverless 环境打造，采用 [unstorage](https://unstorage.unjs.io/) 作为缓存。
 
@@ -14,22 +16,9 @@ Skill 是一个辅助的上下文工具，等同于本地版的 `Context7` 工�
 
 > [!NOTE]
 >
-> 如果您想 Skill 存储到数据库，这也是可能的。您可以使用 `isomorphic-git` 包来实现 `git clone`，然后递归地把 Skill 存储到数据库中。如果 Skill 含有一些非文本文件，你可以考虑转换为 Markdown 文件，例如借助 Cloudflare Workers 的 `env.AI.toMarkdown()`。
+> 如果您想 Skill 存储到数据库，这也是可能的。
+> 您可以使用 `isomorphic-git` 包来实现 `git clone`，然后递归地把 Skill 存储到数据库中。如果 Skill 含有一些非文本文件，你可以考虑转换为 Markdown 文件，例如借助 Cloudflare Workers 的 `env.AI.toMarkdown()`。
 
 ## 用法
 
-您可以在 Example 文件夹寻找例子。
-
-```ts
-import { createSkill } from "@ai-sdk-x/skill";
-import { createStorage } from "unstorage";
-
-const skill = createSkill({
-  storage: createStorage(),
-  download: async (name) => { /* ... */ },
-  get: async (name) => { /* ... */ },
-});
-
-const instance = skill();
-const tools = await instance.getTools();
-```
+详细请见 [使用 S3 作为 Skill 存储](./src/examples/s3.ts) 的例子。

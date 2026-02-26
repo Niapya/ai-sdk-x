@@ -1,8 +1,8 @@
 # @ai-sdk-x/execute
 
-Execute 是可执行代码的工具。
+[English](./README.en.md) | 简体中文
 
-本项目主要为 Serverless 环境打造。
+Execute 是可执行代码的工具。本项目主要为 Serverless 环境打造。
 
 > [!NOTE]
 >
@@ -31,3 +31,7 @@ await import("data:text/javascript," + encodeURIComponent(code));
 您还可以连接到外部 Sandbox 服务来执行代码。
 
 或者如果您在真实 Node.js 环境中，您可以直接使用 `vm` 模块来执行代码。
+
+## 例子
+
+详细请见 [Deno](./src/examples/deno.ts) 的例子。

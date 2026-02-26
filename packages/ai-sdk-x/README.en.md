@@ -1,5 +1,3 @@
 # ai-sdk-x
 
-[English](./README.en.md) | 简体中文
-
 See [README.md](../../README.md).

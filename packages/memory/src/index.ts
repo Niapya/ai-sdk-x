@@ -115,9 +115,8 @@ async function ragRetrieve(
 }
 
 /**
- * 
- * @param options 
- * @returns 
+ * creteMemory is the main factory function that users will call to create a memory instance.
+ * It accepts global options and returns a function that can be called with specific scopes and overrides.
  */
 export function createMemory(options: MemoryOptions): MemoryFactory {
 	const { add, query, update, delete: del, rag, hooks, debug } = options;
