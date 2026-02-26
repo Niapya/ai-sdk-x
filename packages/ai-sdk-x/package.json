@@ -8,20 +8,23 @@
 	"devDependencies": {
 		"typescript": "^5.7.0"
 	},
-	"main": "dist/cjs/index.js",
-	"name": "ai-sdk-x",
-	"type": "module",
-	"types": "dist/esm/index.d.ts",
-	"version": "0.0.1",
-	"module": "dist/esm/index.js",
 	"exports": {
 		".": {
-			"types": "./dist/esm/index.d.ts",
 			"import": "./dist/esm/index.js",
-			"require": "./dist/cjs/index.js"
+			"require": "./dist/cjs/index.js",
+			"types": "./dist/esm/index.d.ts"
 		}
 	},
 	"files": [
 		"dist"
-	]
+	],
+	"main": "dist/cjs/index.js",
+	"module": "dist/esm/index.js",
+	"name": "ai-sdk-x",
+	"publishConfig": {
+		"access": "public"
+	},
+	"type": "module",
+	"types": "dist/esm/index.d.ts",
+	"version": "0.0.1"
 }

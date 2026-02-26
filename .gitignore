@@ -10,6 +10,8 @@ dist
 coverage
 *.lcov
 
+.todo
+
 # logs
 logs
 _.log
@@ -26,6 +28,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .eslintcache
 .cache
 *.tsbuildinfo
+docs/.vitepress/cache
 
 # IntelliJ based IDEs
 .idea
