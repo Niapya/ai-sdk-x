@@ -45,14 +45,13 @@ export interface MemoToolConfig {
 	generateKey?: (toolName: string, params: unknown) => string;
 }
 
-export type MemoizedTool<T extends Tool> =
-	Omit<T, 'execute'> & {
-		execute: (args: ToolInput<T>, options: ToolExecutionOptions) => Promise<ToolOutput<T>>;
-		get: (key: string) => Promise<CacheEntry<ToolOutput<T>> | null>;
-		set: (key: string, value: ToolOutput<T>) => Promise<void>;
-		update: (key: string, value: ToolOutput<T>) => Promise<void>;
-		delete: (key: string) => Promise<void>;
-	}
+export type MemoizedTool<T extends Tool> = Omit<T, "execute"> & {
+	execute: (args: ToolInput<T>, options: ToolExecutionOptions) => Promise<ToolOutput<T>>;
+	get: (key: string) => Promise<CacheEntry<ToolOutput<T>> | null>;
+	set: (key: string, value: ToolOutput<T>) => Promise<void>;
+	update: (key: string, value: ToolOutput<T>) => Promise<void>;
+	delete: (key: string) => Promise<void>;
+};
 function stableStringify(obj: unknown): string {
 	if (obj === null || obj === undefined) return String(obj);
 	if (typeof obj !== "object") return JSON.stringify(obj);
@@ -144,7 +143,7 @@ export function createMemo(options: MemoOptions): MemoFn {
 			};
 			await storage.setItem(key, entry, {
 				// some storage engines support TTL natively.
-				ttl
+				ttl,
 			});
 		}
 
@@ -209,10 +208,7 @@ export function createMemo(options: MemoOptions): MemoFn {
 				if (maxSize != null) {
 					const serialized = JSON.stringify(result);
 					if (serialized.length > maxSize) {
-						debugLog(
-							debug,
-							`[memo] result exceeds maxSize (${serialized.length} > ${maxSize})`,
-						);
+						debugLog(debug, `[memo] result exceeds maxSize (${serialized.length} > ${maxSize})`);
 						return result;
 					}
 				}

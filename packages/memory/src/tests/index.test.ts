@@ -26,13 +26,23 @@ function cosineSim(a: number[], b: number[]): number {
 }
 
 mock.module("ai", () => ({
-	tool: (opts: { execute: (...args: unknown[]) => unknown; description: string; inputSchema: unknown }) => opts,
+	tool: (opts: {
+		execute: (...args: unknown[]) => unknown;
+		description: string;
+		inputSchema: unknown;
+	}) => opts,
 	embedMany: mockEmbedMany,
 	cosineSimilarity: cosineSim,
 }));
 
 // Import AFTER mock setup
-const { createMemory } = await import("../index");
+const { createMemory: _createMemory } = await import("../index");
+
+const createMemory = _createMemory as unknown as (
+	// biome-ignore lint/suspicious/noExplicitAny: re-typed for test simplicity
+	...args: any[]
+	// biome-ignore lint/suspicious/noExplicitAny: re-typed for test simplicity
+) => (...args: any[]) => { getTools: () => Promise<any> };
 
 // --- In-memory adapter factory ---
 
@@ -56,10 +66,7 @@ function createInMemoryAdapter() {
 		query: async (scope: string): Promise<MemoryRecord[]> => {
 			return records.filter((r) => r.scope === scope);
 		},
-		update: async (
-			id: number,
-			data: { scope: string; content: string },
-		): Promise<MemoryRecord> => {
+		update: async (id: number, data: { scope: string; content: string }): Promise<MemoryRecord> => {
 			const index = records.findIndex((r) => r.id === id);
 			if (index === -1) throw new Error("Not found");
 			records[index] = { ...records[index], ...data, updatedAt: new Date() };
@@ -76,13 +83,14 @@ function createInMemoryAdapter() {
 
 // --- Fake embedding model ---
 
-const fakeEmbeddingModel = {
+// biome-ignore lint/suspicious/noExplicitAny: fake model for testing
+const fakeEmbeddingModel: any = {
 	specificationVersion: "v2",
 	modelId: "fake-embedding",
 	provider: "fake",
 	maxEmbeddingsPerCall: 100,
 	supportsParallelCalls: false,
-} as unknown as import("ai").EmbeddingModel<string>;
+};
 
 // --- Tests ---
 
@@ -408,7 +416,7 @@ describe("createMemory", () => {
 
 	describe("debugLog", () => {
 		test("logs with custom logger when debug is enabled", async () => {
-			const logger = mock(() => {});
+			const logger = mock((_msg: string) => {});
 			const factory = createMemory({
 				add: adapter.add,
 				query: adapter.query,
@@ -447,7 +455,7 @@ describe("createMemory", () => {
 			const instance = factory("user-1");
 			const tools = await instance.getTools();
 
-			await tools.addMemory.execute({ content: "silent" });
+			await tools.addMemory.execute?.({ content: "silent" });
 			expect(logger).not.toHaveBeenCalled();
 		});
 
@@ -466,7 +474,7 @@ describe("createMemory", () => {
 		});
 
 		test("debug logs for query, update, and delete operations", async () => {
-			const logger = mock(() => {});
+			const logger = mock((_msg: string) => {});
 			const factory = createMemory({
 				add: adapter.add,
 				query: adapter.query,

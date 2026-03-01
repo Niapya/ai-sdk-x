@@ -1,7 +1,6 @@
-import type { EmbeddingModel, Tool } from "ai";
+import type { EmbeddingModel } from "ai";
 import { cosineSimilarity, embedMany, tool } from "ai";
 import { z } from "zod";
-
 
 /** A single memory record returned by the adapter. */
 export interface MemoryRecord {
@@ -60,17 +59,6 @@ export interface MemoryOptions {
 	debug?: MemoryDebugOptions;
 }
 
-export interface MemoryInstance {
-	getTools: () => Promise<Record<string, Tool>>;
-}
-
-export type MemoryFactory = {
-	(scope: string, config?: Partial<MemoryOptions>): MemoryInstance;
-	(scopes: string[], config?: Partial<MemoryOptions>): MemoryInstance;
-};
-
-
-
 function debugLog(debug: MemoryDebugOptions | undefined, message: string): void {
 	if (debug?.enabled) {
 		const logger = debug.logger ?? console.log;
@@ -118,13 +106,10 @@ async function ragRetrieve(
  * creteMemory is the main factory function that users will call to create a memory instance.
  * It accepts global options and returns a function that can be called with specific scopes and overrides.
  */
-export function createMemory(options: MemoryOptions): MemoryFactory {
+export function createMemory(options: MemoryOptions) {
 	const { add, query, update, delete: del, rag, hooks, debug } = options;
 
-	function memory(
-		scopeOrScopes: string | string[],
-		config?: Partial<MemoryOptions>,
-	): MemoryInstance {
+	return function memory(scopeOrScopes: string | string[], config?: Partial<MemoryOptions>) {
 		const effectiveAdd = config?.add ?? add;
 		const effectiveQuery = config?.query ?? query;
 		const effectiveUpdate = config?.update ?? update;
@@ -154,11 +139,7 @@ export function createMemory(options: MemoryOptions): MemoryFactory {
 			return records;
 		}
 
-		async function updateRecord(
-			scope: string,
-			id: number,
-			content: string,
-		): Promise<MemoryRecord> {
+		async function updateRecord(scope: string, id: number, content: string): Promise<MemoryRecord> {
 			if (!effectiveUpdate) throw new Error("update adapter not provided");
 			debugLog(effectiveDebug, `[memory] update scope="${scope}" id=${id}`);
 			effectiveHooks?.onUpdate?.(scope, id, content);
@@ -173,80 +154,76 @@ export function createMemory(options: MemoryOptions): MemoryFactory {
 		}
 		return {
 			getTools: async () => {
-				const tools: Record<string, Tool> = {};
-
 				if (isMultiScope) {
 					const scopeEnum = z.enum(scopes as [string, ...string[]]);
 
-					tools.addMemory = tool({
-						description: "Add a new memory entry.",
-						inputSchema: z.object({ scope: scopeEnum, content: z.string() }),
-						execute: async ({ scope, content }) => addRecord(scope, content),
-					});
+					return {
+						addMemory: tool({
+							description: "Add a new memory entry.",
+							inputSchema: z.object({ scope: scopeEnum, content: z.string() }),
+							execute: async ({ scope, content }) => addRecord(scope, content),
+						}),
 
-					tools.queryMemory = tool({
-						description: "Query memories.",
-						inputSchema: z.object({ scope: scopeEnum, query: z.string() }),
-						execute: async ({ scope, query: q }) => queryRecords(scope, q),
-					});
+						queryMemory: tool({
+							description: "Query memories.",
+							inputSchema: z.object({ scope: scopeEnum, query: z.string() }),
+							execute: async ({ scope, query: q }) => queryRecords(scope, q),
+						}),
 
-					if (effectiveUpdate) {
-						tools.updateMemory = tool({
-							description: "Update an existing memory entry by ID.",
-							inputSchema: z.object({
-								scope: scopeEnum,
-								id: z.number(),
-								content: z.string(),
-							}),
-							execute: async ({ scope, id, content }) =>
-								updateRecord(scope, id, content),
-						});
-					}
+						updateMemory: effectiveUpdate
+							? tool({
+									description: "Update an existing memory entry by ID.",
+									inputSchema: z.object({
+										scope: scopeEnum,
+										id: z.number(),
+										content: z.string(),
+									}),
+									execute: async ({ scope, id, content }) => updateRecord(scope, id, content),
+								})
+							: undefined,
 
-					if (effectiveDelete) {
-						tools.deleteMemory = tool({
-							description: "Delete a memory entry by ID.",
-							inputSchema: z.object({ scope: scopeEnum, id: z.number() }),
-							execute: async ({ scope, id }) => deleteRecord(scope, id),
-						});
-					}
+						deleteMemory: effectiveDelete
+							? tool({
+									description: "Delete a memory entry by ID.",
+									inputSchema: z.object({ scope: scopeEnum, id: z.number() }),
+									execute: async ({ scope, id }) => deleteRecord(scope, id),
+								})
+							: undefined,
+					};
 				} else {
 					const scope = scopes[0];
 
-					tools.addMemory = tool({
-						description: `Add a new memory entry to "${scope}".`,
-						inputSchema: z.object({ content: z.string() }),
-						execute: async ({ content }) => addRecord(scope, content),
-					});
+					return {
+						addMemory: tool({
+							description: `Add a new memory entry to "${scope}".`,
+							inputSchema: z.object({ content: z.string() }),
+							execute: async ({ content }) => addRecord(scope, content),
+						}),
 
-					tools.queryMemory = tool({
-						description: `Query memories from "${scope}".`,
-						inputSchema: z.object({ query: z.string() }),
-						execute: async ({ query: q }) => queryRecords(scope, q),
-					});
+						queryMemory: tool({
+							description: `Query memories from "${scope}".`,
+							inputSchema: z.object({ query: z.string() }),
+							execute: async ({ query: q }) => queryRecords(scope, q),
+						}),
 
-					if (effectiveUpdate) {
-						tools.updateMemory = tool({
-							description: `Update an existing memory entry in "${scope}" by ID.`,
-							inputSchema: z.object({ id: z.number(), content: z.string() }),
-							execute: async ({ id, content }) => updateRecord(scope, id, content),
-						});
-					}
+						updateMemory: effectiveUpdate
+							? tool({
+									description: `Update an existing memory entry in "${scope}" by ID.`,
+									inputSchema: z.object({ id: z.number(), content: z.string() }),
+									execute: async ({ id, content }) => updateRecord(scope, id, content),
+								})
+							: undefined,
 
-					if (effectiveDelete) {
-						tools.deleteMemory = tool({
-							description: `Delete a memory entry from "${scope}" by ID.`,
-							inputSchema: z.object({ id: z.number() }),
-							execute: async ({ id }) => deleteRecord(scope, id),
-						});
-					}
+						deleteMemory: effectiveDelete
+							? tool({
+									description: `Delete a memory entry from "${scope}" by ID.`,
+									inputSchema: z.object({ id: z.number() }),
+									execute: async ({ id }) => deleteRecord(scope, id),
+								})
+							: undefined,
+					};
 				}
-
-				return tools;
 			},
 		};
-	}
-
-	return memory as MemoryFactory;
+	};
 }
-

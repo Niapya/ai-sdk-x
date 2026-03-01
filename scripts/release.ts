@@ -29,6 +29,41 @@ interface PackageJson {
 	[key: string]: unknown;
 }
 
+// Replace workspace:* ranges with the concrete version we are publishing.
+function normalizeWorkspaceDeps(pkg: PackageJson, version: string) {
+	if (!pkg.dependencies) return;
+
+	for (const [dep, range] of Object.entries(pkg.dependencies)) {
+		if (typeof range === "string" && range.startsWith("workspace:")) {
+			pkg.dependencies[dep] = version;
+		}
+	}
+}
+
+// Restore workspace:* ranges after publishing.
+async function restoreWorkspaceDeps(version: string) {
+	logStep("Restoring workspace:* deps");
+
+	for (const dir of PACKAGE_DIRS) {
+		const pkgDir = path.join(PACKAGES_DIR, dir);
+		const pkg = await readPkg(pkgDir);
+		if (!pkg.dependencies) continue;
+
+		let changed = false;
+		for (const [dep, range] of Object.entries(pkg.dependencies)) {
+			if (typeof range === "string" && range === version && dep.startsWith("@ai-sdk-x/")) {
+				pkg.dependencies[dep] = "workspace:*";
+				changed = true;
+			}
+		}
+
+		if (changed) {
+			await writePkg(pkgDir, pkg);
+			log(`  ✓ ${pkg.name} → workspace:* restored`);
+		}
+	}
+}
+
 function log(msg: string) {
 	console.log(msg);
 }
@@ -73,6 +108,7 @@ async function bumpVersions(version: string) {
 		const pkgDir = path.join(PACKAGES_DIR, dir);
 		const pkg = await readPkg(pkgDir);
 		pkg.version = version;
+		normalizeWorkspaceDeps(pkg, version);
 		await writePkg(pkgDir, pkg);
 		log(`  ✓ ${pkg.name} → ${version}`);
 	}
@@ -207,7 +243,12 @@ async function main() {
 
 	// 3. Publish
 	if (!buildOnly) {
-		await publishAll(dryRun ?? false);
+		await publishAll(dryRun);
+
+		// 4. Restore workspace:* deps after publish
+		if (version) {
+			await restoreWorkspaceDeps(version);
+		}
 	}
 
 	log(`\n${"═".repeat(60)}`);

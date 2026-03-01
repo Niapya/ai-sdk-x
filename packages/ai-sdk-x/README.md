@@ -1,5 +1,5 @@
 # ai-sdk-x
 
-[English](./README.en.md) | 简体中文
+See GitHub README: <https://github.com/niapya/ai-sdk-x>
 
-See [README.md](../../README.md).
+Or See Docs Website: <https://niapya.github.io/ai-sdk-x>

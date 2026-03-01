@@ -1,33 +1,42 @@
 {
-	"name": "@ai-sdk-x/execute",
-	"version": "0.0.1",
-	"type": "module",
-	"main": "dist/cjs/index.js",
-	"types": "dist/esm/index.d.ts",
-	"peerDependencies": {
-		"ai": ">=6.0.97",
-		"zod": ">=4.3.6",
-		"unstorage": ">=1.0.0"
+	"bugs": {
+		"url": "https://github.com/niapya/ai-sdk-x/issues"
 	},
 	"devDependencies": {
-		"ai": "^6.0.97",
-		"zod": "^4.3.6",
-		"unstorage": "^1.15.0",
 		"@types/bun": "latest",
-		"typescript": "^5.7.0"
+		"ai": "^6.0.97",
+		"typescript": "^5.7.0",
+		"unstorage": "^1.15.0",
+		"zod": "^4.3.6"
 	},
-	"module": "dist/esm/index.js",
 	"exports": {
 		".": {
-			"types": "./dist/esm/index.d.ts",
 			"import": "./dist/esm/index.js",
-			"require": "./dist/cjs/index.js"
+			"require": "./dist/cjs/index.js",
+			"types": "./dist/esm/index.d.ts"
 		}
 	},
 	"files": [
 		"dist"
 	],
+	"homepage": "https://niapya.github.io/ai-sdk-x",
+	"main": "dist/cjs/index.js",
+	"module": "dist/esm/index.js",
+	"name": "@ai-sdk-x/execute",
+	"peerDependencies": {
+		"ai": ">=6.0.97",
+		"unstorage": ">=1.0.0",
+		"zod": ">=4.3.6"
+	},
 	"publishConfig": {
 		"access": "public"
-	}
+	},
+	"repository": {
+		"directory": "packages/execute",
+		"type": "git",
+		"url": "git+https://github.com/niapya/ai-sdk-x.git"
+	},
+	"type": "module",
+	"types": "dist/esm/index.d.ts",
+	"version": "0.0.3"
 }

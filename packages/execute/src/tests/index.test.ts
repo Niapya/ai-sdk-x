@@ -7,7 +7,10 @@ mock.module("ai", () => ({
 import { createStorage } from "unstorage";
 import memoryDriver from "unstorage/drivers/memory";
 import type { ExecutionRecord } from "../index";
-import { execute } from "../index";
+import { execute as _execute } from "../index";
+
+// biome-ignore lint/suspicious/noExplicitAny: re-typed for test simplicity
+const execute = _execute as unknown as (...args: any[]) => any;
 
 const toolExecOpts = { toolCallId: "test", messages: [] };
 
@@ -83,7 +86,7 @@ describe("execute", () => {
 			const payloads: Array<{ language: string; code: string }> = [];
 			const tools = execute({
 				lang: ["typescript"],
-				execute: async (payload) => {
+				execute: async (payload: { language: string; code: string }) => {
 					payloads.push(payload);
 					return "ok";
 				},
@@ -122,7 +125,7 @@ describe("execute", () => {
 			const payloads: Array<{ language: string; code: string }> = [];
 			const tools = execute({
 				lang: ["typescript", "python"],
-				execute: async (payload) => {
+				execute: async (payload: { language: string; code: string }) => {
 					payloads.push(payload);
 					return "ok";
 				},

@@ -9,7 +9,7 @@ const skill = createSkill({
 	download: async (gitURL) => {
 		// Download skills from gitURL, and upload to S3 (or any storage)
 		console.log(`  -> Downloading from ${gitURL}...`);
-		
+
 		// return the list of skills downloaded
 		return [
 			{

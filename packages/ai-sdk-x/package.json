@@ -1,4 +1,7 @@
 {
+	"bugs": {
+		"url": "https://github.com/niapya/ai-sdk-x/issues"
+	},
 	"dependencies": {
 		"@ai-sdk-x/execute": "workspace:*",
 		"@ai-sdk-x/memo": "workspace:*",
@@ -18,13 +21,19 @@
 	"files": [
 		"dist"
 	],
+	"homepage": "https://niapya.github.io/ai-sdk-x",
 	"main": "dist/cjs/index.js",
 	"module": "dist/esm/index.js",
 	"name": "ai-sdk-x",
 	"publishConfig": {
 		"access": "public"
 	},
+	"repository": {
+		"directory": "packages/ai-sdk-x",
+		"type": "git",
+		"url": "git+https://github.com/niapya/ai-sdk-x.git"
+	},
 	"type": "module",
 	"types": "dist/esm/index.d.ts",
-	"version": "0.0.1"
+	"version": "0.0.3"
 }

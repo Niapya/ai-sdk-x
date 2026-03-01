@@ -1,4 +1,3 @@
-import type { Tool } from "ai";
 import { tool } from "ai";
 import { createStorage, type Storage } from "unstorage";
 import { z } from "zod";
@@ -80,9 +79,7 @@ function debugLog(debug: ExecuteDebugOptions | undefined, message: string): void
  * });
  * ```
  */
-export function execute<Language extends [string, ...string[]]>(
-	options: ExecuteOptions<Language>,
-): Record<string, Tool> {
+export function execute<Language extends [string, ...string[]]>(options: ExecuteOptions<Language>) {
 	const { storage = createStorage(), hooks, debug, maxDelay = 10000 } = options;
 	const isMultiLanguage = options.lang.length > 1;
 	let lastExecutionId: string | null = null;
@@ -100,174 +97,165 @@ export function execute<Language extends [string, ...string[]]>(
 		}
 	}
 
-	const tools: Record<string, Tool> = {};
-
-	// Build input schema dynamically based on number of supported languages
-	const executeInputSchema = isMultiLanguage
-		? z.object({
-			language: z
-				.enum(options.lang as [string, ...string[]])
-				.describe(`The programming language. One of: ${options.lang.join(", ")}`),
-			code: z.string().describe("The code to execute"),
-		})
-		: z.object({
-			code: z.string().describe("The code to execute"),
-		});
-
-	tools.execute_code = tool({
-		description: isMultiLanguage
-			? `Execute code in one of the supported languages: ${options.lang.join(", ")}. Returns the result immediately if done within ${maxDelay}ms; otherwise returns a timeout ID and continues in the background.`
-			: `Execute ${options.lang[0]} code. Returns the result immediately if done within ${maxDelay}ms; otherwise returns a timeout ID and continues in the background.`,
-		inputSchema: executeInputSchema,
-		execute: async (args) => {
-			const id = generateId();
-			const typedArgs = args as { language?: string; code: string };
-			const language = typedArgs.language ?? options.lang[0];
-			const { code } = typedArgs;
-
-			debugLog(debug, `[execute] execute_code id="${id}" language="${language}"`);
-			hooks?.onExecute?.(id, { language, code });
-
-			const record: ExecutionRecord = {
-				id,
-				status: "pending",
-				startedAt: Date.now(),
-			};
-			await setRecord(id, record);
-			lastExecutionId = id;
-
-			// Race execution against timeout
-			const executionPromise = options.execute({
-				language: language as Language[number],
-				code,
-			});
-
-			const timeoutPromise = new Promise<"_timeout_">((resolve) =>
-				setTimeout(() => resolve("_timeout_"), maxDelay),
-			);
-
-			const raceResult = await Promise.race([executionPromise, timeoutPromise]);
-
-			if (raceResult === "_timeout_") {
-				debugLog(debug, `[execute] timeout id="${id}" after ${maxDelay}ms`);
-				hooks?.onTimeout?.(id);
-
-				// Continue running in background; update record when done
-				executionPromise
-					.then(async (res) => {
-						debugLog(debug, `[execute] background complete id="${id}"`);
-						const current = await getRecord(id);
-						if (current && current.status === "pending") {
-							await setRecord(id, {
-								...current,
-								status: "completed",
-								result: res,
-								completedAt: Date.now(),
-							});
-							hooks?.onComplete?.(id, res);
-						}
+	return {
+		execute_code: tool({
+			description: isMultiLanguage
+				? `Execute code in one of the supported languages: ${options.lang.join(", ")}. Returns the result immediately if done within ${maxDelay}ms; otherwise returns a timeout ID and continues in the background.`
+				: `Execute ${options.lang[0]} code. Returns the result immediately if done within ${maxDelay}ms; otherwise returns a timeout ID and continues in the background.`,
+			inputSchema: isMultiLanguage
+				? z.object({
+						language: z
+							.enum(options.lang as [string, ...string[]])
+							.describe(`The programming language. One of: ${options.lang.join(", ")}`),
+						code: z.string().describe("The code to execute"),
 					})
-					.catch(async (err) => {
-						debugLog(debug, `[execute] background error id="${id}": ${err}`);
-						const current = await getRecord(id);
-						if (current && current.status === "pending") {
-							await setRecord(id, {
-								...current,
-								status: "failed",
-								error: String(err),
-								completedAt: Date.now(),
-							});
-							hooks?.onError?.(id, err);
-						}
-					});
+				: z.object({
+						code: z.string().describe("The code to execute"),
+					}),
+			execute: async (args: { language?: Language[number]; code: string }) => {
+				const id = generateId();
+				const language = args.language ?? options.lang[0];
+				const { code } = args;
 
-				return {
-					status: "timeout",
+				debugLog(debug, `[execute] execute_code id="${id}" language="${language}"`);
+				hooks?.onExecute?.(id, { language, code });
+
+				const record: ExecutionRecord = {
 					id,
-					message: `Execution timed out after ${maxDelay}ms. Use get_execution_result with id="${id}" to fetch the result later.`,
+					status: "pending",
+					startedAt: Date.now(),
 				};
-			}
+				await setRecord(id, record);
+				lastExecutionId = id;
 
-			// Completed within delay
-			const completed: ExecutionRecord = {
-				...record,
-				status: "completed",
-				result: raceResult,
-				completedAt: Date.now(),
-			};
-			await setRecord(id, completed);
-			hooks?.onComplete?.(id, raceResult);
-			debugLog(debug, `[execute] completed id="${id}"`);
+				// Race execution against timeout
+				const executionPromise = options.execute({
+					language: language as Language[number],
+					code,
+				});
 
-			return { status: "completed", id, result: raceResult };
-		},
-	});
+				const timeoutPromise = new Promise<"_timeout_">((resolve) =>
+					setTimeout(() => resolve("_timeout_"), maxDelay),
+				);
 
-	tools.get_execution_result = tool({
-		description:
-			"Get the result of the last execution or a specific execution by ID. Returns status, result, and timing information.",
-		inputSchema: z.object({
-			id: z
-				.string()
-				.optional()
-				.describe(
-					"The execution ID to look up. If omitted, returns the result of the last execution.",
-				),
-		}),
-		execute: async ({ id }) => {
-			const targetId = id ?? lastExecutionId;
-			debugLog(debug, `[execute] get_execution_result id="${targetId}"`);
+				const raceResult = await Promise.race([executionPromise, timeoutPromise]);
 
-			if (!targetId) {
-				return { error: "No execution has been run yet." };
-			}
+				if (raceResult === "_timeout_") {
+					debugLog(debug, `[execute] timeout id="${id}" after ${maxDelay}ms`);
+					hooks?.onTimeout?.(id);
 
-			const record = await getRecord(targetId);
-			hooks?.onGetResult?.(targetId, record);
+					// Continue running in background; update record when done
+					executionPromise
+						.then(async (res) => {
+							debugLog(debug, `[execute] background complete id="${id}"`);
+							const current = await getRecord(id);
+							if (current && current.status === "pending") {
+								await setRecord(id, {
+									...current,
+									status: "completed",
+									result: res,
+									completedAt: Date.now(),
+								});
+								hooks?.onComplete?.(id, res);
+							}
+						})
+						.catch(async (err) => {
+							debugLog(debug, `[execute] background error id="${id}": ${err}`);
+							const current = await getRecord(id);
+							if (current && current.status === "pending") {
+								await setRecord(id, {
+									...current,
+									status: "failed",
+									error: String(err),
+									completedAt: Date.now(),
+								});
+								hooks?.onError?.(id, err);
+							}
+						});
 
-			if (!record) {
-				return { error: `No execution found with id="${targetId}".` };
-			}
-
-			return record;
-		},
-	});
-
-	if (options.kill) {
-		const killFn = options.kill;
-		tools.kill_execution = tool({
-			description: "Kill a running execution by ID.",
-			inputSchema: z.object({
-				id: z.string().describe("The execution ID to kill."),
-			}),
-			execute: async ({ id }) => {
-				debugLog(debug, `[execute] kill_execution id="${id}"`);
-
-				const record = await getRecord(id);
-				if (!record) {
-					return { error: `No execution found with id="${id}".` };
-				}
-				if (record.status !== "pending") {
 					return {
-						error: `Execution id="${id}" is not running (status="${record.status}").`,
+						status: "timeout",
+						id,
+						message: `Execution timed out after ${maxDelay}ms. Use get_execution_result with id="${id}" to fetch the result later.`,
 					};
 				}
 
-				await killFn(id);
-
-				const killed: ExecutionRecord = {
+				// Completed within delay
+				const completed: ExecutionRecord = {
 					...record,
-					status: "killed",
+					status: "completed",
+					result: raceResult,
 					completedAt: Date.now(),
 				};
-				await setRecord(id, killed);
-				hooks?.onKill?.(id);
-				debugLog(debug, `[execute] killed id="${id}"`);
+				await setRecord(id, completed);
+				hooks?.onComplete?.(id, raceResult);
+				debugLog(debug, `[execute] completed id="${id}"`);
 
-				return { status: "killed", id };
+				return { status: "completed", id, result: raceResult };
 			},
-		});
-	}
+		}),
+		get_execution_result: tool({
+			description:
+				"Get the result of the last execution or a specific execution by ID. Returns status, result, and timing information.",
+			inputSchema: z.object({
+				id: z
+					.string()
+					.optional()
+					.describe(
+						"The execution ID to look up. If omitted, returns the result of the last execution.",
+					),
+			}),
+			execute: async ({ id }) => {
+				const targetId = id ?? lastExecutionId;
+				debugLog(debug, `[execute] get_execution_result id="${targetId}"`);
 
-	return tools;
+				if (!targetId) {
+					return { error: "No execution has been run yet." };
+				}
+
+				const record = await getRecord(targetId);
+				hooks?.onGetResult?.(targetId, record);
+
+				if (!record) {
+					return { error: `No execution found with id="${targetId}".` };
+				}
+
+				return record;
+			},
+		}),
+		kill_execution: options.kill
+			? tool({
+					description: "Kill a running execution by ID.",
+					inputSchema: z.object({
+						id: z.string().describe("The execution ID to kill."),
+					}),
+					execute: async ({ id }) => {
+						debugLog(debug, `[execute] kill_execution id="${id}"`);
+
+						const record = await getRecord(id);
+						if (!record) {
+							return { error: `No execution found with id="${id}".` };
+						}
+						if (record.status !== "pending") {
+							return {
+								error: `Execution id="${id}" is not running (status="${record.status}").`,
+							};
+						}
+
+						await options.kill?.(id);
+
+						const killed: ExecutionRecord = {
+							...record,
+							status: "killed",
+							completedAt: Date.now(),
+						};
+						await setRecord(id, killed);
+						hooks?.onKill?.(id);
+						debugLog(debug, `[execute] killed id="${id}"`);
+
+						return { status: "killed", id };
+					},
+				})
+			: undefined,
+	};
 }

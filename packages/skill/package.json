@@ -1,4 +1,7 @@
 {
+	"bugs": {
+		"url": "https://github.com/niapya/ai-sdk-x/issues"
+	},
 	"devDependencies": {
 		"@types/bun": "latest",
 		"ai": "^6.0.97",
@@ -16,6 +19,7 @@
 	"files": [
 		"dist"
 	],
+	"homepage": "https://niapya.github.io/ai-sdk-x",
 	"main": "dist/cjs/index.js",
 	"module": "dist/esm/index.js",
 	"name": "@ai-sdk-x/skill",
@@ -27,7 +31,12 @@
 	"publishConfig": {
 		"access": "public"
 	},
+	"repository": {
+		"directory": "packages/skill",
+		"type": "git",
+		"url": "git+https://github.com/niapya/ai-sdk-x.git"
+	},
 	"type": "module",
 	"types": "dist/esm/index.d.ts",
-	"version": "0.0.1"
+	"version": "0.0.3"
 }

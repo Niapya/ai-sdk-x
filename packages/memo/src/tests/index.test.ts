@@ -13,7 +13,6 @@ import { z } from "zod";
 import type { CacheEntry } from "../index";
 import { createMemo } from "../index";
 
-
 const execOptions: ToolExecutionOptions = {
 	toolCallId: "test-call-id",
 	messages: [],
@@ -242,9 +241,9 @@ describe("createMemo", () => {
 			});
 			const memoized = memo(noExecTool, "noexec");
 
-			await expect(
-				memoized.execute({ query: "test" }, execOptions),
-			).rejects.toThrow('Tool "noexec" has no execute method');
+			await expect(memoized.execute({ query: "test" }, execOptions)).rejects.toThrow(
+				'Tool "noexec" has no execute method',
+			);
 		});
 
 		test("caches normally when shouldCache returns true", async () => {
@@ -283,17 +282,14 @@ describe("createMemo", () => {
 			const storage = createStorage({ driver: memoryDriver() });
 			const memo = createMemo({
 				storage,
-				generateKey: (name, params) =>
-					`custom:${name}:${JSON.stringify(params)}`,
+				generateKey: (name, params) => `custom:${name}:${JSON.stringify(params)}`,
 			});
 			const weatherTool = createWeatherTool();
 			const memoized = memo(weatherTool, "weather");
 
 			await memoized.execute({ location: "NYC" }, execOptions);
 
-			const entry = await memoized.get(
-				`custom:weather:${JSON.stringify({ location: "NYC" })}`,
-			);
+			const entry = await memoized.get(`custom:weather:${JSON.stringify({ location: "NYC" })}`);
 			expect(entry).not.toBeNull();
 		});
 
@@ -324,10 +320,7 @@ describe("createMemo", () => {
 			const flexTool = {
 				description: "Flexible tool",
 				inputSchema: z.object({ b: z.string(), a: z.string() }),
-				execute: async (
-					args: { b: string; a: string },
-					_opts: ToolExecutionOptions,
-				) => {
+				execute: async (args: { b: string; a: string }, _opts: ToolExecutionOptions) => {
 					callCount++;
 					return args;
 				},
@@ -347,10 +340,7 @@ describe("createMemo", () => {
 			const nullTool = {
 				description: "Nullable tool",
 				inputSchema: z.object({ value: z.string().nullable() }),
-				execute: async (
-					args: { value: string | null },
-					_opts: ToolExecutionOptions,
-				) => args,
+				execute: async (args: { value: string | null }, _opts: ToolExecutionOptions) => args,
 			};
 			const storage = createStorage({ driver: memoryDriver() });
 			const memo = createMemo({ storage });
@@ -366,10 +356,7 @@ describe("createMemo", () => {
 			const arrTool = {
 				description: "Array tool",
 				inputSchema: z.object({ items: z.array(z.string()) }),
-				execute: async (
-					args: { items: string[] },
-					_opts: ToolExecutionOptions,
-				) => args,
+				execute: async (args: { items: string[] }, _opts: ToolExecutionOptions) => args,
 			};
 			const storage = createStorage({ driver: memoryDriver() });
 			const memo = createMemo({ storage });
@@ -387,10 +374,8 @@ describe("createMemo", () => {
 				inputSchema: z.object({
 					nested: z.object({ z: z.number(), a: z.number() }),
 				}),
-				execute: async (
-					args: { nested: { z: number; a: number } },
-					_opts: ToolExecutionOptions,
-				) => args,
+				execute: async (args: { nested: { z: number; a: number } }, _opts: ToolExecutionOptions) =>
+					args,
 			};
 			const storage = createStorage({ driver: memoryDriver() });
 			const memo = createMemo({ storage });
@@ -423,14 +408,9 @@ describe("createMemo", () => {
 			const memo = createMemo({ storage });
 			const memoized = memo(primTool, "prim");
 
-			await memoized.execute(
-				{ str: "hello", num: 42, bool: true },
-				execOptions,
-			);
+			await memoized.execute({ str: "hello", num: 42, bool: true }, execOptions);
 
-			const entry = await memoized.get(
-				'memo:prim:{"bool":true,"num":42,"str":"hello"}',
-			);
+			const entry = await memoized.get('memo:prim:{"bool":true,"num":42,"str":"hello"}');
 			expect(entry).not.toBeNull();
 		});
 
@@ -438,10 +418,9 @@ describe("createMemo", () => {
 			const optTool = {
 				description: "Optional tool",
 				inputSchema: z.object({ value: z.string().optional() }),
-				execute: async (
-					_args: { value?: string },
-					_opts: ToolExecutionOptions,
-				) => ({ received: true }),
+				execute: async (_args: { value?: string }, _opts: ToolExecutionOptions) => ({
+					received: true,
+				}),
 			};
 			const storage = createStorage({ driver: memoryDriver() });
 			const memo = createMemo({ storage });
@@ -457,12 +436,10 @@ describe("createMemo", () => {
 	describe("serializeValue / deserializeValue", () => {
 		test("uses serializeValue when storing", async () => {
 			const storage = createStorage({ driver: memoryDriver() });
-			const serializeMock = mock(
-				(value: unknown, _toolName: string, _params: unknown) => {
-					const v = value as Record<string, unknown>;
-					return { ...v, serialized: true };
-				},
-			);
+			const serializeMock = mock((value: unknown, _toolName: string, _params: unknown) => {
+				const v = value as Record<string, unknown>;
+				return { ...v, serialized: true };
+			});
 			const memo = createMemo({
 				storage,
 				serializeValue: serializeMock,
@@ -480,10 +457,7 @@ describe("createMemo", () => {
 			};
 			const memoized = memo(recordTool, "weather");
 
-			const result = await memoized.execute(
-				{ location: "NYC" },
-				execOptions,
-			);
+			const result = await memoized.execute({ location: "NYC" }, execOptions);
 			expect(result).toEqual({ location: "NYC", temperature: 72 });
 			expect(serializeMock).toHaveBeenCalledTimes(1);
 
@@ -497,12 +471,10 @@ describe("createMemo", () => {
 
 		test("uses deserializeValue on cache hit with TTL", async () => {
 			const storage = createStorage({ driver: memoryDriver() });
-			const deserializeMock = mock(
-				(raw: unknown, _toolName: string, _params: unknown) => {
-					const v = raw as Record<string, unknown>;
-					return { ...v, deserialized: true };
-				},
-			);
+			const deserializeMock = mock((raw: unknown, _toolName: string, _params: unknown) => {
+				const v = raw as Record<string, unknown>;
+				return { ...v, deserialized: true };
+			});
 			const memo = createMemo({
 				storage,
 				ttl: 60000,
@@ -523,10 +495,7 @@ describe("createMemo", () => {
 
 			await memoized.execute({ location: "NYC" }, execOptions);
 
-			const result = await memoized.execute(
-				{ location: "NYC" },
-				execOptions,
-			);
+			const result = await memoized.execute({ location: "NYC" }, execOptions);
 			expect(deserializeMock).toHaveBeenCalledTimes(1);
 			expect(result).toEqual({
 				location: "NYC",
@@ -537,12 +506,10 @@ describe("createMemo", () => {
 
 		test("uses deserializeValue on cache hit without TTL", async () => {
 			const storage = createStorage({ driver: memoryDriver() });
-			const deserializeMock = mock(
-				(raw: unknown, _toolName: string, _params: unknown) => {
-					const v = raw as Record<string, unknown>;
-					return { ...v, deserialized: true };
-				},
-			);
+			const deserializeMock = mock((raw: unknown, _toolName: string, _params: unknown) => {
+				const v = raw as Record<string, unknown>;
+				return { ...v, deserialized: true };
+			});
 			const memo = createMemo({
 				storage,
 				deserializeValue: deserializeMock,
@@ -562,10 +529,7 @@ describe("createMemo", () => {
 
 			await memoized.execute({ location: "NYC" }, execOptions);
 
-			const result = await memoized.execute(
-				{ location: "NYC" },
-				execOptions,
-			);
+			const result = await memoized.execute({ location: "NYC" }, execOptions);
 			expect(deserializeMock).toHaveBeenCalledTimes(1);
 			expect(result).toEqual({
 				location: "NYC",
@@ -594,13 +558,7 @@ describe("createMemo", () => {
 		});
 
 		test("calls onHit on cache hit (no TTL)", async () => {
-			const onHit = mock(
-				(
-					_name: string,
-					_params: unknown,
-					_cached: CacheEntry<unknown>,
-				) => {},
-			);
+			const onHit = mock((_name: string, _params: unknown, _cached: CacheEntry<unknown>) => {});
 			const storage = createStorage({ driver: memoryDriver() });
 			const memo = createMemo({
 				storage,
@@ -615,13 +573,7 @@ describe("createMemo", () => {
 		});
 
 		test("calls onHit on cache hit with TTL", async () => {
-			const onHit = mock(
-				(
-					_name: string,
-					_params: unknown,
-					_cached: CacheEntry<unknown>,
-				) => {},
-			);
+			const onHit = mock((_name: string, _params: unknown, _cached: CacheEntry<unknown>) => {});
 			const storage = createStorage({ driver: memoryDriver() });
 			const memo = createMemo({
 				storage,
@@ -657,9 +609,7 @@ describe("createMemo", () => {
 		});
 
 		test("calls onStore after storing in cache", async () => {
-			const onStore = mock(
-				(_name: string, _params: unknown, _value: unknown) => {},
-			);
+			const onStore = mock((_name: string, _params: unknown, _value: unknown) => {});
 			const storage = createStorage({ driver: memoryDriver() });
 			const memo = createMemo({
 				storage,
@@ -678,9 +628,7 @@ describe("createMemo", () => {
 		});
 
 		test("calls onError on storage read error", async () => {
-			const onError = mock(
-				(_name: string, _params: unknown, _error: unknown) => {},
-			);
+			const onError = mock((_name: string, _params: unknown, _error: unknown) => {});
 			const storage = createStorage({ driver: memoryDriver() });
 			const memo = createMemo({
 				storage,
@@ -716,12 +664,8 @@ describe("createMemo", () => {
 			await memoized.execute({ location: "NYC" }, execOptions);
 			expect(logMessages.length).toBeGreaterThan(0);
 			expect(logMessages.some((m) => m.includes("[memo]"))).toBe(true);
-			expect(logMessages.some((m) => m.includes("cache miss"))).toBe(
-				true,
-			);
-			expect(
-				logMessages.some((m) => m.includes("stored in cache")),
-			).toBe(true);
+			expect(logMessages.some((m) => m.includes("cache miss"))).toBe(true);
+			expect(logMessages.some((m) => m.includes("stored in cache"))).toBe(true);
 		});
 
 		test("logs with console.log when debug enabled without custom logger", async () => {
@@ -792,9 +736,7 @@ describe("createMemo", () => {
 			await Bun.sleep(30);
 			await memoized.execute({ location: "NYC" }, execOptions);
 
-			expect(logMessages.some((m) => m.includes("TTL expired"))).toBe(
-				true,
-			);
+			expect(logMessages.some((m) => m.includes("TTL expired"))).toBe(true);
 		});
 
 		test("logs shouldCache=false", async () => {
@@ -812,9 +754,7 @@ describe("createMemo", () => {
 			const memoized = memo(weatherTool, "weather");
 
 			await memoized.execute({ location: "NYC" }, execOptions);
-			expect(
-				logMessages.some((m) => m.includes("shouldCache=false")),
-			).toBe(true);
+			expect(logMessages.some((m) => m.includes("shouldCache=false"))).toBe(true);
 		});
 
 		test("logs cache hit with no TTL", async () => {
@@ -833,9 +773,7 @@ describe("createMemo", () => {
 			await memoized.execute({ location: "NYC" }, execOptions);
 			await memoized.execute({ location: "NYC" }, execOptions);
 
-			expect(
-				logMessages.some((m) => m.includes("cache hit (no TTL)")),
-			).toBe(true);
+			expect(logMessages.some((m) => m.includes("cache hit (no TTL)"))).toBe(true);
 		});
 
 		test("logs cache hit with TTL", async () => {
@@ -856,11 +794,7 @@ describe("createMemo", () => {
 			await memoized.execute({ location: "NYC" }, execOptions);
 
 			expect(
-				logMessages.some(
-					(m) =>
-						m.includes("cache hit") &&
-						!m.includes("cache hit (no TTL)"),
-				),
+				logMessages.some((m) => m.includes("cache hit") && !m.includes("cache hit (no TTL)")),
 			).toBe(true);
 		});
 
@@ -879,9 +813,7 @@ describe("createMemo", () => {
 			const memoized = memo(weatherTool, "weather");
 
 			await memoized.execute({ location: "NYC" }, execOptions);
-			expect(
-				logMessages.some((m) => m.includes("exceeds maxSize")),
-			).toBe(true);
+			expect(logMessages.some((m) => m.includes("exceeds maxSize"))).toBe(true);
 		});
 
 		test("logs non-serializable result", async () => {
@@ -897,17 +829,13 @@ describe("createMemo", () => {
 			const blobTool = {
 				description: "Returns a blob",
 				inputSchema: z.object({}),
-				execute: async (
-					_args: Record<string, never>,
-					_opts: ToolExecutionOptions,
-				) => new Blob(["test"]),
+				execute: async (_args: Record<string, never>, _opts: ToolExecutionOptions) =>
+					new Blob(["test"]),
 			};
 			const memoized = memo(blobTool, "blob");
 
 			await memoized.execute({}, execOptions);
-			expect(
-				logMessages.some((m) => m.includes("not serializable")),
-			).toBe(true);
+			expect(logMessages.some((m) => m.includes("not serializable"))).toBe(true);
 		});
 
 		test("logs error reading cache", async () => {
@@ -927,9 +855,7 @@ describe("createMemo", () => {
 			spy.mockRejectedValue(new Error("read fail"));
 
 			await memoized.execute({ location: "NYC" }, execOptions);
-			expect(
-				logMessages.some((m) => m.includes("Error reading cache")),
-			).toBe(true);
+			expect(logMessages.some((m) => m.includes("Error reading cache"))).toBe(true);
 
 			spy.mockRestore();
 		});
@@ -941,10 +867,7 @@ describe("createMemo", () => {
 			const blobTool = {
 				description: "Returns a blob",
 				inputSchema: z.object({}),
-				execute: async (
-					_args: Record<string, never>,
-					_opts: ToolExecutionOptions,
-				) => {
+				execute: async (_args: Record<string, never>, _opts: ToolExecutionOptions) => {
 					callCount++;
 					return new Blob(["test"]);
 				},
@@ -966,10 +889,7 @@ describe("createMemo", () => {
 			const streamTool = {
 				description: "Returns a stream",
 				inputSchema: z.object({}),
-				execute: async (
-					_args: Record<string, never>,
-					_opts: ToolExecutionOptions,
-				) => {
+				execute: async (_args: Record<string, never>, _opts: ToolExecutionOptions) => {
 					callCount++;
 					return new ReadableStream();
 				},
@@ -991,10 +911,7 @@ describe("createMemo", () => {
 			const fnTool = {
 				description: "Returns a function",
 				inputSchema: z.object({}),
-				execute: async (
-					_args: Record<string, never>,
-					_opts: ToolExecutionOptions,
-				) => {
+				execute: async (_args: Record<string, never>, _opts: ToolExecutionOptions) => {
 					callCount++;
 					return () => "hello";
 				},
@@ -1016,10 +933,7 @@ describe("createMemo", () => {
 			const bigintTool = {
 				description: "Returns a bigint",
 				inputSchema: z.object({}),
-				execute: async (
-					_args: Record<string, never>,
-					_opts: ToolExecutionOptions,
-				) => {
+				execute: async (_args: Record<string, never>, _opts: ToolExecutionOptions) => {
 					callCount++;
 					return BigInt(42);
 				},
@@ -1039,13 +953,9 @@ describe("createMemo", () => {
 		test("skips caching for objects that fail JSON.stringify", async () => {
 			let callCount = 0;
 			const circularTool = {
-				description:
-					"Returns object with BigInt (fails JSON.stringify)",
+				description: "Returns object with BigInt (fails JSON.stringify)",
 				inputSchema: z.object({}),
-				execute: async (
-					_args: Record<string, never>,
-					_opts: ToolExecutionOptions,
-				) => {
+				execute: async (_args: Record<string, never>, _opts: ToolExecutionOptions) => {
 					callCount++;
 					return { value: BigInt(1) };
 				},
@@ -1067,10 +977,7 @@ describe("createMemo", () => {
 			const nullTool = {
 				description: "Returns null",
 				inputSchema: z.object({}),
-				execute: async (
-					_args: Record<string, never>,
-					_opts: ToolExecutionOptions,
-				) => {
+				execute: async (_args: Record<string, never>, _opts: ToolExecutionOptions) => {
 					callCount++;
 					return null;
 				},
@@ -1091,10 +998,7 @@ describe("createMemo", () => {
 			const strTool = {
 				description: "Returns a string",
 				inputSchema: z.object({}),
-				execute: async (
-					_args: Record<string, never>,
-					_opts: ToolExecutionOptions,
-				) => {
+				execute: async (_args: Record<string, never>, _opts: ToolExecutionOptions) => {
 					callCount++;
 					return "hello";
 				},
@@ -1115,10 +1019,7 @@ describe("createMemo", () => {
 			const boolTool = {
 				description: "Returns a boolean",
 				inputSchema: z.object({}),
-				execute: async (
-					_args: Record<string, never>,
-					_opts: ToolExecutionOptions,
-				) => {
+				execute: async (_args: Record<string, never>, _opts: ToolExecutionOptions) => {
 					callCount++;
 					return true;
 				},
@@ -1139,10 +1040,7 @@ describe("createMemo", () => {
 			const numTool = {
 				description: "Returns a number",
 				inputSchema: z.object({}),
-				execute: async (
-					_args: Record<string, never>,
-					_opts: ToolExecutionOptions,
-				) => {
+				execute: async (_args: Record<string, never>, _opts: ToolExecutionOptions) => {
 					callCount++;
 					return 42;
 				},
@@ -1243,9 +1141,9 @@ describe("createMemo", () => {
 			const memo = createMemo({ storage });
 			const memoized = memo(noExecTool, "noexec");
 
-			await expect(
-				memoized.execute({ query: "test" }, execOptions),
-			).rejects.toThrow('Tool "noexec" has no execute method');
+			await expect(memoized.execute({ query: "test" }, execOptions)).rejects.toThrow(
+				'Tool "noexec" has no execute method',
+			);
 		});
 
 		test("throws when shouldCache is false and no execute method", async () => {
@@ -1260,9 +1158,9 @@ describe("createMemo", () => {
 			});
 			const memoized = memo(noExecTool, "noexec");
 
-			await expect(
-				memoized.execute({ query: "test" }, execOptions),
-			).rejects.toThrow('Tool "noexec" has no execute method');
+			await expect(memoized.execute({ query: "test" }, execOptions)).rejects.toThrow(
+				'Tool "noexec" has no execute method',
+			);
 		});
 	});
 
@@ -1286,9 +1184,7 @@ describe("createMemo", () => {
 		});
 
 		test("returns null and calls onError on storage error", async () => {
-			const onError = mock(
-				(_name: string, _params: unknown, _error: unknown) => {},
-			);
+			const onError = mock((_name: string, _params: unknown, _error: unknown) => {});
 			const storage = createStorage({ driver: memoryDriver() });
 			const memo = createMemo({
 				storage,
@@ -1300,10 +1196,7 @@ describe("createMemo", () => {
 			const spy = spyOn(storage, "getItem");
 			spy.mockRejectedValue(new Error("read error"));
 
-			const result = await memoized.execute(
-				{ location: "NYC" },
-				execOptions,
-			);
+			const result = await memoized.execute({ location: "NYC" }, execOptions);
 			expect(result).toEqual({ location: "NYC", temperature: 72 });
 			expect(onError).toHaveBeenCalledTimes(1);
 

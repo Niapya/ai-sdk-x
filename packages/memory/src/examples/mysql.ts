@@ -76,5 +76,3 @@ console.log("Available tools:", Object.keys(tools));
 const instance2 = memory(["daily", "work"]);
 const tools2 = await instance2.getTools();
 console.log("Available tools:", Object.keys(tools2));
-
-

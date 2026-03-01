@@ -3,8 +3,6 @@ import { tool } from "ai";
 import type { Storage } from "unstorage";
 import { z } from "zod";
 
-// ─── Types ──────
-
 // biome-ignore lint/suspicious/noExplicitAny: Skill type is any.
 type Skill = any;
 
@@ -48,19 +46,19 @@ export interface SkillOptions {
 
 	/**
 	 * Download a skill from a git URL.
-	 * 
+	 *
 	 * You need to implement the logic to clone the repository, read the skill manifest, and return the skill meta info.
 	 * The skill detail will be stored in the storage.
-	 * @param gitURL 
-	 * @returns 
+	 * @param gitURL
+	 * @returns
 	 */
 	download: (gitURL: string) => Promise<SkillDetail[]>;
 
 	/**
 	 * Get a skill by name.
-	 * 
-	 * @param name 
-	 * @returns 
+	 *
+	 * @param name
+	 * @returns
 	 */
 	get: (name: string) => Promise<Skill | null>;
 	hooks?: SkillHooks;
@@ -80,8 +78,8 @@ export interface SkillInstance {
 
 /**
  * createSkill is a factory function that generates a skill tool.
- * 
- * @param options 
+ *
+ * @param options
  * @returns skill builder function, which can be used to create a skill instance with optional hooks.
  */
 export function createSkill(options: SkillOptions) {
@@ -115,7 +113,7 @@ export function createSkill(options: SkillOptions) {
 			effectiveHooks?.onIndexUpdate?.(index);
 		}
 
-		const instance: SkillInstance = {
+		const instance = {
 			list: async () => {
 				debugLog("[skill] list");
 				const skillsIndex = await getIndex();
@@ -149,7 +147,7 @@ export function createSkill(options: SkillOptions) {
 
 				// Update index
 				const index = await getIndex();
-				for (const detail of details) 				{
+				for (const detail of details) {
 					const existing = index.skills.findIndex((s) => s.name === detail.name);
 					const meta: SkillMeta = { name: detail.name, description: detail.description };
 					if (existing >= 0) {
@@ -164,39 +162,34 @@ export function createSkill(options: SkillOptions) {
 				return details;
 			},
 
-			getTools: async () => {
-				const tools: Record<string, Tool> = {};
-
-				tools.listSkills = tool({
+			getTools: async () => ({
+				listSkills: tool({
 					description: "List all available skills.",
-					inputSchema: z.void(),
+					inputSchema: z.object({}),
 					execute: async () => {
 						return instance.list();
 					},
-				});
-
-				tools.getSkill = tool({
+				}),
+				getSkill: tool({
 					description: "Get details of a specific skill by name.",
-					inputSchema	: z.object({
+					inputSchema: z.object({
 						name: z.string(),
 					}),
 					execute: async ({ name }) => {
 						return instance.get(name);
 					},
-				});
+				}),
 
-				tools.downloadSkill = tool({
+				downloadSkill: tool({
 					description: "Download and install a skill by name.",
 					inputSchema: z.object({
-						url: z.url()
+						url: z.url(),
 					}),
 					execute: async ({ url }) => {
 						return instance.download(url);
 					},
-				});
-
-				return tools;
-			},
+				}),
+			}),
 		};
 
 		return instance;
