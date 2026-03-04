@@ -13,10 +13,6 @@ export default defineConfig({
 		nav: [
 			{ text: "Guide", link: "/guide/getting-started" },
 			{ text: "Packages", link: "/packages/execute" },
-			{
-				text: "v0.0.1",
-				link: "https://github.com/niapya/ai-sdk-x",
-			},
 		],
 
 		sidebar: [

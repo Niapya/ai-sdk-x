@@ -206,10 +206,18 @@ async function publishPackage(pkgDir: string, dryRun: boolean) {
 
 	if (dryRun) {
 		log(`  🏃 dry-run: ${pkg.name}@${pkg.version}`);
-		await $`cd ${pkgDir} && bun publish --dry-run ${isScoped ? "--access public" : ""}`;
+		if (isScoped) {
+			await $`cd ${pkgDir} && bun publish --dry-run --access public`;
+		} else {
+			await $`cd ${pkgDir} && bun publish --dry-run`;
+		}
 	} else {
 		log(`  🚀 publishing ${pkg.name}@${pkg.version}`);
-		await $`cd ${pkgDir} && bun publish ${isScoped ? "--access public" : ""}`;
+		if (isScoped) {
+			await $`cd ${pkgDir} && bun publish --access public`;
+		} else {
+			await $`cd ${pkgDir} && bun publish`;
+		}
 	}
 }
 

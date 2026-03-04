@@ -16,6 +16,15 @@ export interface SkillDetail {
 	description: string;
 	version: string;
 	gitURL: string;
+
+	/**
+	 * All files of The skill, relative to the root of the repository.
+	 */
+	files?: string[];
+	/**
+	 * Additional metadata fields, which can be used to store any extra information about the skill.
+	 */
+	additional?: Record<string, unknown>;
 }
 
 export interface SkillIndex {
