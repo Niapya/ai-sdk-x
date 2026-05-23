@@ -3,10 +3,7 @@
 		"url": "https://github.com/niapya/ai-sdk-x/issues"
 	},
 	"dependencies": {
-		"@ai-sdk-x/execute": "workspace:*",
-		"@ai-sdk-x/memo": "workspace:*",
-		"@ai-sdk-x/memory": "workspace:*",
-		"@ai-sdk-x/skill": "workspace:*"
+		"just-bash": "^3"
 	},
 	"devDependencies": {
 		"typescript": "^5.7.0"
@@ -35,5 +32,8 @@
 	},
 	"type": "module",
 	"types": "dist/esm/index.d.ts",
-	"version": "0.0.3"
+	"version": "1.0.0",
+	"optionalDependencies": {
+		"ai": "^6"
+	}
 }

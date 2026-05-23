@@ -1,6 +1,8 @@
 {
-	"bugs": {
-		"url": "https://github.com/niapya/ai-sdk-x/issues"
+	"name": "ai-sdk-x-monorepo",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/niapya/ai-sdk-x.git"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
@@ -8,13 +10,11 @@
 		"typescript": "^5.9.3",
 		"vitepress": "^1.6.4"
 	},
-	"homepage": "https://niapya.github.io/ai-sdk-x",
-	"name": "ai-sdk-x-monorepo",
-	"private": true,
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/niapya/ai-sdk-x.git"
+	"bugs": {
+		"url": "https://github.com/niapya/ai-sdk-x/issues"
 	},
+	"homepage": "https://niapya.github.io/ai-sdk-x",
+	"private": true,
 	"scripts": {
 		"check": "bunx biome check --write .",
 		"docs:build": "vitepress build docs",
@@ -29,5 +29,6 @@
 	},
 	"workspaces": [
 		"packages/*"
-	]
+	],
+	"dependencies": {}
 }

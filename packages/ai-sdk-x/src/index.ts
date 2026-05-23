@@ -1,4 +1,11 @@
-export * from "@ai-sdk-x/execute";
-export * from "@ai-sdk-x/memo";
-export * from "@ai-sdk-x/memory";
-export * from "@ai-sdk-x/skill";
+import { Bash } from "just-bash/";
+
+export default class BashTool {
+	storage: Storage | {};
+	prompt: string = "";
+
+	constructor(storage: Storage) {
+		this.storage = storage;
+	}
+
+}
