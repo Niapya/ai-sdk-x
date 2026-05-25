@@ -1,5 +1,5 @@
 const TARGETS = [
-	{ label: "Embedded", desc: "Runs in-process on Node.js" },
+	{ label: "NodeJS", desc: "Runs in-process on Node.js" },
 	{ label: "Vercel", desc: "Edge & Serverless Functions, no cold-start penalty" },
 	{ label: "Cloudflare Workers", desc: "Edge-native, bring KV / R2 / D1 as your storage" },
 	{ label: "Any JS runtime", desc: "Bun, Deno, AWS Lambda — pure ESM, no platform lock-in" },

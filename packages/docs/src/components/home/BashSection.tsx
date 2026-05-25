@@ -38,7 +38,7 @@ function TerminalIllustration() {
 				<span className="h-3 w-3 rounded-full bg-red-500/80" />
 				<span className="h-3 w-3 rounded-full bg-yellow-500/80" />
 				<span className="h-3 w-3 rounded-full bg-green-500/80" />
-				<span className="ml-3 text-zinc-500">virtual bash — ai-sdk-x</span>
+				<span className="ml-3 text-zinc-500">REPL</span>
 			</div>
 			{LINES.map((line, i) => (
 				<div

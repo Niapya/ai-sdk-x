@@ -1,167 +1,79 @@
 import { navigate } from "@/router";
 
-// Illustration: horizontal flow (BashTool → 3 vertical stacks, each with layer + backend)
+// Illustration: true horizontal left-to-right layout (matches hand-drawn sketch)
+//
+// Layout:
+//   [BashTool]  ↗  [Workspace]  →  [node:fs    ]
+//              →  [Memory   ]  →  [AWS S3     ]
+//              ↘  [Skills   ]  →  [Vercel Blob]
+//
+// Math (Tailwind):
+//   Row box: h-16 (64px), row gap: gap-4 (16px)
+//   Total height: 3×64 + 2×16 = 224px = h-56
+//   Row centers (y): 32, 112, 192  |  fan-out origin: y=112
 
 function MountIllustration() {
+	const layerBox =
+		"flex h-16 w-36 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white";
+	const backendBox =
+		"flex h-16 w-36 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-300";
+
 	return (
-		<div className="w-full overflow-x-auto">
-			<div className="flex items-start gap-6 justify-center min-w-max px-4 py-2">
-				{/* BashTool (left) */}
-				<div className="flex-shrink-0">
-					<div className="rounded-xl border border-zinc-200 bg-white px-6 py-3 text-sm font-semibold dark:border-zinc-800 dark:bg-zinc-900 w-36 text-center">
-						BashTool
-					</div>
+		<div className="flex items-center justify-center gap-3 overflow-x-auto py-2 text-zinc-400 dark:text-zinc-600">
+			{/* Col 1: BashTool — full height wrapper so it centers against the 3 rows */}
+			<div className="flex h-56 items-center">
+				<div className="rounded-xl border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
+					BashTool
 				</div>
+			</div>
 
-				{/* Three vertical stacks (Workspace, Memory, Skills) */}
-				<div className="flex gap-8">
-					{/* Stack 1: Workspace → node:fs */}
-					<div className="flex flex-col items-center gap-3">
-						<svg
-							width="28"
-							height="24"
-							viewBox="0 0 28 24"
-							fill="none"
-							aria-hidden
-							className="text-zinc-400"
-						>
-							<title>Arrow right</title>
-							<line x1="0" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.5" />
-							<path
-								d="M18 8l4 4-4 4"
-								stroke="currentColor"
-								strokeWidth="1.5"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</svg>
-						<div className="rounded-xl border border-zinc-200 bg-white p-4 text-center dark:border-zinc-800 dark:bg-zinc-900 w-40">
-							<div className="text-xl">📁</div>
-							<div className="mt-1 font-semibold text-sm">Workspace</div>
-							<div className="mt-2 text-xs text-zinc-500">project files</div>
-						</div>
-						<svg
-							width="24"
-							height="28"
-							viewBox="0 0 24 28"
-							fill="none"
-							aria-hidden
-							className="text-zinc-400"
-						>
-							<title>Arrow down</title>
-							<line x1="12" y1="0" x2="12" y2="20" stroke="currentColor" strokeWidth="1.5" />
-							<path
-								d="M8 18l4 4 4-4"
-								stroke="currentColor"
-								strokeWidth="1.5"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</svg>
-						<div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-center dark:border-zinc-800 dark:bg-zinc-950/40 w-40">
-							<div className="font-semibold text-sm">node:fs</div>
-							<div className="mt-1 text-xs text-zinc-500">local filesystem</div>
-						</div>
-					</div>
+			{/* Col 2: Fan-out SVG — three lines from (0,112) to each row center */}
+			<svg
+				className="shrink-0"
+				width="40"
+				height="224"
+				viewBox="0 0 40 224"
+				fill="none"
+				aria-hidden
+			>
+				<title>Connections from BashTool to layers</title>
+				<line x1="0" y1="112" x2="32" y2="32" stroke="currentColor" strokeWidth="1.5" />
+				<line x1="0" y1="112" x2="32" y2="112" stroke="currentColor" strokeWidth="1.5" />
+				<line x1="0" y1="112" x2="32" y2="192" stroke="currentColor" strokeWidth="1.5" />
+				{/* arrowheads: tip at x=40, base at x=32 */}
+				<polygon points="32,27 40,32 32,37" fill="currentColor" />
+				<polygon points="32,107 40,112 32,117" fill="currentColor" />
+				<polygon points="32,187 40,192 32,197" fill="currentColor" />
+			</svg>
 
-					{/* Stack 2: Memory → AWS S3 */}
-					<div className="flex flex-col items-center gap-3">
-						<svg
-							width="28"
-							height="24"
-							viewBox="0 0 28 24"
-							fill="none"
-							aria-hidden
-							className="text-zinc-400"
-						>
-							<title>Arrow right</title>
-							<line x1="0" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.5" />
-							<path
-								d="M18 8l4 4-4 4"
-								stroke="currentColor"
-								strokeWidth="1.5"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</svg>
-						<div className="rounded-xl border border-zinc-200 bg-white p-4 text-center dark:border-zinc-800 dark:bg-zinc-900 w-40">
-							<div className="text-xl">🧠</div>
-							<div className="mt-1 font-semibold text-sm">Memory</div>
-							<div className="mt-2 text-xs text-zinc-500">x-memory list · add · search</div>
-						</div>
-						<svg
-							width="24"
-							height="28"
-							viewBox="0 0 24 28"
-							fill="none"
-							aria-hidden
-							className="text-zinc-400"
-						>
-							<title>Arrow down</title>
-							<line x1="12" y1="0" x2="12" y2="20" stroke="currentColor" strokeWidth="1.5" />
-							<path
-								d="M8 18l4 4 4-4"
-								stroke="currentColor"
-								strokeWidth="1.5"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</svg>
-						<div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-center dark:border-zinc-800 dark:bg-zinc-950/40 w-40">
-							<div className="font-semibold text-sm">AWS S3</div>
-							<div className="mt-1 text-xs text-zinc-500">object storage</div>
-						</div>
-					</div>
-
-					{/* Stack 3: Skills → Vercel blob */}
-					<div className="flex flex-col items-center gap-3">
-						<svg
-							width="28"
-							height="24"
-							viewBox="0 0 28 24"
-							fill="none"
-							aria-hidden
-							className="text-zinc-400"
-						>
-							<title>Arrow right</title>
-							<line x1="0" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.5" />
-							<path
-								d="M18 8l4 4-4 4"
-								stroke="currentColor"
-								strokeWidth="1.5"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</svg>
-						<div className="rounded-xl border border-zinc-200 bg-white p-4 text-center dark:border-zinc-800 dark:bg-zinc-900 w-40">
-							<div className="text-xl">🔧</div>
-							<div className="mt-1 font-semibold text-sm">Skills</div>
-							<div className="mt-2 text-xs text-zinc-500">x-skills install · list</div>
-						</div>
-						<svg
-							width="24"
-							height="28"
-							viewBox="0 0 24 28"
-							fill="none"
-							aria-hidden
-							className="text-zinc-400"
-						>
-							<title>Arrow down</title>
-							<line x1="12" y1="0" x2="12" y2="20" stroke="currentColor" strokeWidth="1.5" />
-							<path
-								d="M8 18l4 4 4-4"
-								stroke="currentColor"
-								strokeWidth="1.5"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</svg>
-						<div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-center dark:border-zinc-800 dark:bg-zinc-950/40 w-40">
-							<div className="font-semibold text-sm">Vercel blob</div>
-							<div className="mt-1 text-xs text-zinc-500">serverless storage</div>
-						</div>
-					</div>
+			{/* Col 3: Three layer rows */}
+			<div className="flex flex-col gap-4">
+				<div className={layerBox}>
+					<span>📁</span>
+					<span>Workspace</span>
 				</div>
+				<div className={layerBox}>
+					<span>🧠</span>
+					<span>Memory</span>
+				</div>
+				<div className={layerBox}>
+					<span>🔧</span>
+					<span>Skills</span>
+				</div>
+			</div>
+
+			{/* Col 4: Three horizontal arrows → aligned with each row */}
+			<div className="flex flex-col gap-4">
+				<div className="flex h-16 w-6 items-center justify-center text-lg">→</div>
+				<div className="flex h-16 w-6 items-center justify-center text-lg">→</div>
+				<div className="flex h-16 w-6 items-center justify-center text-lg">→</div>
+			</div>
+
+			{/* Col 5: Three backend rows aligned with layers */}
+			<div className="flex flex-col gap-4">
+				<div className={backendBox}>node:fs</div>
+				<div className={backendBox}>AWS S3</div>
+				<div className={backendBox}>Vercel Blob</div>
 			</div>
 		</div>
 	);
@@ -177,7 +89,7 @@ export function MountSection() {
 						Memory · Skills · Workspace
 					</p>
 					<h2 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-4xl">
-						Three layers. Any backend.
+						Three layers, any backend
 					</h2>
 					<p className="mt-4 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
 						Memory, Skills, and Workspace are virtual filesystems that mount into the shell at

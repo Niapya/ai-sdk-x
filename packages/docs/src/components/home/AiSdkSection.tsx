@@ -37,7 +37,7 @@ export function AiSdkSection() {
 						AI SDK Compatible
 					</p>
 					<h2 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-4xl">
-						One call to wire up the tool
+						One call to get the tool
 					</h2>
 					<p className="mt-4 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
 						AI SDK X is built on top of{" "}
