@@ -17,7 +17,13 @@ import {
 	DEFAULT_SKILLS_MOUNT,
 	DEFAULT_WORKSPACE_MOUNT,
 } from "@/runtime/constants";
+import {
+	createEnvironment,
+	persistEnvironmentSnapshot,
+	resolveEnvironmentSnapshot,
+} from "@/runtime/environment";
 import { initializeMounts, mountIfEnabled } from "@/runtime/mounts";
+import { MAX_OUTPUT } from "@/runtime/output";
 import { createBashTool, createToolDescription } from "@/runtime/tools";
 
 export { parseSkillInstallTarget };
@@ -32,11 +38,20 @@ export type {
 } from "@/utils";
 export { createCommand, defineCliCommand, defineCliTopic } from "@/utils";
 
-import type { DefaultXCommands, XCommandMap, XConfig, XOptions } from "@/types";
+import type {
+	DefaultXCommands,
+	Environment,
+	GetToolsOptions,
+	XCommandMap,
+	XConfig,
+	XOptions,
+} from "@/types";
 
 export type {
 	BashConfig,
 	DefaultXCommands,
+	Environment,
+	GetToolsOptions,
 	KVStorage,
 	MemoryConfig,
 	MemoryOptions,
@@ -48,15 +63,18 @@ export type {
 	XConfig,
 	XOptions,
 } from "@/types";
+export { MAX_OUTPUT };
 
 export class X<TCommands extends XCommandMap = DefaultXCommands> {
 	readonly bash: Bash;
 	readonly config: XConfig;
 	readonly fs: IFileSystem;
 	readonly commands: TCommands;
+	readonly env: Environment;
 
 	constructor(options: XOptions = {}) {
 		this.config = resolveConfig(options);
+		this.env = createEnvironment(options.env);
 
 		const baseFs = options.fs ?? new InMemoryFs();
 		const mountableFs = new MountableFs({ base: baseFs });
@@ -94,7 +112,20 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 	}
 
 	async exec(command: string, options?: ExecOptions): Promise<BashExecResult> {
-		return this.bash.exec(command, options);
+		const baseEnv = await resolveEnvironmentSnapshot(this.env, this.config.bash.env);
+		const execEnv = options?.replaceEnv
+			? { ...(options.env ?? {}), ...this.config.bash.env }
+			: { ...baseEnv, ...(options?.env ?? {}) };
+		const execCwd = options?.cwd ?? execEnv.PWD ?? this.config.bash.cwd;
+		const result = await this.bash.exec(command, {
+			...options,
+			cwd: execCwd,
+			env: execEnv,
+			replaceEnv: true,
+		});
+
+		await persistEnvironmentSnapshot(this.env, this.config.bash.env, result.env);
+		return result;
 	}
 
 	registerCommand<TName extends string, TCommand extends Command & { name: TName }>(
@@ -105,9 +136,15 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 		return this as unknown as X<TCommands & Record<TName, TCommand>>;
 	}
 
-	async getTools(): Promise<{ bash: Awaited<ReturnType<typeof createBashTool>> }> {
+	async getTools(
+		options: GetToolsOptions = {},
+	): Promise<{ bash: Awaited<ReturnType<typeof createBashTool>> }> {
 		return {
-			bash: await createBashTool(this.bash, createToolDescription(this.config)),
+			bash: await createBashTool(
+				this.exec.bind(this),
+				createToolDescription(this.config, this.commands, options),
+				options,
+			),
 		};
 	}
 }

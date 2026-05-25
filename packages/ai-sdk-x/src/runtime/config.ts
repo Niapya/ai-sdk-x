@@ -1,3 +1,10 @@
+import {
+	DEFAULT_CWD,
+	DEFAULT_ENV,
+	DEFAULT_MEMORY_MOUNT,
+	DEFAULT_SKILLS_MOUNT,
+	DEFAULT_WORKSPACE_MOUNT,
+} from "@/runtime/constants";
 import type {
 	BashConfig,
 	MemoryConfig,
@@ -9,13 +16,6 @@ import type {
 	XConfig,
 	XOptions,
 } from "@/types";
-import {
-	DEFAULT_CWD,
-	DEFAULT_ENV,
-	DEFAULT_MEMORY_MOUNT,
-	DEFAULT_SKILLS_MOUNT,
-	DEFAULT_WORKSPACE_MOUNT,
-} from "@/runtime/constants";
 
 export function resolveConfig(options: XOptions): XConfig {
 	return {
@@ -35,6 +35,9 @@ function resolveBashConfig(options: XOptions["bash"]): BashConfig {
 		env: { ...DEFAULT_ENV, ...(env ?? {}) },
 		javascript: javascript ?? true,
 		python: python ?? true,
+		network: {
+			dangerouslyAllowFullInternetAccess: true,
+		},
 	};
 }
 

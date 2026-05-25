@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { stdin, stdout } from "node:process";
@@ -37,15 +38,6 @@ mkdirSync(root, { recursive: true });
 const fs = new ReadWriteFs({ root });
 const bash = new X({
 	fs,
-}).registerCommand({
-	name: "hi" as const,
-	async execute() {
-		return {
-			stdout: "Hello from the hi command!",
-			stderr: "",
-			exitCode: 0,
-		} as const;
-	},
 });
 
 const openrouter = createOpenRouter({
@@ -54,7 +46,7 @@ const openrouter = createOpenRouter({
 
 const tools = await bash.getTools();
 const agent = new ToolLoopAgent({
-	model: openrouter("deepseek/deepseek-v4-flash"),
+	model: openrouter("z-ai/glm-4.5-air:free"),
 	tools,
 	stopWhen: stepCountIs(20),
 	prepareStep: ({ stepNumber }) => {

@@ -1,6 +1,17 @@
 import type { BashOptions, Command, IFileSystem } from "just-bash";
 import type { KVStorage } from "@/types/storage";
 
+export interface Environment {
+	get(): Promise<Record<string, string>> | Record<string, string>;
+	set(env: Record<string, string>): Promise<void> | void;
+}
+
+export interface GetToolsOptions {
+	description?: string;
+	maxLines?: number;
+	maxOutput?: number;
+}
+
 export interface WorkspaceOptions {
 	fs?: IFileSystem;
 	mountPoint?: string;
@@ -21,6 +32,7 @@ export interface MemoryOptions {
 
 export interface XOptions {
 	bash?: Omit<BashOptions, "customCommands" | "fs">;
+	env?: Environment;
 	fs?: IFileSystem;
 	memory?: boolean | MemoryOptions;
 	skills?: boolean | SkillsOptions;

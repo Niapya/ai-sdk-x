@@ -1,6 +1,7 @@
-import type { Bash } from "just-bash";
-import type { XConfig } from "@/types";
 import type { Tool } from "ai";
+import type { BashExecResult, ExecOptions } from "just-bash";
+import { MAX_OUTPUT, type TruncateOutputOptions, truncateToolOutput } from "@/runtime/output";
+import type { GetToolsOptions, XCommandMap, XConfig } from "@/types";
 
 type BashToolInput = {
 	command: string;
@@ -14,31 +15,38 @@ type BashToolOutput = {
 	exitCode: number;
 };
 
-export function createToolDescription(config: XConfig): string {
-	return [
-		"Execute bash commands in the AI SDK X virtual bash environment.",
-		"",
-		`WORKING DIRECTORY: ${config.bash.cwd}`,
-		"All commands execute from this directory unless cwd is provided.",
-		"",
-		"Mounted directories:",
-		`  ${config.workspace.mountPoint} - persistent workspace files`,
-		`  ${config.skills.mountPoint} - installed skills and skills.json`,
-		`  ${config.memory.mountPoint} - MEMORY.md and daily memory files`,
-		"",
-		"Custom commands:",
-		"  x-skills list",
-		"  x-skills install <repo-url>@<skill-name>",
-		"  x-memory list",
-		"  x-memory add <title>",
-		"  x-memory search <query>",
-		"  x-patch [path]",
-	].join("\n");
+export function createToolDescription(
+	config: XConfig,
+	commands: XCommandMap,
+	options: GetToolsOptions = {},
+): string {
+	const sections = [
+		"Run shell commands in the mounted workspace.",
+		[
+			"Prefer grep, sed, head, tail, split, and similar tools when inspecting large files.",
+			`Workspace mount: ${config.workspace.mountPoint}`,
+			`Skills mount: ${config.skills.mountPoint}`,
+			`Memory mount: ${config.memory.mountPoint}`,
+			`Default cwd: ${config.bash.cwd}`,
+		].join("\n"),
+	];
+
+	const commandNames = Object.values(commands).map((cmd) => cmd.name);
+	if (commandNames.length > 0) {
+		sections.push(`Available custom commands: ${commandNames.join(", ")}`);
+	}
+
+	if (options.description) {
+		sections.push(options.description);
+	}
+
+	return sections.join("\n\n");
 }
 
 export async function createBashTool(
-	bash: Bash,
+	executeCommand: (command: string, options?: ExecOptions) => Promise<BashExecResult>,
 	description: string,
+	options: TruncateOutputOptions = {},
 ): Promise<Tool<BashToolInput, BashToolOutput>> {
 	const { tool } = await import("ai");
 	const { z } = await import("zod");
@@ -59,14 +67,18 @@ export async function createBashTool(
 			stdin: z.string().optional().describe("Optional stdin passed to the command."),
 		}),
 		execute: async ({ command, cwd, stdin }) => {
-			const result = await bash.exec(command, {
+			const result = await executeCommand(command, {
 				...(cwd !== undefined ? { cwd } : {}),
 				...(stdin !== undefined ? { stdin } : {}),
 			});
+			const output = truncateToolOutput(result.stdout, result.stderr, {
+				maxLines: options.maxLines,
+				maxOutput: options.maxOutput ?? MAX_OUTPUT,
+			});
 
 			return {
-				stdout: result.stdout,
-				stderr: result.stderr,
+				stdout: output.stdout,
+				stderr: output.stderr,
 				exitCode: result.exitCode,
 			};
 		},

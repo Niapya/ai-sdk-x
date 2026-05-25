@@ -6,7 +6,8 @@
 	"dependencies": {
 		"@openrouter/ai-sdk-provider": "^2.9.0",
 		"ai": "^6.0.191",
-		"ai-sdk-x": "workspace:*"
+		"ai-sdk-x": "workspace:*",
+		"dotenv": "^17.4.2"
 	},
 	"devDependencies": {
 		"@types/node": "latest",
@@ -16,6 +17,7 @@
 		"typescript": "^5"
 	},
 	"scripts": {
-		"dev": "npx tsx src/index.ts"
+		"shell": "npx tsx src/index.ts",
+		"shell:ai": "npx tsx src/ai.ts"
 	}
 }

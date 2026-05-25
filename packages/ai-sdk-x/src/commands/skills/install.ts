@@ -38,7 +38,6 @@ export async function installSkill(
 		const git = createGit({
 			fs: ctx.fs,
 			cwd: "/tmp",
-			identity: { name: "AI SDK X", email: "ai-sdk-x@example.local" },
 		});
 		const clone = await git.exec(`clone ${quoteForGit(target.repoUrl)} ${quoteForGit(cloneRoot)}`);
 		if (clone.exitCode !== 0) {

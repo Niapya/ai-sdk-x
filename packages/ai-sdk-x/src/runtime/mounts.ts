@@ -1,6 +1,6 @@
 import type { IFileSystem, MountableFs } from "just-bash";
-import { createSubpathFs } from "@/utils/subpath-fs";
 import type { MemoryConfig, SkillsConfig, WorkspaceConfig, XConfig } from "@/types";
+import { createSubpathFs } from "@/utils/subpath-fs";
 
 export function mountIfEnabled(
 	fs: MountableFs,
