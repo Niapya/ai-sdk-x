@@ -4,31 +4,9 @@ import v0PackagesExecute from "@/content/v0/packages/execute.txt";
 import v0PackagesMemo from "@/content/v0/packages/memo.txt";
 import v0PackagesMemory from "@/content/v0/packages/memory.txt";
 import v0PackagesSkill from "@/content/v0/packages/skill.txt";
+
 import v1GuideGettingStarted from "@/content/v1/guide/getting-started.txt";
 import v1Index from "@/content/v1/index.txt";
-
-export type DocsVersion = "v0" | "v1";
-
-export function getVersion(path: string): DocsVersion | null {
-	const version = path.split("/")[1];
-
-	if (version === "v0" || version === "v1") {
-		return version;
-	}
-
-	return null;
-}
-
-export const versionInfo: Record<DocsVersion, { label: string; note: string }> = {
-	v0: {
-		label: "v0",
-		note: "V0 includes package docs for execute, memo, memory, and skill. These package pages do not exist in V1, so we recommend switching to V1 for the newer guide-first docs.",
-	},
-	v1: {
-		label: "v1",
-		note: "V1 focuses on the current AI SDK X guide set.",
-	},
-};
 
 const pages: Record<string, string> = {
 	"/v0/": v0Index,
@@ -49,7 +27,20 @@ export function getRoutes(): string[] {
 	return Object.keys(pages);
 }
 
+export type DocsVersion = "v0" | "v1";
+
+export const versionInfo: Record<DocsVersion, { label: string; note?: string }> = {
+	v0: { label: "v0", note: "Stable API (packages)" },
+	v1: { label: "v1", note: "Latest guide and docs" },
+};
+
+export function getVersion(route: string): DocsVersion | undefined {
+	const seg = route.split("/")[1];
+	if (seg === "v0" || seg === "v1") return seg as DocsVersion;
+	return undefined;
+}
+
 export function getVersionRoutes(version: DocsVersion): string[] {
-	const prefix = `/${version}/`;
-	return getRoutes().filter((route) => route.startsWith(prefix) && route !== prefix);
+	const prefix = `/${version}`;
+	return getRoutes().filter((r) => r === `${prefix}/` || r.startsWith(`${prefix}/`));
 }

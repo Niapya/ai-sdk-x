@@ -9,7 +9,8 @@
 		"ai-sdk-x": "workspace:*"
 	},
 	"devDependencies": {
-		"@types/node": "latest"
+		"@types/node": "latest",
+		"tsx": "^4.22.3"
 	},
 	"peerDependencies": {
 		"typescript": "^5"

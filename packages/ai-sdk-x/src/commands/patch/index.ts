@@ -1,3 +1,8 @@
+///
+/// The "x-patch" command is inspired by `patch` in OpenCode.
+/// https://github.com/anomalyco/opencode/
+///
+
 import { type Command, type CommandContext, decodeBytesToUtf8, type ExecResult } from "just-bash";
 import { deriveNewContentsFromChunks, type Hunk, parsePatch } from "@/commands/patch/patch";
 import type { PatchCommandOptions } from "@/commands/patch/types";
