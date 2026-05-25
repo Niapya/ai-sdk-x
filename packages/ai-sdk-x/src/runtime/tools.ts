@@ -58,7 +58,6 @@ export async function createBashTool(
 		throw new Error("Failed to load 'zod' package.");
 	}
 
-	// 有可能会爆 context
 	return tool<BashToolInput, BashToolOutput>({
 		description,
 		inputSchema: z.object({

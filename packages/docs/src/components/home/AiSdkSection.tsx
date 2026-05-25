@@ -64,7 +64,8 @@ export function AiSdkSection() {
 						<code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs dark:bg-zinc-800">
 							streamText
 						</code>
-						, or any AI SDK helper — no adapter needed. You can also cap tool output and add model guidance per call.
+						, or any AI SDK helper — no adapter needed. You can also cap tool output and add model
+						guidance per call.
 					</p>
 					<ul className="mt-5 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
 						{[
