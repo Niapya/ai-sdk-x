@@ -19,7 +19,7 @@ export interface MemoryOptions {
 	mountPoint?: string;
 }
 
-export interface BashToolOptions {
+export interface XOptions {
 	bash?: Omit<BashOptions, "customCommands" | "fs">;
 	fs?: IFileSystem;
 	memory?: boolean | MemoryOptions;

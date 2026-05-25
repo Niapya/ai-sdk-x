@@ -3,7 +3,7 @@ import { navigate } from "@/router";
 // Illustration: true horizontal left-to-right layout (matches hand-drawn sketch)
 //
 // Layout:
-//   [BashTool]  ↗  [Workspace]  →  [node:fs    ]
+//   [X]         ↗  [Workspace]  →  [node:fs    ]
 //              →  [Memory   ]  →  [AWS S3     ]
 //              ↘  [Skills   ]  →  [Vercel Blob]
 //
@@ -20,10 +20,10 @@ function MountIllustration() {
 
 	return (
 		<div className="flex items-center justify-center gap-3 overflow-x-auto py-2 text-zinc-400 dark:text-zinc-600">
-			{/* Col 1: BashTool — full height wrapper so it centers against the 3 rows */}
+			{/* Col 1: X — full height wrapper so it centers against the 3 rows */}
 			<div className="flex h-56 items-center">
 				<div className="rounded-xl border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
-					BashTool
+					X
 				</div>
 			</div>
 
@@ -36,7 +36,7 @@ function MountIllustration() {
 				fill="none"
 				aria-hidden
 			>
-				<title>Connections from BashTool to layers</title>
+				<title>Connections from X to layers</title>
 				<line x1="0" y1="112" x2="32" y2="32" stroke="currentColor" strokeWidth="1.5" />
 				<line x1="0" y1="112" x2="32" y2="112" stroke="currentColor" strokeWidth="1.5" />
 				<line x1="0" y1="112" x2="32" y2="192" stroke="currentColor" strokeWidth="1.5" />

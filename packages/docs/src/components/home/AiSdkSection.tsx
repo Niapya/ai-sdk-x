@@ -1,8 +1,8 @@
-const CODE = `import { BashTool } from "ai-sdk-x";
+const CODE = `import { X } from "ai-sdk-x";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
-const bash = new BashTool();
+const bash = new X();
 
 const { text } = await generateText({
   model: openai("gpt-4o"),

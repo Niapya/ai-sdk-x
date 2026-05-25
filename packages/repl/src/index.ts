@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import * as readline from "node:readline";
 import { fileURLToPath } from "node:url";
-import { BashTool } from "ai-sdk-x";
+import { X } from "ai-sdk-x";
 import { ReadWriteFs } from "just-bash";
 
 const colors = {
@@ -17,7 +17,7 @@ const colors = {
 
 class VirtualRepl {
 	private readonly rl: readline.Interface;
-	private readonly tool: BashTool;
+	private readonly tool: X;
 	private readonly root: string;
 	private cwd = "/home/user";
 	private running = true;
@@ -26,7 +26,7 @@ class VirtualRepl {
 		this.root = resolve(dirname(fileURLToPath(import.meta.url)), "../shell");
 		mkdirSync(this.root, { recursive: true });
 		const fs = new ReadWriteFs({ root: this.root });
-		this.tool = new BashTool({
+		this.tool = new X({
 			fs,
 		});
 

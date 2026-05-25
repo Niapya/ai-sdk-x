@@ -26,7 +26,7 @@ export type {
 export { createCommand, defineCliCommand, defineCliTopic } from "@/utils";
 
 import type {
-	BashToolOptions,
+	XOptions,
 	MemoryOptions,
 	ResolvedEnvironmentOptions,
 	SkillsOptions,
@@ -34,7 +34,7 @@ import type {
 } from "@/types";
 
 export type {
-	BashToolOptions,
+	XOptions,
 	KVStorage,
 	MemoryOptions,
 	SkillsOptions,
@@ -46,7 +46,7 @@ const DEFAULT_WORKSPACE_MOUNT = "/home/user/workspace";
 const DEFAULT_SKILLS_MOUNT = "/home/user/skills";
 const DEFAULT_MEMORY_MOUNT = "/home/user/memory";
 
-export class BashTool {
+export class X {
 	readonly bash: Bash;
 	readonly fs: IFileSystem;
 	readonly memoryMount: string;
@@ -55,7 +55,7 @@ export class BashTool {
 
 	readonly commands: Record<string, Command> = {};
 
-	constructor(options: BashToolOptions = {}) {
+	constructor(options: XOptions = {}) {
 		const environment = resolveEnvironmentOptions(options);
 		this.workspaceMount = environment.workspaceMount;
 		this.skillsMount = environment.skillsMount;
@@ -195,9 +195,9 @@ export class BashTool {
 	}
 }
 
-export default BashTool;
+export default X;
 
-function resolveEnvironmentOptions(options: BashToolOptions): ResolvedEnvironmentOptions {
+function resolveEnvironmentOptions(options: XOptions): ResolvedEnvironmentOptions {
 	return {
 		workspaceMount: optionMount(options.workspace, DEFAULT_WORKSPACE_MOUNT),
 		skillsMount: optionMount(options.skills, DEFAULT_SKILLS_MOUNT),

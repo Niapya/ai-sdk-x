@@ -5,7 +5,7 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { type ModelMessage, stepCountIs, ToolLoopAgent } from "ai";
-import { BashTool } from "ai-sdk-x";
+import { X } from "ai-sdk-x";
 import { ReadWriteFs } from "just-bash";
 
 const ANSI = {
@@ -35,7 +35,7 @@ function color(text: string, tone: keyof typeof ANSI): string {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../shell");
 mkdirSync(root, { recursive: true });
 const fs = new ReadWriteFs({ root });
-const bash = new BashTool({
+const bash = new X({
 	fs,
 });
 
