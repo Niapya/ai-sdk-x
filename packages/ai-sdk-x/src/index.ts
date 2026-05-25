@@ -11,7 +11,10 @@ import {
 import { createMemoryCommand } from "@/commands/memory";
 import { createPatchCommand } from "@/commands/patch";
 import { createSkillsCommand, parseSkillInstallTarget } from "@/commands/skills";
-import { createSubpathFs } from "@/utils/subpath-fs";
+import { resolveConfig } from "@/runtime/config";
+import { DEFAULT_MEMORY_MOUNT, DEFAULT_SKILLS_MOUNT, DEFAULT_WORKSPACE_MOUNT } from "@/runtime/constants";
+import { initializeMounts, mountIfEnabled } from "@/runtime/mounts";
+import { createBashTool, createToolDescription } from "@/runtime/tools";
 
 export { parseSkillInstallTarget };
 export type {
@@ -26,219 +29,87 @@ export type {
 export { createCommand, defineCliCommand, defineCliTopic } from "@/utils";
 
 import type {
+	DefaultXCommands,
 	XOptions,
-	MemoryOptions,
-	ResolvedEnvironmentOptions,
-	SkillsOptions,
-	WorkspaceOptions,
+	XCommandMap,
+	XConfig,
 } from "@/types";
 
 export type {
+	BashConfig,
+	DefaultXCommands,
 	XOptions,
 	KVStorage,
+	MemoryConfig,
 	MemoryOptions,
+	SkillsConfig,
 	SkillsOptions,
+	WorkspaceConfig,
 	WorkspaceOptions,
+	XCommandMap,
+	XConfig,
 } from "@/types";
 
-const DEFAULT_CWD = "/home/user";
-const DEFAULT_WORKSPACE_MOUNT = "/home/user/workspace";
-const DEFAULT_SKILLS_MOUNT = "/home/user/skills";
-const DEFAULT_MEMORY_MOUNT = "/home/user/memory";
-
-export class X {
+export class X<TCommands extends XCommandMap = DefaultXCommands> {
 	readonly bash: Bash;
+	readonly config: XConfig;
 	readonly fs: IFileSystem;
-	readonly memoryMount: string;
-	readonly skillsMount: string;
-	readonly workspaceMount: string;
-
-	readonly commands: Record<string, Command> = {};
+	readonly commands: TCommands;
 
 	constructor(options: XOptions = {}) {
-		const environment = resolveEnvironmentOptions(options);
-		this.workspaceMount = environment.workspaceMount;
-		this.skillsMount = environment.skillsMount;
-		this.memoryMount = environment.memoryMount;
+		this.config = resolveConfig(options);
 
 		const baseFs = options.fs ?? new InMemoryFs();
 		const mountableFs = new MountableFs({ base: baseFs });
 		const baseInitPaths = [
-			mountIfEnabled(
-				mountableFs,
-				baseFs,
-				options.workspace,
-				this.workspaceMount,
-				DEFAULT_WORKSPACE_MOUNT,
-			),
-			mountIfEnabled(mountableFs, baseFs, options.skills, this.skillsMount, DEFAULT_SKILLS_MOUNT),
-			mountIfEnabled(mountableFs, baseFs, options.memory, this.memoryMount, DEFAULT_MEMORY_MOUNT),
+			mountIfEnabled(mountableFs, baseFs, this.config.workspace, DEFAULT_WORKSPACE_MOUNT),
+			mountIfEnabled(mountableFs, baseFs, this.config.skills, DEFAULT_SKILLS_MOUNT),
+			mountIfEnabled(mountableFs, baseFs, this.config.memory, DEFAULT_MEMORY_MOUNT),
 		].filter((path): path is string => path !== undefined);
 		this.fs = mountableFs;
 
-		this.commands = {
+		const defaultCommands = {
 			skills: createSkillsCommand({
-				cache: typeof options.skills === "object" ? options.skills.cache : undefined,
-				lockfile: environment.skillsLockfile,
-				mountPoint: this.skillsMount,
+				cache: this.config.skills.cache,
+				lockfile: this.config.skills.lockfile,
+				mountPoint: this.config.skills.mountPoint,
 			}),
 			memory: createMemoryCommand({
-				cache: typeof options.memory === "object" ? options.memory.cache : undefined,
-				mountPoint: this.memoryMount,
+				cache: this.config.memory.cache,
+				mountPoint: this.config.memory.mountPoint,
 			}),
 			patch: createPatchCommand({
-				mountPoint: this.workspaceMount,
+				mountPoint: this.config.workspace.mountPoint,
 			}),
-		};
+		} satisfies DefaultXCommands;
+		this.commands = defaultCommands as unknown as TCommands;
 
 		const bashOptions: BashOptions = {
-			cwd: options.bash?.cwd ?? DEFAULT_CWD,
+			...this.config.bash,
 			fs: mountableFs,
-			customCommands: Object.values(this.commands),
-
-			// Enable the JavaScript debugger by default
-			javascript: true,
-			python: true,
-
-			// TODO
-			env: { HOME: "/home/user" },
-
-			...options.bash,
+			customCommands: Object.values(this.commands) as Command[],
 		};
 		this.bash = new Bash(bashOptions);
 
-		void this.initializeMounts(baseFs, baseInitPaths, environment.skillsLockfile);
+		void initializeMounts(mountableFs, baseFs, baseInitPaths, this.config);
 	}
 
 	async exec(command: string, options?: ExecOptions): Promise<BashExecResult> {
 		return this.bash.exec(command, options);
 	}
 
-	registerCommand(command: Command): void {
-		this.commands[command.name] = command;
+	registerCommand<TName extends string, TCommand extends Command & { name: TName }>(
+		command: TCommand,
+	): asserts this is X<TCommands & Record<TName, TCommand>> {
+		(this.commands as XCommandMap)[command.name] = command;
 		this.bash.registerCommand(command);
 	}
 
-	async getTools() {
-		const { tool } = await import("ai");
-		const { z } = await import("zod");
-		if (!tool) {
-			throw new Error("Failed to load 'ai' package.");
-		}
-		if (!z) {
-			throw new Error("Failed to load 'zod' package.");
-		}
-
-		// 有可能会爆 context
-		const bash = tool({
-			description: this.createToolDescription(),
-			inputSchema: z.object({
-				command: z.string().describe("The bash command to execute."),
-				cwd: z.string().optional().describe("Optional working directory for this command."),
-				stdin: z.string().optional().describe("Optional stdin passed to the command."),
-			}),
-			execute: async ({ command, cwd, stdin }) => {
-				const result = await this.bash.exec(command, {
-					...(cwd !== undefined ? { cwd } : {}),
-					...(stdin !== undefined ? { stdin } : {}),
-				});
-
-				return {
-					stdout: result.stdout,
-					stderr: result.stderr,
-					exitCode: result.exitCode,
-				};
-			},
-		});
-
+	async getTools(): Promise<{ bash: Awaited<ReturnType<typeof createBashTool>> }> {
 		return {
-			bash,
+			bash: await createBashTool(this.bash, createToolDescription(this.config)),
 		};
-	}
-
-	private async initializeMounts(
-		baseFs: IFileSystem,
-		baseInitPaths: string[],
-		lockfile: boolean,
-	): Promise<void> {
-		await Promise.all(baseInitPaths.map((path) => baseFs.mkdir(path, { recursive: true })));
-
-		const lockfilePath = `${this.skillsMount}/skills.json`;
-		if (lockfile && !(await this.fs.exists(lockfilePath))) {
-			await this.fs.writeFile(
-				lockfilePath,
-				`${JSON.stringify({ version: 1, skills: {} }, null, 2)}\n`,
-			);
-		}
-	}
-
-	private createToolDescription(): string {
-		return [
-			"Execute bash commands in the AI SDK X virtual bash environment.",
-			"",
-			`WORKING DIRECTORY: ${DEFAULT_CWD}`,
-			"All commands execute from this directory unless cwd is provided.",
-			"",
-			"Mounted directories:",
-			`  ${this.workspaceMount} - persistent workspace files`,
-			`  ${this.skillsMount} - installed skills and skills.json`,
-			`  ${this.memoryMount} - MEMORY.md and daily memory files`,
-			"",
-			"Custom commands:",
-			"  x-skills list",
-			"  x-skills install <repo-url>@<skill-name>",
-			"  x-memory list",
-			"  x-memory add <title>",
-			"  x-memory search <query>",
-			"  x-patch [path]",
-		].join("\n");
 	}
 }
 
 export default X;
-
-function resolveEnvironmentOptions(options: XOptions): ResolvedEnvironmentOptions {
-	return {
-		workspaceMount: optionMount(options.workspace, DEFAULT_WORKSPACE_MOUNT),
-		skillsMount: optionMount(options.skills, DEFAULT_SKILLS_MOUNT),
-		memoryMount: optionMount(options.memory, DEFAULT_MEMORY_MOUNT),
-		skillsLockfile: typeof options.skills === "object" ? (options.skills.lockfile ?? true) : true,
-	};
-}
-
-function optionMount(
-	option: boolean | MemoryOptions | SkillsOptions | WorkspaceOptions | undefined,
-	defaultMount: string,
-): string {
-	if (option === false) {
-		return defaultMount;
-	}
-	if (typeof option === "object" && option.mountPoint) {
-		return option.mountPoint;
-	}
-	return defaultMount;
-}
-
-function mountIfEnabled(
-	fs: MountableFs,
-	baseFs: IFileSystem,
-	option: boolean | MemoryOptions | SkillsOptions | WorkspaceOptions | undefined,
-	mountPoint: string,
-	sourceRoot: string,
-): string | undefined {
-	if (option === false) {
-		return undefined;
-	}
-
-	const mountedFs = typeof option === "object" ? option.fs : undefined;
-	if (mountedFs) {
-		fs.mount(mountPoint, mountedFs);
-		return undefined;
-	}
-
-	if (mountPoint !== sourceRoot) {
-		fs.mount(mountPoint, createSubpathFs(baseFs, sourceRoot));
-	}
-
-	return sourceRoot;
-}
