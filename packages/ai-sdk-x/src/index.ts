@@ -12,7 +12,11 @@ import { createMemoryCommand } from "@/commands/memory";
 import { createPatchCommand } from "@/commands/patch";
 import { createSkillsCommand, parseSkillInstallTarget } from "@/commands/skills";
 import { resolveConfig } from "@/runtime/config";
-import { DEFAULT_MEMORY_MOUNT, DEFAULT_SKILLS_MOUNT, DEFAULT_WORKSPACE_MOUNT } from "@/runtime/constants";
+import {
+	DEFAULT_MEMORY_MOUNT,
+	DEFAULT_SKILLS_MOUNT,
+	DEFAULT_WORKSPACE_MOUNT,
+} from "@/runtime/constants";
 import { initializeMounts, mountIfEnabled } from "@/runtime/mounts";
 import { createBashTool, createToolDescription } from "@/runtime/tools";
 
@@ -28,17 +32,11 @@ export type {
 } from "@/utils";
 export { createCommand, defineCliCommand, defineCliTopic } from "@/utils";
 
-import type {
-	DefaultXCommands,
-	XOptions,
-	XCommandMap,
-	XConfig,
-} from "@/types";
+import type { DefaultXCommands, XCommandMap, XConfig, XOptions } from "@/types";
 
 export type {
 	BashConfig,
 	DefaultXCommands,
-	XOptions,
 	KVStorage,
 	MemoryConfig,
 	MemoryOptions,
@@ -48,6 +46,7 @@ export type {
 	WorkspaceOptions,
 	XCommandMap,
 	XConfig,
+	XOptions,
 } from "@/types";
 
 export class X<TCommands extends XCommandMap = DefaultXCommands> {
@@ -100,9 +99,10 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 
 	registerCommand<TName extends string, TCommand extends Command & { name: TName }>(
 		command: TCommand,
-	): asserts this is X<TCommands & Record<TName, TCommand>> {
+	): X<TCommands & Record<TName, TCommand>> {
 		(this.commands as XCommandMap)[command.name] = command;
 		this.bash.registerCommand(command);
+		return this as unknown as X<TCommands & Record<TName, TCommand>>;
 	}
 
 	async getTools(): Promise<{ bash: Awaited<ReturnType<typeof createBashTool>> }> {

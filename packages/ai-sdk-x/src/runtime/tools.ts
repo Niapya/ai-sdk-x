@@ -36,7 +36,10 @@ export function createToolDescription(config: XConfig): string {
 	].join("\n");
 }
 
-export async function createBashTool(bash: Bash, description: string): Promise<Tool<BashToolInput, BashToolOutput>> {
+export async function createBashTool(
+	bash: Bash,
+	description: string,
+): Promise<Tool<BashToolInput, BashToolOutput>> {
 	const { tool } = await import("ai");
 	const { z } = await import("zod");
 

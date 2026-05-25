@@ -37,6 +37,15 @@ mkdirSync(root, { recursive: true });
 const fs = new ReadWriteFs({ root });
 const bash = new X({
 	fs,
+}).registerCommand({
+	name: "hi" as const,
+	async execute() {
+		return {
+			stdout: "Hello from the hi command!",
+			stderr: "",
+			exitCode: 0,
+		} as const;
+	},
 });
 
 const openrouter = createOpenRouter({
