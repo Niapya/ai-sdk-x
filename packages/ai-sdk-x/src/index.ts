@@ -92,7 +92,17 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 		] satisfies FeatureSetupResult[];
 
 		this.config = {
-			bash: bashConfig,
+			bash: {
+				...bashConfig,
+				env: {
+					...bashConfig.env,
+					...resolveFeatureHomeEnv({
+						memory: memoryFeature.config,
+						skills: skillsFeature.config,
+						workspace: workspaceFeature.config,
+					}),
+				},
+			},
 			memory: memoryFeature.config,
 			patch: patchFeature.config,
 			skills: skillsFeature.config,
@@ -108,7 +118,7 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 		this.commands = defaultCommands as unknown as TCommands;
 
 		const bashOptions: BashOptions = {
-			...bashConfig,
+			...this.config.bash,
 			fs: mountableFs,
 			customCommands: Object.values(this.commands).filter(
 				(command): command is Command => command !== undefined,
@@ -155,6 +165,28 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 			),
 		};
 	}
+}
+
+function resolveFeatureHomeEnv(features: {
+	memory: XConfig["memory"];
+	skills: XConfig["skills"];
+	workspace: XConfig["workspace"];
+}): Record<string, string> {
+	const env: Record<string, string> = {};
+
+	if (features.memory.enabled) {
+		env.MEMORY_HOME = features.memory.mountPoint;
+	}
+
+	if (features.skills.enabled) {
+		env.SKILLS_HOME = features.skills.mountPoint;
+	}
+
+	if (features.workspace.enabled) {
+		env.WORKSPACE_HOME = features.workspace.mountPoint;
+	}
+
+	return env;
 }
 
 export default X;
