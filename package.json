@@ -7,8 +7,8 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
 		"@types/bun": "^1.3.9",
-		"typescript": "^5.9.3",
-		"vitepress": "^1.6.4"
+		"bunup": "^0.16.31",
+		"typescript": "^5.9.3"
 	},
 	"bugs": {
 		"url": "https://github.com/niapya/ai-sdk-x/issues"
@@ -16,16 +16,20 @@
 	"homepage": "https://niapya.github.io/ai-sdk-x",
 	"private": true,
 	"scripts": {
-		"check": "bunx biome check --write .",
-		"docs:build": "vitepress build docs",
-		"docs:dev": "vitepress dev docs",
-		"docs:preview": "vitepress preview docs",
-		"format": "bunx biome format --write .",
-		"lint": "bunx biome check .",
-		"release": "bun run typecheck && bun run format && bun run scripts/release.ts",
-		"release:build": "bun run typecheck && bun run format && bun run scripts/release.ts --build-only",
+		"build": "bun run --cwd packages/ai-sdk-x build",
+		"check:type": "tsc --noEmit",
+		"check:format": "bunx biome check .",
+		"check:format:fix": "bunx biome check --write .",
+		"lint": "bun run check:format",
 		"test": "bun test --coverage",
-		"typecheck": "tsc --noEmit"
+		"check": "bun run check:type && bun run lint && bun run test",
+		"format": "bunx biome format --write .",
+		"docs:build": "cd packages/docs && bun run build",
+		"docs:dev": "cd packages/docs && bun --hot src/index.ts",
+		"docs:preview": "cd packages/docs && bun run start",
+		"release:patch": "bun run --cwd packages/ai-sdk-x release:patch",
+		"release:minor": "bun run --cwd packages/ai-sdk-x release:minor",
+		"release:major": "bun run --cwd packages/ai-sdk-x release:major"
 	},
 	"workspaces": [
 		"packages/*"

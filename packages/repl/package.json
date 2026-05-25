@@ -1,0 +1,20 @@
+{
+	"name": "repl",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"dependencies": {
+		"@openrouter/ai-sdk-provider": "^2.9.0",
+		"ai": "^6.0.191",
+		"ai-sdk-x": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/node": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"scripts": {
+		"dev": "npx tsx src/index.ts"
+	}
+}

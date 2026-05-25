@@ -1,1 +1,1 @@
-export * from "./kv";
+export * from "@/types/storage/kv";

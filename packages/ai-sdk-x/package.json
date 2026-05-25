@@ -3,24 +3,41 @@
 		"url": "https://github.com/niapya/ai-sdk-x/issues"
 	},
 	"dependencies": {
-		"just-bash": "^3"
+		"just-bash": "^3",
+		"just-git": "^1.7.0",
+		"yaml": "^2",
+		"zod": "^4"
 	},
 	"devDependencies": {
 		"typescript": "^5.7.0"
 	},
+	"scripts": {
+		"build": "bunup src/index.ts --format esm,cjs --out-dir dist --dts --exports",
+		"dev": "bun run build --watch",
+		"prepublishOnly": "bun run build",
+		"release:patch": "npm version patch && npm publish --access public",
+		"release:minor": "npm version minor && npm publish --access public",
+		"release:major": "npm version major && npm publish --access public"
+	},
 	"exports": {
 		".": {
-			"import": "./dist/esm/index.js",
-			"require": "./dist/cjs/index.js",
-			"types": "./dist/esm/index.d.ts"
-		}
+			"import": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			},
+			"require": {
+				"types": "./dist/index.d.cts",
+				"default": "./dist/index.cjs"
+			}
+		},
+		"./package.json": "./package.json"
 	},
 	"files": [
 		"dist"
 	],
 	"homepage": "https://niapya.github.io/ai-sdk-x",
-	"main": "dist/cjs/index.js",
-	"module": "dist/esm/index.js",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
 	"name": "ai-sdk-x",
 	"publishConfig": {
 		"access": "public"
@@ -31,7 +48,7 @@
 		"url": "git+https://github.com/niapya/ai-sdk-x.git"
 	},
 	"type": "module",
-	"types": "dist/esm/index.d.ts",
+	"types": "./dist/index.d.ts",
 	"version": "1.0.0",
 	"optionalDependencies": {
 		"ai": "^6"
