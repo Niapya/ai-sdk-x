@@ -10,11 +10,24 @@ import { commandError, commandUsageError, createCommand, defineCliCommand } from
 
 const PATCH_ARGS = [
 	{
-		name: "path",
+		name: "content",
 		multiple: false,
-		summary: "Optional patch file path. Reads stdin when omitted.",
+		summary: "Inline patch content. Reads stdin when omitted.",
 	},
 ] as const;
+
+const PATCH_FLAGS = {
+	file: {
+		type: "string",
+		helpValue: "path",
+		summary: "Read the patch from a file path.",
+	},
+	base: {
+		type: "string",
+		helpValue: "path",
+		summary: "Resolve relative patch paths against this base directory.",
+	},
+} as const;
 
 export const PATCH_DESCRIPTION = `Use the "x-patch" command to edit files. Your patch language is a stripped-down, file-oriented diff format designed to be easy to parse and safe to apply.
 
@@ -56,47 +69,66 @@ export const PATCH_DESCRIPTION_LINES = PATCH_DESCRIPTION.split("\n");
 const PATCH_COMMAND = defineCliCommand({
 	id: "x-patch",
 	type: "command",
-	summary: "Apply a structured patch to the mounted workspace.",
-	usage: "x-patch [path]",
+	summary: "Apply a structured patch to files.",
+	usage: "x-patch [<content>] [--file <path>] [--base <path>]",
 	description: ["#sym:PATCH_DESCRIPTION", ...PATCH_DESCRIPTION_LINES],
 	args: PATCH_ARGS,
+	flags: PATCH_FLAGS,
 	examples: [
-		{ command: "x-patch workspace/change.patch" },
+		{ command: 'x-patch "*** Begin Patch\n*** End Patch"' },
+		{ command: "x-patch --file change.patch" },
+		{ command: "x-patch --file change.patch --base ./packages/app" },
 		{ command: "cat workspace/change.patch | x-patch" },
 	],
 	run: () => commandError("", 0),
 });
 
-const PATCH_COMMAND_HELP = {
-	...PATCH_COMMAND,
-	flags: {},
-};
+const PATCH_COMMAND_HELP = PATCH_COMMAND;
 
 export function createPatchCommand(options: PatchCommandOptions): Command {
 	return createCommand({
 		...PATCH_COMMAND,
-		run: ({ args: { path } }, ctx) =>
-			runPatchCommand(Array.isArray(path) ? path[0] : path, ctx, options),
+		run: ({ args: { content }, flags: { file, base } }, ctx) =>
+			runPatchCommand(
+				{
+					content: Array.isArray(content) ? content[0] : content,
+					file: normalizeOptionalString(file),
+					base: normalizeOptionalString(base),
+				},
+				ctx,
+				options,
+			),
 	});
 }
 
+interface PatchCommandInput {
+	base?: string;
+	content?: string;
+	file?: string;
+}
+
 async function runPatchCommand(
-	path: string | undefined,
+	input: PatchCommandInput,
 	ctx: CommandContext,
-	options: PatchCommandOptions,
+	_options: PatchCommandOptions,
 ): Promise<ExecResult> {
 	const stdin = decodeBytesToUtf8(ctx.stdin);
 	const stdinProvided = stdin.trim().length > 0;
+	const providedSources = [input.content, input.file, stdinProvided ? stdin : undefined].filter(
+		(value) => value !== undefined,
+	).length;
 
-	if (path && stdinProvided) {
-		return patchUsageError("x-patch: provide the patch via [path] or stdin, not both\n");
+	if (providedSources > 1) {
+		return patchUsageError(
+			"x-patch: provide the patch via inline content, --file, or stdin, not multiple sources\n",
+		);
 	}
 
-	if (!path && !stdinProvided) {
-		return patchUsageError("x-patch: missing [path] or stdin\n");
+	if (providedSources === 0) {
+		return patchUsageError("x-patch: missing inline content, --file, or stdin\n");
 	}
 
-	const patchSource = await resolvePatchText(path, stdin, ctx);
+	const patchSource = await resolvePatchText(input, stdin, ctx);
 	if ("exitCode" in patchSource) {
 		return patchSource;
 	}
@@ -107,8 +139,8 @@ async function runPatchCommand(
 	}
 
 	try {
-		await ctx.fs.mkdir(options.mountPoint, { recursive: true });
-		const operations = await applyPatchHunks(parsedPatch.hunks, ctx, options);
+		const basePath = resolveBasePath(input.base, ctx);
+		const operations = await applyPatchHunks(parsedPatch.hunks, ctx, basePath);
 		return {
 			stdout: operations.length > 0 ? `${operations.join("\n")}\n` : "",
 			stderr: "",
@@ -120,24 +152,24 @@ async function runPatchCommand(
 }
 
 async function resolvePatchText(
-	path: string | undefined,
+	input: PatchCommandInput,
 	stdin: string,
 	ctx: CommandContext,
 ): Promise<{ patchText: string } | ExecResult> {
-	if (!path) {
+	if (input.content) {
+		return { patchText: input.content };
+	}
+
+	if (!input.file) {
 		return { patchText: stdin };
 	}
 
-	const sourcePath = resolveInputPath(path, ctx);
+	const sourcePath = resolveCliPath(input.file, ctx);
 	if (await ctx.fs.exists(sourcePath)) {
 		return { patchText: await ctx.fs.readFile(sourcePath) };
 	}
 
-	if (looksLikePatchText(path)) {
-		return { patchText: path };
-	}
-
-	return commandError(`x-patch: patch file not found: ${path}\n`, 1);
+	return commandError(`x-patch: patch file not found: ${input.file}\n`, 1);
 }
 
 function parsePatchResult(patchText: string): { hunks: Hunk[] } | ExecResult {
@@ -153,32 +185,32 @@ function parsePatchResult(patchText: string): { hunks: Hunk[] } | ExecResult {
 async function applyPatchHunks(
 	hunks: Hunk[],
 	ctx: CommandContext,
-	options: PatchCommandOptions,
+	basePath: string,
 ): Promise<string[]> {
 	const operations: string[] = [];
 
 	for (const hunk of hunks) {
 		switch (hunk.type) {
 			case "add": {
-				const targetPath = resolveWorkspacePath(ctx, options.mountPoint, hunk.path);
+				const targetPath = resolvePatchPath(hunk.path, basePath, ctx);
 				await ctx.fs.mkdir(parentDirectory(targetPath), { recursive: true });
 				await ctx.fs.writeFile(targetPath, hunk.contents);
-				operations.push(`A ${workspaceRelativePath(targetPath, options.mountPoint)}`);
+				operations.push(`A ${formatOperationPath(targetPath, basePath)}`);
 				break;
 			}
 
 			case "delete": {
-				const targetPath = resolveWorkspacePath(ctx, options.mountPoint, hunk.path);
+				const targetPath = resolvePatchPath(hunk.path, basePath, ctx);
 				if (!(await ctx.fs.exists(targetPath))) {
 					throw new Error(`x-patch: cannot delete missing file: ${hunk.path}`);
 				}
 				await ctx.fs.rm(targetPath, { force: false, recursive: true });
-				operations.push(`D ${workspaceRelativePath(targetPath, options.mountPoint)}`);
+				operations.push(`D ${formatOperationPath(targetPath, basePath)}`);
 				break;
 			}
 
 			case "update": {
-				const sourcePath = resolveWorkspacePath(ctx, options.mountPoint, hunk.path);
+				const sourcePath = resolvePatchPath(hunk.path, basePath, ctx);
 				if (!(await ctx.fs.exists(sourcePath))) {
 					throw new Error(`x-patch: cannot update missing file: ${hunk.path}`);
 				}
@@ -186,7 +218,7 @@ async function applyPatchHunks(
 				const originalContent = await ctx.fs.readFile(sourcePath);
 				const next = deriveNewContentsFromChunks(hunk.path, hunk.chunks, originalContent);
 				const destinationPath = hunk.move_path
-					? resolveWorkspacePath(ctx, options.mountPoint, hunk.move_path)
+					? resolvePatchPath(hunk.move_path, basePath, ctx)
 					: sourcePath;
 				await ctx.fs.mkdir(parentDirectory(destinationPath), { recursive: true });
 				await ctx.fs.writeFile(destinationPath, next.bom ? `\uFEFF${next.content}` : next.content);
@@ -194,10 +226,10 @@ async function applyPatchHunks(
 				if (destinationPath !== sourcePath) {
 					await ctx.fs.rm(sourcePath, { force: false, recursive: true });
 					operations.push(
-						`M ${workspaceRelativePath(destinationPath, options.mountPoint)} (from ${workspaceRelativePath(sourcePath, options.mountPoint)})`,
+						`M ${formatOperationPath(destinationPath, basePath)} (from ${formatOperationPath(sourcePath, basePath)})`,
 					);
 				} else {
-					operations.push(`M ${workspaceRelativePath(destinationPath, options.mountPoint)}`);
+					operations.push(`M ${formatOperationPath(destinationPath, basePath)}`);
 				}
 				break;
 			}
@@ -211,16 +243,26 @@ function patchUsageError(message: string): ExecResult {
 	return commandUsageError(PATCH_COMMAND_HELP, [PATCH_COMMAND.id], message);
 }
 
-function resolveInputPath(path: string, ctx: CommandContext): string {
-	return ctx.fs.resolvePath(getCommandCwd(ctx), path);
+function normalizeOptionalString(
+	value: string | string[] | boolean | undefined,
+): string | undefined {
+	if (Array.isArray(value)) {
+		return value[0];
+	}
+
+	return typeof value === "string" ? value : undefined;
 }
 
-function resolveWorkspacePath(ctx: CommandContext, mountPoint: string, path: string): string {
-	const resolvedPath = ctx.fs.resolvePath(mountPoint, path);
-	if (!isWithinDirectory(resolvedPath, mountPoint)) {
-		throw new Error(`x-patch: patch path escapes the workspace mount: ${path}`);
-	}
-	return resolvedPath;
+function resolveCliPath(path: string, ctx: CommandContext): string {
+	return resolvePathFromBase(path, getCommandCwd(ctx), ctx);
+}
+
+function resolveBasePath(base: string | undefined, ctx: CommandContext): string {
+	return resolvePathFromBase(base ?? getCommandCwd(ctx), getCommandCwd(ctx), ctx);
+}
+
+function resolvePatchPath(path: string, basePath: string, ctx: CommandContext): string {
+	return resolvePathFromBase(path, basePath, ctx);
 }
 
 function getCommandCwd(ctx: CommandContext): string {
@@ -228,8 +270,25 @@ function getCommandCwd(ctx: CommandContext): string {
 	return typeof maybeCwd === "string" ? maybeCwd : "/home/user";
 }
 
-function looksLikePatchText(value: string): boolean {
-	return value.trimStart().startsWith("*** Begin Patch");
+function resolvePathFromBase(path: string, basePath: string, ctx: CommandContext): string {
+	const expandedPath = expandHomePath(path, ctx);
+	return ctx.fs.resolvePath(basePath, expandedPath);
+}
+
+function expandHomePath(path: string, ctx: CommandContext): string {
+	if (path === "~") {
+		return getHomeDirectory(ctx);
+	}
+
+	if (path.startsWith("~/")) {
+		return `${getHomeDirectory(ctx)}/${path.slice(2)}`;
+	}
+
+	return path;
+}
+
+function getHomeDirectory(ctx: CommandContext): string {
+	return ctx.env.get("HOME") ?? "/home/user";
 }
 
 function assertHasHunks(hunks: Hunk[], patchText: string): void {
@@ -245,12 +304,16 @@ function assertHasHunks(hunks: Hunk[], patchText: string): void {
 	throw new Error("apply_patch verification failed: no hunks found");
 }
 
-function workspaceRelativePath(path: string, mountPoint: string): string {
-	if (path === mountPoint) {
+function formatOperationPath(path: string, basePath: string): string {
+	if (path === basePath) {
 		return ".";
 	}
 
-	return path.slice(`${mountPoint}/`.length);
+	if (basePath === "/") {
+		return path.slice(1);
+	}
+
+	return isWithinDirectory(path, basePath) ? path.slice(`${basePath}/`.length) : path;
 }
 
 function parentDirectory(path: string): string {
