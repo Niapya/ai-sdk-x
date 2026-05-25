@@ -4,8 +4,10 @@
 ///
 
 import { type Command, type CommandContext, decodeBytesToUtf8, type ExecResult } from "just-bash";
-import { deriveNewContentsFromChunks, type Hunk, parsePatch } from "@/commands/patch/patch";
-import type { PatchCommandOptions } from "@/commands/patch/types";
+import { deriveNewContentsFromChunks, type Hunk, parsePatch } from "@/features/patch/patch";
+import type { PatchCommandOptions, PatchConfig, PatchOptions } from "@/features/patch/types";
+import type { FeatureSetupContext, FeatureSetupResult } from "@/features/shared";
+import { resolveFeatureEnabled } from "@/features/shared";
 import { commandError, commandUsageError, createCommand, defineCliCommand } from "@/utils/command";
 
 const PATCH_ARGS = [
@@ -85,7 +87,7 @@ const PATCH_COMMAND = defineCliCommand({
 
 const PATCH_COMMAND_HELP = PATCH_COMMAND;
 
-export function createPatchCommand(options: PatchCommandOptions): Command {
+export function createPatchCommand(_options: PatchCommandOptions = {}): Command {
 	return createCommand({
 		...PATCH_COMMAND,
 		run: ({ args: { content }, flags: { file, base } }, ctx) =>
@@ -96,9 +98,23 @@ export function createPatchCommand(options: PatchCommandOptions): Command {
 					base: normalizeOptionalString(base),
 				},
 				ctx,
-				options,
 			),
 	});
+}
+
+export function setupPatchFeature(
+	_context: FeatureSetupContext,
+	option: boolean | PatchOptions | undefined,
+): FeatureSetupResult<PatchConfig> {
+	const config: PatchConfig = {
+		enabled: resolveFeatureEnabled(option),
+	};
+
+	return {
+		command: config.enabled ? createPatchCommand() : undefined,
+		config,
+		initPaths: [],
+	};
 }
 
 interface PatchCommandInput {
@@ -107,11 +123,7 @@ interface PatchCommandInput {
 	file?: string;
 }
 
-async function runPatchCommand(
-	input: PatchCommandInput,
-	ctx: CommandContext,
-	_options: PatchCommandOptions,
-): Promise<ExecResult> {
+async function runPatchCommand(input: PatchCommandInput, ctx: CommandContext): Promise<ExecResult> {
 	const stdin = decodeBytesToUtf8(ctx.stdin);
 	const stdinProvided = stdin.trim().length > 0;
 	const providedSources = [input.content, input.file, stdinProvided ? stdin : undefined].filter(
@@ -333,4 +345,4 @@ function formatErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-export type { PatchCommandOptions } from "@/commands/patch/types";
+export type { PatchCommandOptions, PatchConfig, PatchOptions } from "@/features/patch/types";

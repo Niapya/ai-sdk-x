@@ -31,7 +31,9 @@ export function createToolDescription(
 		].join("\n"),
 	];
 
-	const commandNames = Object.values(commands).map((cmd) => cmd.name);
+	const commandNames = Object.values(commands)
+		.filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== undefined)
+		.map((cmd) => cmd.name);
 	if (commandNames.length > 0) {
 		sections.push(`Available custom commands: ${commandNames.join(", ")}`);
 	}

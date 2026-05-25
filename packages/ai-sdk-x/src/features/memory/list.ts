@@ -1,6 +1,6 @@
 import type { ExecResult, IFileSystem } from "just-bash";
-import type { MemoryCommandOptions } from "@/commands/memory/types";
-import { collectMemoryFiles } from "@/commands/memory/utils/shared";
+import type { MemoryCommandOptions } from "@/features/memory/types";
+import { collectMemoryFiles } from "@/features/memory/utils/shared";
 import { type CliCommandDefinition, defineCliCommand } from "@/utils/command";
 
 export async function listMemory(

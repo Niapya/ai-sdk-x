@@ -1,9 +1,9 @@
 import type { CommandContext, ExecResult } from "just-bash";
 import { createGit } from "just-git";
-import type { SkillsCommandOptions } from "@/commands/skills/types";
-import { writeSkillLockfile } from "@/commands/skills/utils/lockfile";
-import { frontmatterDescription } from "@/commands/skills/utils/metadata";
-import { parseSkillInstallTarget } from "@/commands/skills/utils/parser";
+import type { SkillsCommandOptions } from "@/features/skills/types";
+import { writeSkillLockfile } from "@/features/skills/utils/lockfile";
+import { frontmatterDescription } from "@/features/skills/utils/metadata";
+import { parseSkillInstallTarget } from "@/features/skills/utils/parser";
 import { commandError, defineCliCommand } from "@/utils/command";
 import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
 

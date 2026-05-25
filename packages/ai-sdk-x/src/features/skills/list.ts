@@ -1,7 +1,7 @@
 import type { ExecResult, IFileSystem } from "just-bash";
-import type { SkillsCommandOptions } from "@/commands/skills/types";
-import { readSkillLockfile } from "@/commands/skills/utils/lockfile";
-import { frontmatterDescription } from "@/commands/skills/utils/metadata";
+import type { SkillsCommandOptions } from "@/features/skills/types";
+import { readSkillLockfile } from "@/features/skills/utils/lockfile";
+import { frontmatterDescription } from "@/features/skills/utils/metadata";
 import { defineCliCommand } from "@/utils/command";
 import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
 

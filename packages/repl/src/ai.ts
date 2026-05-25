@@ -39,7 +39,6 @@ const fs = new ReadWriteFs({ root });
 const bash = new X({
 	fs,
 });
-
 const openrouter = createOpenRouter({
 	apiKey: process.env.OPENROUTER_API_KEY,
 });

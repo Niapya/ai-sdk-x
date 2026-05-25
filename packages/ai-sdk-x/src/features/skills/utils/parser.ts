@@ -1,4 +1,4 @@
-import type { SkillInstallTarget } from "@/commands/skills/types";
+import type { SkillInstallTarget } from "@/features/skills/types";
 
 export function parseSkillInstallTarget(spec: string): SkillInstallTarget | null {
 	const atIndex = spec.lastIndexOf("@");

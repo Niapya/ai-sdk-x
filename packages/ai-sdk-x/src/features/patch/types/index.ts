@@ -1,6 +1,10 @@
-export interface PatchCommandOptions {
-	mountPoint: string;
+export type PatchOptions = Record<string, never>;
+
+export interface PatchConfig {
+	readonly enabled: boolean;
 }
+
+export type PatchCommandOptions = Record<string, never>;
 
 export type Hunk = AddFileHunk | DeleteFileHunk | UpdateFileHunk;
 

@@ -8,21 +8,17 @@ import {
 	InMemoryFs,
 	MountableFs,
 } from "just-bash";
-import { createMemoryCommand } from "@/commands/memory";
-import { createPatchCommand } from "@/commands/patch";
-import { createSkillsCommand, parseSkillInstallTarget } from "@/commands/skills";
-import { resolveConfig } from "@/runtime/config";
-import {
-	DEFAULT_MEMORY_MOUNT,
-	DEFAULT_SKILLS_MOUNT,
-	DEFAULT_WORKSPACE_MOUNT,
-} from "@/runtime/constants";
+import { setupMemoryFeature } from "@/features/memory";
+import { setupPatchFeature } from "@/features/patch";
+import { type FeatureSetupResult, initializeFeatureSetups } from "@/features/shared";
+import { parseSkillInstallTarget, setupSkillsFeature } from "@/features/skills";
+import { setupWorkspaceFeature } from "@/features/workspace";
+import { resolveBashConfig } from "@/runtime/config";
 import {
 	createEnvironment,
 	persistEnvironmentSnapshot,
 	resolveEnvironmentSnapshot,
 } from "@/runtime/environment";
-import { initializeMounts, mountIfEnabled } from "@/runtime/mounts";
 import { MAX_OUTPUT } from "@/runtime/output";
 import { createBashTool, createToolDescription } from "@/runtime/tools";
 
@@ -55,6 +51,8 @@ export type {
 	KVStorage,
 	MemoryConfig,
 	MemoryOptions,
+	PatchConfig,
+	PatchOptions,
 	SkillsConfig,
 	SkillsOptions,
 	WorkspaceConfig,
@@ -73,42 +71,52 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 	readonly env: Environment;
 
 	constructor(options: XOptions = {}) {
-		this.config = resolveConfig(options);
+		const bashConfig = resolveBashConfig(options.bash);
 		this.env = createEnvironment(options.env);
 
 		const baseFs = options.fs ?? new InMemoryFs();
 		const mountableFs = new MountableFs({ base: baseFs });
-		const baseInitPaths = [
-			mountIfEnabled(mountableFs, baseFs, this.config.workspace, DEFAULT_WORKSPACE_MOUNT),
-			mountIfEnabled(mountableFs, baseFs, this.config.skills, DEFAULT_SKILLS_MOUNT),
-			mountIfEnabled(mountableFs, baseFs, this.config.memory, DEFAULT_MEMORY_MOUNT),
-		].filter((path): path is string => path !== undefined);
+		const featureContext = {
+			baseFs,
+			fs: mountableFs,
+		};
+		const workspaceFeature = setupWorkspaceFeature(featureContext, options.workspace);
+		const skillsFeature = setupSkillsFeature(featureContext, options.skills);
+		const memoryFeature = setupMemoryFeature(featureContext, options.memory);
+		const patchFeature = setupPatchFeature(featureContext, options.patch);
+		const featureResults = [
+			workspaceFeature,
+			skillsFeature,
+			memoryFeature,
+			patchFeature,
+		] satisfies FeatureSetupResult[];
+
+		this.config = {
+			bash: bashConfig,
+			memory: memoryFeature.config,
+			patch: patchFeature.config,
+			skills: skillsFeature.config,
+			workspace: workspaceFeature.config,
+		};
 		this.fs = mountableFs;
 
 		const defaultCommands = {
-			skills: createSkillsCommand({
-				cache: this.config.skills.cache,
-				lockfile: this.config.skills.lockfile,
-				mountPoint: this.config.skills.mountPoint,
-			}),
-			memory: createMemoryCommand({
-				cache: this.config.memory.cache,
-				mountPoint: this.config.memory.mountPoint,
-			}),
-			patch: createPatchCommand({
-				mountPoint: this.config.workspace.mountPoint,
-			}),
+			...(skillsFeature.command ? { skills: skillsFeature.command } : {}),
+			...(memoryFeature.command ? { memory: memoryFeature.command } : {}),
+			...(patchFeature.command ? { patch: patchFeature.command } : {}),
 		} satisfies DefaultXCommands;
 		this.commands = defaultCommands as unknown as TCommands;
 
 		const bashOptions: BashOptions = {
-			...this.config.bash,
+			...bashConfig,
 			fs: mountableFs,
-			customCommands: Object.values(this.commands) as Command[],
+			customCommands: Object.values(this.commands).filter(
+				(command): command is Command => command !== undefined,
+			),
 		};
 		this.bash = new Bash(bashOptions);
 
-		void initializeMounts(mountableFs, baseFs, baseInitPaths, this.config);
+		void initializeFeatureSetups(baseFs, featureResults);
 	}
 
 	async exec(command: string, options?: ExecOptions): Promise<BashExecResult> {

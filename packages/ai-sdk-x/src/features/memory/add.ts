@@ -1,6 +1,6 @@
 import { type CommandContext, decodeBytesToUtf8, type ExecResult } from "just-bash";
-import type { MemoryCommandOptions } from "@/commands/memory/types";
-import { formatDate } from "@/commands/memory/utils/shared";
+import type { MemoryCommandOptions } from "@/features/memory/types";
+import { formatDate } from "@/features/memory/utils/shared";
 import { type CliCommandDefinition, defineCliCommand } from "@/utils/command";
 
 export interface AddMemoryInput {

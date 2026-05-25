@@ -4,7 +4,7 @@ import type {
 	SkillLockEntry,
 	SkillsCommandOptions,
 	SkillsLockfile,
-} from "@/commands/skills/types";
+} from "@/features/skills/types";
 import type { JsonRecord } from "@/utils/json";
 import { isJsonRecord } from "@/utils/json";
 

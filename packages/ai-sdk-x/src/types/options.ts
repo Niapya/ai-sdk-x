@@ -1,5 +1,13 @@
 import type { BashOptions, Command, IFileSystem } from "just-bash";
-import type { KVStorage } from "@/types/storage";
+import type { MemoryConfig, MemoryOptions } from "@/features/memory/types";
+import type { PatchConfig, PatchOptions } from "@/features/patch/types";
+import type { SkillsConfig, SkillsOptions } from "@/features/skills/types";
+import type { WorkspaceConfig, WorkspaceOptions } from "@/features/workspace/types";
+
+export type { MemoryConfig, MemoryOptions } from "@/features/memory/types";
+export type { PatchConfig, PatchOptions } from "@/features/patch/types";
+export type { SkillsConfig, SkillsOptions } from "@/features/skills/types";
+export type { WorkspaceConfig, WorkspaceOptions } from "@/features/workspace/types";
 
 export interface Environment {
 	get(): Promise<Record<string, string>> | Record<string, string>;
@@ -12,29 +20,12 @@ export interface GetToolsOptions {
 	maxOutput?: number;
 }
 
-export interface WorkspaceOptions {
-	fs?: IFileSystem;
-	mountPoint?: string;
-}
-
-export interface SkillsOptions {
-	cache?: KVStorage;
-	fs?: IFileSystem;
-	lockfile?: boolean;
-	mountPoint?: string;
-}
-
-export interface MemoryOptions {
-	cache?: KVStorage;
-	fs?: IFileSystem;
-	mountPoint?: string;
-}
-
 export interface XOptions {
 	bash?: Omit<BashOptions, "customCommands" | "fs">;
 	env?: Environment;
 	fs?: IFileSystem;
 	memory?: boolean | MemoryOptions;
+	patch?: boolean | PatchOptions;
 	skills?: boolean | SkillsOptions;
 	workspace?: boolean | WorkspaceOptions;
 }
@@ -46,34 +37,20 @@ export interface BashConfig extends Omit<BashOptions, "customCommands" | "fs"> {
 	readonly python: NonNullable<BashOptions["python"]>;
 }
 
-export interface WorkspaceConfig {
-	readonly enabled: boolean;
-	readonly fs?: IFileSystem;
-	readonly mountPoint: string;
-}
-
-export interface SkillsConfig extends WorkspaceConfig {
-	readonly cache?: KVStorage;
-	readonly lockfile: boolean;
-}
-
-export interface MemoryConfig extends WorkspaceConfig {
-	readonly cache?: KVStorage;
-}
-
 export interface XConfig {
 	readonly bash: BashConfig;
 	readonly memory: MemoryConfig;
+	readonly patch: PatchConfig;
 	readonly skills: SkillsConfig;
 	readonly workspace: WorkspaceConfig;
 }
 
 export interface XCommandMap {
-	[name: string]: Command;
+	[name: string]: Command | undefined;
 }
 
 export interface DefaultXCommands extends XCommandMap {
-	memory: Command;
-	patch: Command;
-	skills: Command;
+	memory?: Command;
+	patch?: Command;
+	skills?: Command;
 }

@@ -1,15 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import { type CommandContext, EMPTY_BYTES, encodeUtf8ToBytes, InMemoryFs } from "just-bash";
-import { createPatchCommand } from "@/commands/patch";
+import { createPatchCommand } from "@/features/patch";
 
 const HOME = "/Users/tester";
-const MOUNT_POINT = "/home/user/workspace";
 
 describe("x-patch", () => {
 	it("applies inline patch content relative to cwd by default", async () => {
 		const fs = new InMemoryFs();
 		const cwd = "/repo/app";
-		const command = createPatchCommand({ mountPoint: MOUNT_POINT });
+		const command = createPatchCommand();
 
 		await fs.mkdir(cwd, { recursive: true });
 
@@ -26,7 +25,7 @@ describe("x-patch", () => {
 	it("reads patch files from --file and resolves relative targets from --base", async () => {
 		const fs = new InMemoryFs();
 		const cwd = "/repo";
-		const command = createPatchCommand({ mountPoint: MOUNT_POINT });
+		const command = createPatchCommand();
 
 		await fs.mkdir("/repo/packages/app", { recursive: true });
 		await fs.writeFile(
@@ -47,7 +46,7 @@ describe("x-patch", () => {
 	it("reads patch content from stdin", async () => {
 		const fs = new InMemoryFs();
 		const cwd = "/repo/app";
-		const command = createPatchCommand({ mountPoint: MOUNT_POINT });
+		const command = createPatchCommand();
 
 		await fs.mkdir(cwd, { recursive: true });
 		await fs.writeFile("/repo/app/notes.txt", "before\n");
@@ -69,7 +68,7 @@ describe("x-patch", () => {
 	it("expands home-relative patch paths", async () => {
 		const fs = new InMemoryFs();
 		const cwd = "/repo/app";
-		const command = createPatchCommand({ mountPoint: MOUNT_POINT });
+		const command = createPatchCommand();
 
 		await fs.mkdir(HOME, { recursive: true });
 		await fs.writeFile(`${HOME}/note.txt`, "before\n");
@@ -87,7 +86,7 @@ describe("x-patch", () => {
 	it("expands home-relative base directories", async () => {
 		const fs = new InMemoryFs();
 		const cwd = "/repo";
-		const command = createPatchCommand({ mountPoint: MOUNT_POINT });
+		const command = createPatchCommand();
 
 		await fs.mkdir(`${HOME}/project`, { recursive: true });
 
