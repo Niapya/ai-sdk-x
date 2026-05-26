@@ -39,7 +39,7 @@ export function createSkillsCommand(options: SkillsCommandOptions): Command {
 			createInstallSkillCommand(options),
 			createListSkillsCommand(options),
 			createSearchSkillsCommand(),
-			createUpdateSkillsCommand(),
+			createUpdateSkillsCommand(options),
 		],
 	});
 }
@@ -65,18 +65,6 @@ export function setupSkillsFeature(
 			: undefined,
 		config,
 		initPaths: mountConfiguredFeature(context, config, DEFAULT_SKILLS_MOUNT),
-		initialize:
-			config.enabled && config.lockfile
-				? async () => {
-						const lockfilePath = `${config.mountPoint}/skills.json`;
-						if (!(await context.fs.exists(lockfilePath))) {
-							await context.fs.writeFile(
-								lockfilePath,
-								`${JSON.stringify({ version: 1, skills: {} }, null, 2)}\n`,
-							);
-						}
-					}
-				: undefined,
 	};
 }
 

@@ -1,9 +1,11 @@
 import type { BashOptions, Command, IFileSystem } from "just-bash";
+import type { GitConfig, GitOptions } from "@/features/git/types";
 import type { MemoryConfig, MemoryOptions } from "@/features/memory/types";
 import type { PatchConfig, PatchOptions } from "@/features/patch/types";
 import type { SkillsConfig, SkillsOptions } from "@/features/skills/types";
 import type { WorkspaceConfig, WorkspaceOptions } from "@/features/workspace/types";
 
+export type { GitConfig, GitOptions } from "@/features/git/types";
 export type { MemoryConfig, MemoryOptions } from "@/features/memory/types";
 export type { PatchConfig, PatchOptions } from "@/features/patch/types";
 export type { SkillsConfig, SkillsOptions } from "@/features/skills/types";
@@ -24,6 +26,7 @@ export interface XOptions {
 	bash?: Omit<BashOptions, "customCommands" | "fs">;
 	env?: Environment;
 	fs?: IFileSystem;
+	git?: boolean | GitOptions;
 	memory?: boolean | MemoryOptions;
 	patch?: boolean | PatchOptions;
 	skills?: boolean | SkillsOptions;
@@ -39,6 +42,7 @@ export interface BashConfig extends Omit<BashOptions, "customCommands" | "fs"> {
 
 export interface XConfig {
 	readonly bash: BashConfig;
+	readonly git: GitConfig;
 	readonly memory: MemoryConfig;
 	readonly patch: PatchConfig;
 	readonly skills: SkillsConfig;
@@ -50,6 +54,7 @@ export interface XCommandMap {
 }
 
 export interface DefaultXCommands extends XCommandMap {
+	git?: Command;
 	memory?: Command;
 	patch?: Command;
 	skills?: Command;

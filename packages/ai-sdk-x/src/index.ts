@@ -8,6 +8,7 @@ import {
 	InMemoryFs,
 	MountableFs,
 } from "just-bash";
+import { setupGitFeature } from "@/features/git";
 import { setupMemoryFeature } from "@/features/memory";
 import { setupPatchFeature } from "@/features/patch";
 import { type FeatureSetupResult, initializeFeatureSetups } from "@/features/shared";
@@ -47,6 +48,8 @@ export type {
 	BashConfig,
 	DefaultXCommands,
 	Environment,
+	GitConfig,
+	GitOptions,
 	GetToolsOptions,
 	KVStorage,
 	MemoryConfig,
@@ -80,11 +83,13 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 			baseFs,
 			fs: mountableFs,
 		};
+		const gitFeature = setupGitFeature(featureContext, options.git);
 		const workspaceFeature = setupWorkspaceFeature(featureContext, options.workspace);
 		const skillsFeature = setupSkillsFeature(featureContext, options.skills);
 		const memoryFeature = setupMemoryFeature(featureContext, options.memory);
 		const patchFeature = setupPatchFeature(featureContext, options.patch);
 		const featureResults = [
+			gitFeature,
 			workspaceFeature,
 			skillsFeature,
 			memoryFeature,
@@ -103,6 +108,7 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 					}),
 				},
 			},
+			git: gitFeature.config,
 			memory: memoryFeature.config,
 			patch: patchFeature.config,
 			skills: skillsFeature.config,
@@ -111,6 +117,7 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 		this.fs = mountableFs;
 
 		const defaultCommands = {
+			...(gitFeature.command ? { git: gitFeature.command } : {}),
 			...(skillsFeature.command ? { skills: skillsFeature.command } : {}),
 			...(memoryFeature.command ? { memory: memoryFeature.command } : {}),
 			...(patchFeature.command ? { patch: patchFeature.command } : {}),

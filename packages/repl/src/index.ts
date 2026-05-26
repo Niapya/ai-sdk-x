@@ -28,6 +28,19 @@ class VirtualRepl {
 		const fs = new ReadWriteFs({ root: this.root });
 		this.tool = new X({
 			fs,
+		}).registerCommand({
+			name: "test",
+			async execute(args, ctx) {
+				ctx.exec?.("asdasdsa", {
+					cwd: "",
+				});
+
+				return {
+					stdout: `You ran the test command with args: ${args.join(" ")} and cwd: ${ctx.cwd}`,
+					stderr: "",
+					exitCode: 0,
+				};
+			},
 		});
 
 		this.rl = readline.createInterface({
