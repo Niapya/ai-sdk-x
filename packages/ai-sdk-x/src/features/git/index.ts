@@ -1,8 +1,8 @@
-import { type Command, latin1FromBytes, type ExecResult } from "just-bash";
+import { type Command, type ExecResult, latin1FromBytes } from "just-bash";
 import { createGit } from "just-git";
+import type { GitConfig, GitOptions } from "@/features/git/types";
 import type { FeatureSetupContext, FeatureSetupResult } from "@/features/shared";
 import { resolveFeatureEnabled, resolveFeatureOption } from "@/features/shared";
-import type { GitConfig, GitOptions } from "@/features/git/types";
 
 export function setupGitFeature(
 	_context: FeatureSetupContext,

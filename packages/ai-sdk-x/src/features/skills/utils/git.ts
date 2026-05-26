@@ -1,6 +1,6 @@
 import type { CommandContext, ExecResult } from "just-bash";
-import { commandError } from "@/utils/command";
 import { deriveSkillRepoSlug } from "@/features/skills/utils/parser";
+import { commandError } from "@/utils/command";
 
 const SKILLS_TEMP_ROOT = "/tmp/skills";
 
