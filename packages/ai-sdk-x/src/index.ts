@@ -65,6 +65,20 @@ export type {
 	XOptions,
 } from "@/types";
 export { MAX_OUTPUT };
+export type {
+	CachingFsOptions,
+	IndexedFsOptions,
+	TransactionalFsOptions,
+	TransactionalFsStatus,
+} from "@/runtime/fs";
+export {
+	CachingFs,
+	IndexedFs,
+	TransactionalFs,
+} from "@/runtime/fs";
+export type { InMemoryKVStoreOptions } from "@/runtime/storage";
+export { InMemoryKVStore } from "@/runtime/storage";
+export type { FsDirent } from "@/utils";
 
 export class X<TCommands extends XCommandMap = DefaultXCommands> {
 	readonly bash: Bash;

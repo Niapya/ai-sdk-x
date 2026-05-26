@@ -1,5 +1,5 @@
 import type { Command, IFileSystem, MountableFs } from "just-bash";
-import { createSubpathFs } from "@/utils/subpath-fs";
+import { createSubpathFs } from "@/runtime/fs/subpath-fs";
 
 export interface FeatureConfig {
 	readonly enabled: boolean;
