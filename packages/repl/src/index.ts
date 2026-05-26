@@ -26,7 +26,7 @@ class VirtualRepl {
 		this.root = resolve(dirname(fileURLToPath(import.meta.url)), "../shell");
 		mkdirSync(this.root, { recursive: true });
 		const fs = new ReadWriteFs({ root: this.root });
-		this.tool = new X({
+		this.tool = X.init({
 			fs,
 		}).registerCommand({
 			name: "test",

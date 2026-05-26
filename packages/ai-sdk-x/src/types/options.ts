@@ -1,9 +1,9 @@
-import type { BashOptions, Command, IFileSystem } from "just-bash";
-import type { GitConfig, GitOptions } from "@/features/git/types";
-import type { MemoryConfig, MemoryOptions } from "@/features/memory/types";
-import type { PatchConfig, PatchOptions } from "@/features/patch/types";
-import type { SkillsConfig, SkillsOptions } from "@/features/skills/types";
-import type { WorkspaceConfig, WorkspaceOptions } from "@/features/workspace/types";
+import type { BashOptions, IFileSystem } from "just-bash";
+import type { GitOptions } from "@/features/git/types";
+import type { MemoryOptions } from "@/features/memory/types";
+import type { PatchOptions } from "@/features/patch/types";
+import type { SkillsOptions } from "@/features/skills/types";
+import type { WorkspaceOptions } from "@/features/workspace/types";
 
 export type { GitConfig, GitOptions } from "@/features/git/types";
 export type { MemoryConfig, MemoryOptions } from "@/features/memory/types";
@@ -26,6 +26,9 @@ export interface XOptions {
 	bash?: Omit<BashOptions, "customCommands" | "fs">;
 	env?: Environment;
 	fs?: IFileSystem;
+}
+
+export interface DefaultFeatureOptions {
 	git?: boolean | GitOptions;
 	memory?: boolean | MemoryOptions;
 	patch?: boolean | PatchOptions;
@@ -38,24 +41,4 @@ export interface BashConfig extends Omit<BashOptions, "customCommands" | "fs"> {
 	readonly env: Record<string, string>;
 	readonly javascript: NonNullable<BashOptions["javascript"]>;
 	readonly python: NonNullable<BashOptions["python"]>;
-}
-
-export interface XConfig {
-	readonly bash: BashConfig;
-	readonly git: GitConfig;
-	readonly memory: MemoryConfig;
-	readonly patch: PatchConfig;
-	readonly skills: SkillsConfig;
-	readonly workspace: WorkspaceConfig;
-}
-
-export interface XCommandMap {
-	[name: string]: Command | undefined;
-}
-
-export interface DefaultXCommands extends XCommandMap {
-	git?: Command;
-	memory?: Command;
-	patch?: Command;
-	skills?: Command;
 }

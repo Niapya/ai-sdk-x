@@ -6,8 +6,8 @@
 import { type Command, type CommandContext, decodeBytesToUtf8, type ExecResult } from "just-bash";
 import { deriveNewContentsFromChunks, type Hunk, parsePatch } from "@/features/patch/patch";
 import type { PatchCommandOptions, PatchConfig, PatchOptions } from "@/features/patch/types";
-import type { FeatureSetupContext, FeatureSetupResult } from "@/features/shared";
-import { resolveFeatureEnabled } from "@/features/shared";
+import { resolveFeatureEnabled } from "@/runtime/features";
+import type { Feature } from "@/types";
 import { commandError, commandUsageError, createCommand, defineCliCommand } from "@/utils/command";
 
 const PATCH_ARGS = [
@@ -102,18 +102,15 @@ export function createPatchCommand(_options: PatchCommandOptions = {}): Command 
 	});
 }
 
-export function setupPatchFeature(
-	_context: FeatureSetupContext,
-	option: boolean | PatchOptions | undefined,
-): FeatureSetupResult<PatchConfig> {
+export function createPatchFeature(option: boolean | PatchOptions | undefined = true): Feature {
 	const config: PatchConfig = {
 		enabled: resolveFeatureEnabled(option),
 	};
 
 	return {
-		command: config.enabled ? createPatchCommand() : undefined,
-		config,
-		initPaths: [],
+		name: "patch",
+		prompt: () => "Use x-patch to apply structured file edits.",
+		command: config.enabled ? [createPatchCommand()] : undefined,
 	};
 }
 

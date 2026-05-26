@@ -1,7 +1,7 @@
 import type { Tool } from "ai";
-import type { BashExecResult, ExecOptions } from "just-bash";
+import type { BashExecResult, Command, ExecOptions } from "just-bash";
 import { MAX_OUTPUT, type TruncateOutputOptions, truncateToolOutput } from "@/runtime/output";
-import type { GetToolsOptions, XCommandMap, XConfig } from "@/types";
+import type { Feature, FeatureSetupContext, GetToolsOptions } from "@/types";
 
 type BashToolInput = {
 	command: string;
@@ -15,27 +15,39 @@ type BashToolOutput = {
 	exitCode: number;
 };
 
-export function createToolDescription(
-	config: XConfig,
-	commands: XCommandMap,
+export async function createToolDescription(
+	features: ReadonlyArray<Feature>,
+	commands: ReadonlyArray<Command>,
+	featureContext: FeatureSetupContext,
 	options: GetToolsOptions = {},
-): string {
+): Promise<string> {
 	const sections = [
 		"Run shell commands in the mounted workspace.",
 		[
 			"Prefer grep, sed, head, tail, split, and similar tools when inspecting large files.",
-			`Workspace mount: ${config.workspace.mountPoint}`,
-			`Skills mount: ${config.skills.mountPoint}`,
-			`Memory mount: ${config.memory.mountPoint}`,
-			`Default cwd: ${config.bash.cwd}`,
+			`Default cwd: ${featureContext.bash.getCwd()}`,
 		].join("\n"),
 	];
 
-	const commandNames = Object.values(commands)
-		.filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== undefined)
-		.map((cmd) => cmd.name);
+	const commandNames = commands.map((cmd) => cmd.name);
 	if (commandNames.length > 0) {
 		sections.push(`Available custom commands: ${commandNames.join(", ")}`);
+	}
+
+	const promptValues = await Promise.all(
+		features.map(async (feature) => {
+			if (!feature.prompt) {
+				return undefined;
+			}
+
+			const prompt = await feature.prompt(featureContext);
+			return prompt.trim();
+		}),
+	);
+
+	const prompts = promptValues.filter((prompt): prompt is string => Boolean(prompt));
+	if (prompts.length > 0) {
+		sections.push(`Feature guidance:\n${prompts.join("\n")}`);
 	}
 
 	if (options.description) {

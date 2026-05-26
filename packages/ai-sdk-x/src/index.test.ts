@@ -1,46 +1,93 @@
 import { describe, expect, it } from "bun:test";
 import X from "@/index";
+import type { Feature } from "@/types";
 
-describe("X feature setup", () => {
-	it("registers built-in feature commands by default", () => {
+describe("X feature runtime", () => {
+	it("starts with no default features in constructor", async () => {
 		const x = new X();
 
-		expect("git" in x.commands).toBe(true);
-		expect("memory" in x.commands).toBe(true);
-		expect("patch" in x.commands).toBe(true);
-		expect("skills" in x.commands).toBe(true);
-	});
-
-	it("exports enabled feature mounts as shell environment variables", async () => {
-		const x = new X({
-			memory: { mountPoint: "/mem" },
-			skills: { mountPoint: "/skills-dir" },
-			workspace: { mountPoint: "/workspace-dir" },
-		});
+		expect(x.commands.length).toBe(0);
+		expect(await x.fs.exists("/home/user/memory")).toBe(false);
+		expect(await x.fs.exists("/home/user/skills")).toBe(false);
+		expect(await x.fs.exists("/home/user/workspace")).toBe(false);
 
 		const result = await x.exec(
 			'printf "%s|%s|%s" "$WORKSPACE_HOME" "$SKILLS_HOME" "$MEMORY_HOME"',
 		);
-
-		expect(result.stdout).toBe("/workspace-dir|/skills-dir|/mem");
-	});
-
-	it("omits feature home environment variables when features are disabled", async () => {
-		const x = new X({
-			memory: false,
-			skills: false,
-			workspace: false,
-		});
-
-		const result = await x.exec(
-			'printf "%s|%s|%s" "$WORKSPACE_HOME" "$SKILLS_HOME" "$MEMORY_HOME"',
-		);
-
 		expect(result.stdout).toBe("||");
 	});
 
-	it("skips disabled feature commands and mounts", async () => {
-		const x = new X({
+	it("registerFeature registers commands immediately and initializes once on exec", async () => {
+		const x = new X();
+		let initCount = 0;
+
+		x.registerFeature({
+			name: "demo",
+			command: [
+				{
+					name: "x-demo",
+					async execute() {
+						return {
+							stdout: "demo",
+							stderr: "",
+							exitCode: 0,
+						};
+					},
+				},
+			],
+			init: async ({ fs }) => {
+				initCount += 1;
+				await fs.mkdir("/tmp/demo", { recursive: true });
+			},
+		});
+
+		expect(x.commands.some((command) => command.name === "x-demo")).toBe(true);
+		expect(await x.fs.exists("/tmp/demo")).toBe(false);
+
+		const first = await x.exec("x-demo");
+		expect(first.stdout).toBe("demo");
+		expect(initCount).toBe(1);
+		expect(await x.fs.exists("/tmp/demo")).toBe(true);
+
+		const second = await x.exec("x-demo");
+		expect(second.stdout).toBe("demo");
+		expect(initCount).toBe(1);
+	});
+
+	it("overwrites same feature command and env directly", async () => {
+		const x = new X();
+
+		x.registerFeature(createEchoFeature("override", "x-overwrite", "/one"));
+		x.registerFeature(createEchoFeature("override", "x-overwrite", "/two"));
+
+		const commandResult = await x.exec("x-overwrite");
+		expect(commandResult.stdout).toBe("/two");
+
+		const envResult = await x.exec('printf "%s" "$DEMO_HOME"');
+		expect(envResult.stdout).toBe("/two");
+		expect(x.commands.filter((command) => command.name === "x-overwrite").length).toBe(1);
+	});
+
+	it("X.init registers built-in features and exports mount env", async () => {
+		const x = X.init();
+
+		expect(x.commands.some((command) => command.name === "git")).toBe(true);
+		expect(x.commands.some((command) => command.name === "x-memory")).toBe(true);
+		expect(x.commands.some((command) => command.name === "x-patch")).toBe(true);
+		expect(x.commands.some((command) => command.name === "x-skills")).toBe(true);
+		expect(await x.fs.exists("/home/user/memory")).toBe(false);
+
+		const envResult = await x.exec(
+			'printf "%s|%s|%s" "$WORKSPACE_HOME" "$SKILLS_HOME" "$MEMORY_HOME"',
+		);
+		expect(envResult.stdout).toBe("/home/user/workspace|/home/user/skills|/home/user/memory");
+		expect(await x.fs.exists("/home/user/memory")).toBe(true);
+		expect(await x.fs.exists("/home/user/skills")).toBe(true);
+		expect(await x.fs.exists("/home/user/workspace")).toBe(true);
+	});
+
+	it("X.init supports disabling built-in features", async () => {
+		const x = X.init({
 			git: false,
 			memory: false,
 			patch: false,
@@ -48,27 +95,19 @@ describe("X feature setup", () => {
 			workspace: false,
 		});
 
-		expect("git" in x.commands).toBe(false);
-		expect("memory" in x.commands).toBe(false);
-		expect("patch" in x.commands).toBe(false);
-		expect("skills" in x.commands).toBe(false);
-		expect(await x.fs.exists("/home/user/memory")).toBe(false);
-		expect(await x.fs.exists("/home/user/skills")).toBe(false);
-		expect(await x.fs.exists("/home/user/workspace")).toBe(false);
+		expect(x.commands.length).toBe(0);
 
-		const gitResult = await x.exec("git status");
-		const memoryResult = await x.exec("x-memory list");
+		const envResult = await x.exec(
+			'printf "%s|%s|%s" "$WORKSPACE_HOME" "$SKILLS_HOME" "$MEMORY_HOME"',
+		);
+		expect(envResult.stdout).toBe("||");
+
 		const skillsResult = await x.exec("x-skills list");
-		const patchResult = await x.exec("x-patch --help");
-
-		expect(gitResult.stderr.includes("command not found")).toBe(true);
-		expect(memoryResult.stderr.includes("command not found")).toBe(true);
 		expect(skillsResult.stderr.includes("command not found")).toBe(true);
-		expect(patchResult.stderr.includes("command not found")).toBe(true);
 	});
 
 	it("lazily creates skills.json during install and updates skills from git", async () => {
-		const x = new X();
+		const x = X.init();
 
 		await initializeSkillRepo(x, "/origin", "demo", skillMarkdown("Demo", "Version 1"));
 		expect(await x.fs.exists("/home/user/skills/skills.json")).toBe(false);
@@ -90,7 +129,7 @@ describe("X feature setup", () => {
 	});
 
 	it("does not write skills.json when lockfile support is disabled", async () => {
-		const x = new X({
+		const x = X.init({
 			skills: {
 				lockfile: false,
 			},
@@ -103,8 +142,8 @@ describe("X feature setup", () => {
 		expect(await x.fs.exists("/home/user/skills/skills.json")).toBe(false);
 	});
 
-	it("surfaces git command failures when the git feature is disabled", async () => {
-		const x = new X({
+	it("surfaces git command failures when git feature is disabled", async () => {
+		const x = X.init({
 			git: false,
 		});
 
@@ -113,6 +152,27 @@ describe("X feature setup", () => {
 		expect(installResult.stderr.includes("command not found")).toBe(true);
 	});
 });
+
+function createEchoFeature(name: string, commandName: string, output: string): Feature {
+	return {
+		name,
+		command: [
+			{
+				name: commandName,
+				async execute() {
+					return {
+						stdout: output,
+						stderr: "",
+						exitCode: 0,
+					};
+				},
+			},
+		],
+		env: {
+			DEMO_HOME: output,
+		},
+	};
+}
 
 async function initializeSkillRepo(
 	x: X,

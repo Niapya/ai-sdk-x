@@ -1,13 +1,10 @@
 import { type Command, type ExecResult, latin1FromBytes } from "just-bash";
 import { createGit } from "just-git";
 import type { GitConfig, GitOptions } from "@/features/git/types";
-import type { FeatureSetupContext, FeatureSetupResult } from "@/features/shared";
-import { resolveFeatureEnabled, resolveFeatureOption } from "@/features/shared";
+import { resolveFeatureEnabled, resolveFeatureOption } from "@/runtime/features";
+import type { Feature } from "@/types";
 
-export function setupGitFeature(
-	_context: FeatureSetupContext,
-	option: boolean | GitOptions | undefined,
-): FeatureSetupResult<GitConfig> {
+export function createGitFeature(option: boolean | GitOptions | undefined = true): Feature {
 	const resolvedOption = resolveFeatureOption(option);
 	const gitCommand = resolvedOption ? createGit(resolvedOption) : createGit();
 	const config: GitConfig = {
@@ -16,9 +13,9 @@ export function setupGitFeature(
 	};
 
 	return {
-		command: config.enabled ? wrapGitCommand(gitCommand) : undefined,
-		config,
-		initPaths: [],
+		name: "git",
+		prompt: () => "Use the git command to inspect or modify repository state.",
+		command: config.enabled ? [wrapGitCommand(gitCommand)] : undefined,
 	};
 }
 

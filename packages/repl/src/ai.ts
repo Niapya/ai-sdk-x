@@ -36,7 +36,7 @@ function color(text: string, tone: keyof typeof ANSI): string {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../shell");
 mkdirSync(root, { recursive: true });
 const fs = new ReadWriteFs({ root });
-const bash = new X({
+const bash = X.init({
 	fs,
 });
 const openrouter = createOpenRouter({

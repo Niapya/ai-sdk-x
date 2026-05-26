@@ -3,13 +3,13 @@ import { createAddMemoryCommand } from "@/features/memory/add";
 import { createListMemoryCommand } from "@/features/memory/list";
 import { createSearchMemoryCommand } from "@/features/memory/search";
 import type { MemoryCommandOptions, MemoryConfig, MemoryOptions } from "@/features/memory/types";
-import type { FeatureSetupContext, FeatureSetupResult } from "@/features/shared";
+import { DEFAULT_MEMORY_MOUNT } from "@/runtime/constants";
 import {
-	mountConfiguredFeature,
+	initializeMountedFeature,
 	resolveFeatureOption,
 	resolveMountedFeatureConfig,
-} from "@/features/shared";
-import { DEFAULT_MEMORY_MOUNT } from "@/runtime/constants";
+} from "@/runtime/features";
+import type { Feature } from "@/types";
 import { type CliTopicDefinition, createCommand } from "@/utils/command";
 
 const MEMORY_COMMAND = {
@@ -41,10 +41,7 @@ export function createMemoryCommand(options: MemoryCommandOptions): Command {
 	});
 }
 
-export function setupMemoryFeature(
-	context: FeatureSetupContext,
-	option: boolean | MemoryOptions | undefined,
-): FeatureSetupResult<MemoryConfig> {
+export function createMemoryFeature(option: boolean | MemoryOptions | undefined = true): Feature {
 	const resolvedOption = resolveFeatureOption(option);
 	const config: MemoryConfig = {
 		...resolveMountedFeatureConfig(option, DEFAULT_MEMORY_MOUNT),
@@ -52,14 +49,29 @@ export function setupMemoryFeature(
 	};
 
 	return {
-		command: config.enabled
-			? createMemoryCommand({
-					cache: config.cache,
-					mountPoint: config.mountPoint,
-				})
+		name: "memory",
+		prompt: config.enabled
+			? () =>
+					`Memory mount: ${config.mountPoint}. Use x-memory to store and search mounted memory notes.`
 			: undefined,
-		config,
-		initPaths: mountConfiguredFeature(context, config, DEFAULT_MEMORY_MOUNT),
+		command: config.enabled
+			? [
+					createMemoryCommand({
+						cache: config.cache,
+						mountPoint: config.mountPoint,
+					}),
+				]
+			: undefined,
+		env: config.enabled
+			? {
+					MEMORY_HOME: config.mountPoint,
+				}
+			: undefined,
+		init: config.enabled
+			? async (context) => {
+					await initializeMountedFeature(context, config, DEFAULT_MEMORY_MOUNT);
+				}
+			: undefined,
 	};
 }
 

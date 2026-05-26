@@ -8,22 +8,38 @@ import {
 	InMemoryFs,
 	MountableFs,
 } from "just-bash";
-import { setupGitFeature } from "@/features/git";
-import { setupMemoryFeature } from "@/features/memory";
-import { setupPatchFeature } from "@/features/patch";
-import { type FeatureSetupResult, initializeFeatureSetups } from "@/features/shared";
-import { parseSkillInstallTarget, setupSkillsFeature } from "@/features/skills";
-import { setupWorkspaceFeature } from "@/features/workspace";
+import { createGitFeature } from "@/features/git";
+import { createMemoryFeature } from "@/features/memory";
+import { createPatchFeature } from "@/features/patch";
+import { createSkillsFeature, parseSkillInstallTarget } from "@/features/skills";
+import { createWorkspaceFeature } from "@/features/workspace";
 import { resolveBashConfig } from "@/runtime/config";
 import {
 	createEnvironment,
 	persistEnvironmentSnapshot,
 	resolveEnvironmentSnapshot,
 } from "@/runtime/environment";
+import {
+	createFeatureRuntimeState,
+	ensureRuntimeFeaturesInitialized,
+	type FeatureRuntimeState,
+	listRuntimeCommands,
+	listRuntimeFeatures,
+	registerRuntimeCommand,
+	registerRuntimeFeature,
+	resolveRuntimeFeatureEnv,
+} from "@/runtime/features";
 import { MAX_OUTPUT } from "@/runtime/output";
 import { createBashTool, createToolDescription } from "@/runtime/tools";
 
-export { parseSkillInstallTarget };
+export {
+	createGitFeature,
+	createMemoryFeature,
+	createPatchFeature,
+	createSkillsFeature,
+	createWorkspaceFeature,
+	parseSkillInstallTarget,
+};
 export type {
 	CliCommandDefinition,
 	CliDefinition,
@@ -36,32 +52,34 @@ export type {
 export { createCommand, defineCliCommand, defineCliTopic } from "@/utils";
 
 import type {
-	DefaultXCommands,
+	DefaultFeatureOptions,
 	Environment,
+	Feature,
 	GetToolsOptions,
-	XCommandMap,
-	XConfig,
 	XOptions,
 } from "@/types";
 
 export type {
 	BashConfig,
-	DefaultXCommands,
+	DefaultFeatureOptions,
 	Environment,
+	Feature,
+	FeatureConfig,
+	FeatureSetupContext,
 	GetToolsOptions,
 	GitConfig,
 	GitOptions,
 	KVStorage,
 	MemoryConfig,
 	MemoryOptions,
+	MountedFeatureConfig,
+	MountedFeatureOptions,
 	PatchConfig,
 	PatchOptions,
 	SkillsConfig,
 	SkillsOptions,
 	WorkspaceConfig,
 	WorkspaceOptions,
-	XCommandMap,
-	XConfig,
 	XOptions,
 } from "@/types";
 export { MAX_OUTPUT };
@@ -80,12 +98,13 @@ export type { InMemoryKVStoreOptions } from "@/runtime/storage";
 export { InMemoryKVStore } from "@/runtime/storage";
 export type { FsDirent } from "@/utils";
 
-export class X<TCommands extends XCommandMap = DefaultXCommands> {
+const X_RUNTIME_STATE = new WeakMap<X, FeatureRuntimeState>();
+
+export class X {
 	readonly bash: Bash;
-	readonly config: XConfig;
-	readonly fs: IFileSystem;
-	readonly commands: TCommands;
+	readonly commands: Command[];
 	readonly env: Environment;
+	readonly fs: IFileSystem;
 
 	constructor(options: XOptions = {}) {
 		const bashConfig = resolveBashConfig(options.bash);
@@ -93,69 +112,52 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 
 		const baseFs = options.fs ?? new InMemoryFs();
 		const mountableFs = new MountableFs({ base: baseFs });
-		const featureContext = {
-			baseFs,
-			fs: mountableFs,
-		};
-		const gitFeature = setupGitFeature(featureContext, options.git);
-		const workspaceFeature = setupWorkspaceFeature(featureContext, options.workspace);
-		const skillsFeature = setupSkillsFeature(featureContext, options.skills);
-		const memoryFeature = setupMemoryFeature(featureContext, options.memory);
-		const patchFeature = setupPatchFeature(featureContext, options.patch);
-		const featureResults = [
-			gitFeature,
-			workspaceFeature,
-			skillsFeature,
-			memoryFeature,
-			patchFeature,
-		] satisfies FeatureSetupResult[];
-
-		this.config = {
-			bash: {
-				...bashConfig,
-				env: {
-					...bashConfig.env,
-					...resolveFeatureHomeEnv({
-						memory: memoryFeature.config,
-						skills: skillsFeature.config,
-						workspace: workspaceFeature.config,
-					}),
-				},
-			},
-			git: gitFeature.config,
-			memory: memoryFeature.config,
-			patch: patchFeature.config,
-			skills: skillsFeature.config,
-			workspace: workspaceFeature.config,
-		};
 		this.fs = mountableFs;
+		this.commands = [];
 
-		const defaultCommands = {
-			...(gitFeature.command ? { git: gitFeature.command } : {}),
-			...(skillsFeature.command ? { skills: skillsFeature.command } : {}),
-			...(memoryFeature.command ? { memory: memoryFeature.command } : {}),
-			...(patchFeature.command ? { patch: patchFeature.command } : {}),
-		} satisfies DefaultXCommands;
-		this.commands = defaultCommands as unknown as TCommands;
+		const runtimeState = createFeatureRuntimeState(baseFs, mountableFs, bashConfig);
+		X_RUNTIME_STATE.set(this, runtimeState);
 
 		const bashOptions: BashOptions = {
-			...this.config.bash,
+			...runtimeState.bashConfig,
 			fs: mountableFs,
-			customCommands: Object.values(this.commands).filter(
-				(command): command is Command => command !== undefined,
-			),
 		};
 		this.bash = new Bash(bashOptions);
+	}
 
-		void initializeFeatureSetups(baseFs, featureResults);
+	/**
+	 * Convenience init
+	 *
+	 * It is equipped with Git, Workspace, Skills, Memory, and Patch.
+	 */
+	static init(options: XOptions & DefaultFeatureOptions = {}): X {
+		const { git, memory, patch, skills, workspace, ...baseOptions } = options;
+		const x = new X(baseOptions);
+
+		x.registerFeature(createGitFeature(git));
+		x.registerFeature(createWorkspaceFeature(workspace));
+		x.registerFeature(createSkillsFeature(skills));
+		x.registerFeature(createMemoryFeature(memory));
+		x.registerFeature(createPatchFeature(patch));
+
+		return x;
 	}
 
 	async exec(command: string, options?: ExecOptions): Promise<BashExecResult> {
-		const baseEnv = await resolveEnvironmentSnapshot(this.env, this.config.bash.env);
+		const runtimeState = getRuntimeState(this);
+
+		await ensureRuntimeFeaturesInitialized(runtimeState, () => ({
+			baseFs: runtimeState.baseFs,
+			bash: this.bash,
+			fs: runtimeState.fs,
+		}));
+
+		const shellEnv = resolveShellEnv(runtimeState);
+		const baseEnv = await resolveEnvironmentSnapshot(this.env, shellEnv);
 		const execEnv = options?.replaceEnv
-			? { ...(options.env ?? {}), ...this.config.bash.env }
+			? { ...(options.env ?? {}), ...shellEnv }
 			: { ...baseEnv, ...(options?.env ?? {}) };
-		const execCwd = options?.cwd ?? execEnv.PWD ?? this.config.bash.cwd;
+		const execCwd = options?.cwd ?? execEnv.PWD ?? runtimeState.bashConfig.cwd;
 		const result = await this.bash.exec(command, {
 			...options,
 			cwd: execCwd,
@@ -163,51 +165,65 @@ export class X<TCommands extends XCommandMap = DefaultXCommands> {
 			replaceEnv: true,
 		});
 
-		await persistEnvironmentSnapshot(this.env, this.config.bash.env, result.env);
+		await persistEnvironmentSnapshot(this.env, shellEnv, result.env);
 		return result;
 	}
 
-	registerCommand<TName extends string, TCommand extends Command & { name: TName }>(
-		command: TCommand,
-	): X<TCommands & Record<TName, TCommand>> {
-		(this.commands as XCommandMap)[command.name] = command;
-		this.bash.registerCommand(command);
-		return this as unknown as X<TCommands & Record<TName, TCommand>>;
+	registerCommand(command: Command): this {
+		const runtimeState = getRuntimeState(this);
+		registerRuntimeCommand(runtimeState, this.bash, command);
+		syncCommands(this, runtimeState);
+		return this;
+	}
+
+	registerFeature(feature: Feature): void {
+		const runtimeState = getRuntimeState(this);
+		registerRuntimeFeature(runtimeState, this.bash, feature);
+		syncCommands(this, runtimeState);
 	}
 
 	async getTools(
 		options: GetToolsOptions = {},
 	): Promise<{ bash: Awaited<ReturnType<typeof createBashTool>> }> {
+		const runtimeState = getRuntimeState(this);
+		const featureContext = {
+			baseFs: runtimeState.baseFs,
+			bash: this.bash,
+			fs: runtimeState.fs,
+		};
+		const description = await createToolDescription(
+			listRuntimeFeatures(runtimeState),
+			this.commands,
+			featureContext,
+			options,
+		);
+
 		return {
-			bash: await createBashTool(
-				this.exec.bind(this),
-				createToolDescription(this.config, this.commands, options),
-				options,
-			),
+			bash: await createBashTool(this.exec.bind(this), description, options),
 		};
 	}
 }
 
-function resolveFeatureHomeEnv(features: {
-	memory: XConfig["memory"];
-	skills: XConfig["skills"];
-	workspace: XConfig["workspace"];
-}): Record<string, string> {
-	const env: Record<string, string> = {};
-
-	if (features.memory.enabled) {
-		env.MEMORY_HOME = features.memory.mountPoint;
+function getRuntimeState(x: X): FeatureRuntimeState {
+	const runtimeState = X_RUNTIME_STATE.get(x);
+	if (!runtimeState) {
+		throw new Error("X runtime state was not initialized.");
 	}
 
-	if (features.skills.enabled) {
-		env.SKILLS_HOME = features.skills.mountPoint;
-	}
+	return runtimeState;
+}
 
-	if (features.workspace.enabled) {
-		env.WORKSPACE_HOME = features.workspace.mountPoint;
-	}
+function syncCommands(x: X, runtimeState: FeatureRuntimeState): void {
+	const nextCommands = listRuntimeCommands(runtimeState);
+	x.commands.length = 0;
+	x.commands.push(...nextCommands);
+}
 
-	return env;
+function resolveShellEnv(runtimeState: FeatureRuntimeState): Record<string, string> {
+	return {
+		...runtimeState.bashConfig.env,
+		...resolveRuntimeFeatureEnv(runtimeState),
+	};
 }
 
 export default X;

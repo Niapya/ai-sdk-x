@@ -2,7 +2,7 @@ const CODE = `import { X } from "ai-sdk-x";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
-const bash = new X();
+const bash = X.init();
 
 const { text } = await generateText({
   model: openai("gpt-4o"),

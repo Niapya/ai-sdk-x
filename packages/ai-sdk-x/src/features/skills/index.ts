@@ -1,16 +1,16 @@
 import type { Command } from "just-bash";
-import type { FeatureSetupContext, FeatureSetupResult } from "@/features/shared";
-import {
-	mountConfiguredFeature,
-	resolveFeatureOption,
-	resolveMountedFeatureConfig,
-} from "@/features/shared";
 import { createInstallSkillCommand } from "@/features/skills/install";
 import { createListSkillsCommand } from "@/features/skills/list";
 import { createSearchSkillsCommand } from "@/features/skills/search";
 import type { SkillsCommandOptions, SkillsConfig, SkillsOptions } from "@/features/skills/types";
 import { createUpdateSkillsCommand } from "@/features/skills/update";
 import { DEFAULT_SKILLS_MOUNT } from "@/runtime/constants";
+import {
+	initializeMountedFeature,
+	resolveFeatureOption,
+	resolveMountedFeatureConfig,
+} from "@/runtime/features";
+import type { Feature } from "@/types";
 import { type CliTopicDefinition, createCommand } from "@/utils/command";
 
 const SKILLS_COMMAND = {
@@ -44,10 +44,7 @@ export function createSkillsCommand(options: SkillsCommandOptions): Command {
 	});
 }
 
-export function setupSkillsFeature(
-	context: FeatureSetupContext,
-	option: boolean | SkillsOptions | undefined,
-): FeatureSetupResult<SkillsConfig> {
+export function createSkillsFeature(option: boolean | SkillsOptions | undefined = true): Feature {
 	const resolvedOption = resolveFeatureOption(option);
 	const config: SkillsConfig = {
 		...resolveMountedFeatureConfig(option, DEFAULT_SKILLS_MOUNT),
@@ -56,15 +53,30 @@ export function setupSkillsFeature(
 	};
 
 	return {
-		command: config.enabled
-			? createSkillsCommand({
-					cache: config.cache,
-					lockfile: config.lockfile,
-					mountPoint: config.mountPoint,
-				})
+		name: "skills",
+		prompt: config.enabled
+			? () =>
+					`Skills mount: ${config.mountPoint}. Use x-skills to install, list, search, and update mounted skills.`
 			: undefined,
-		config,
-		initPaths: mountConfiguredFeature(context, config, DEFAULT_SKILLS_MOUNT),
+		command: config.enabled
+			? [
+					createSkillsCommand({
+						cache: config.cache,
+						lockfile: config.lockfile,
+						mountPoint: config.mountPoint,
+					}),
+				]
+			: undefined,
+		env: config.enabled
+			? {
+					SKILLS_HOME: config.mountPoint,
+				}
+			: undefined,
+		init: config.enabled
+			? async (context) => {
+					await initializeMountedFeature(context, config, DEFAULT_SKILLS_MOUNT);
+				}
+			: undefined,
 	};
 }
 
