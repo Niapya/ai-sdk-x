@@ -98,13 +98,12 @@ export type { InMemoryKVStoreOptions } from "@/runtime/storage";
 export { InMemoryKVStore } from "@/runtime/storage";
 export type { FsDirent } from "@/utils";
 
-const X_RUNTIME_STATE = new WeakMap<X, FeatureRuntimeState>();
-
 export class X {
 	readonly bash: Bash;
 	readonly commands: Command[];
 	readonly env: Environment;
 	readonly fs: IFileSystem;
+	private readonly runtimeState: FeatureRuntimeState;
 
 	constructor(options: XOptions = {}) {
 		const bashConfig = resolveBashConfig(options.bash);
@@ -116,10 +115,10 @@ export class X {
 		this.commands = [];
 
 		const runtimeState = createFeatureRuntimeState(baseFs, mountableFs, bashConfig);
-		X_RUNTIME_STATE.set(this, runtimeState);
+		this.runtimeState = runtimeState;
 
 		const bashOptions: BashOptions = {
-			...runtimeState.bashConfig,
+			...this.runtimeState.bashConfig,
 			fs: mountableFs,
 		};
 		this.bash = new Bash(bashOptions);
@@ -144,7 +143,7 @@ export class X {
 	}
 
 	async exec(command: string, options?: ExecOptions): Promise<BashExecResult> {
-		const runtimeState = getRuntimeState(this);
+		const runtimeState = this.runtimeState;
 
 		await ensureRuntimeFeaturesInitialized(runtimeState, () => ({
 			baseFs: runtimeState.baseFs,
@@ -170,14 +169,14 @@ export class X {
 	}
 
 	registerCommand(command: Command): this {
-		const runtimeState = getRuntimeState(this);
+		const runtimeState = this.runtimeState;
 		registerRuntimeCommand(runtimeState, this.bash, command);
 		syncCommands(this, runtimeState);
 		return this;
 	}
 
 	registerFeature(feature: Feature): void {
-		const runtimeState = getRuntimeState(this);
+		const runtimeState = this.runtimeState;
 		registerRuntimeFeature(runtimeState, this.bash, feature);
 		syncCommands(this, runtimeState);
 	}
@@ -185,7 +184,7 @@ export class X {
 	async getTools(
 		options: GetToolsOptions = {},
 	): Promise<{ bash: Awaited<ReturnType<typeof createBashTool>> }> {
-		const runtimeState = getRuntimeState(this);
+		const runtimeState = this.runtimeState;
 		const featureContext = {
 			baseFs: runtimeState.baseFs,
 			bash: this.bash,
@@ -198,19 +197,12 @@ export class X {
 			options,
 		);
 
+		const bash = await createBashTool(this.exec.bind(this), description, options);
+
 		return {
-			bash: await createBashTool(this.exec.bind(this), description, options),
+			bash,
 		};
 	}
-}
-
-function getRuntimeState(x: X): FeatureRuntimeState {
-	const runtimeState = X_RUNTIME_STATE.get(x);
-	if (!runtimeState) {
-		throw new Error("X runtime state was not initialized.");
-	}
-
-	return runtimeState;
 }
 
 function syncCommands(x: X, runtimeState: FeatureRuntimeState): void {
