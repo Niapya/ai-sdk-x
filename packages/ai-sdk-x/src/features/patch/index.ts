@@ -106,11 +106,18 @@ export function createPatchFeature(option: boolean | PatchOptions | undefined = 
 	const config: PatchConfig = {
 		enabled: resolveFeatureEnabled(option),
 	};
-
-	return {
+	const feature: Feature = {
 		name: "patch",
 		prompt: () => "Use x-patch to apply structured file edits.",
-		command: config.enabled ? [createPatchCommand()] : undefined,
+	};
+
+	if (!config.enabled) {
+		return feature;
+	}
+
+	return {
+		...feature,
+		command: [createPatchCommand()],
 	};
 }
 

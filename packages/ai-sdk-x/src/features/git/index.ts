@@ -11,11 +11,18 @@ export function createGitFeature(option: boolean | GitOptions | undefined = true
 		enabled: resolveFeatureEnabled(option),
 		...(resolvedOption ?? {}),
 	};
-
-	return {
+	const feature: Feature = {
 		name: "git",
 		prompt: () => "Use the git command to inspect or modify repository state.",
-		command: config.enabled ? [wrapGitCommand(gitCommand)] : undefined,
+	};
+
+	if (!config.enabled) {
+		return feature;
+	}
+
+	return {
+		...feature,
+		command: [wrapGitCommand(gitCommand)],
 	};
 }
 

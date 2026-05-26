@@ -1,9 +1,9 @@
-import type { Command } from "just-bash";
-import { createInstallSkillCommand } from "@/features/skills/install";
-import { createListSkillsCommand } from "@/features/skills/list";
-import { createSearchSkillsCommand } from "@/features/skills/search";
+import type { Command, CommandContext, IFileSystem } from "just-bash";
+import { createInstallSkillCommand, installSkill } from "@/features/skills/install";
+import { createListSkillsCommand, listSkills } from "@/features/skills/list";
+import { createSearchSkillsCommand, searchSkills } from "@/features/skills/search";
 import type { SkillsCommandOptions, SkillsConfig, SkillsOptions } from "@/features/skills/types";
-import { createUpdateSkillsCommand } from "@/features/skills/update";
+import { createUpdateSkillsCommand, updateSkills } from "@/features/skills/update";
 import { DEFAULT_SKILLS_MOUNT } from "@/runtime/constants";
 import {
 	initializeMountedFeature,
@@ -44,39 +44,52 @@ export function createSkillsCommand(options: SkillsCommandOptions): Command {
 	});
 }
 
-export function createSkillsFeature(option: boolean | SkillsOptions | undefined = true): Feature {
+export type SkillsFeature = Feature & {
+	readonly createCommand: () => Command;
+	readonly install: (spec: string, ctx: CommandContext) => ReturnType<typeof installSkill>;
+	readonly list: (fs: IFileSystem) => ReturnType<typeof listSkills>;
+	readonly search: (query: string) => ReturnType<typeof searchSkills>;
+	readonly update: (ctx: CommandContext) => ReturnType<typeof updateSkills>;
+};
+
+export function createSkillsFeature(
+	option: boolean | SkillsOptions | undefined = true,
+): SkillsFeature {
 	const resolvedOption = resolveFeatureOption(option);
 	const config: SkillsConfig = {
 		...resolveMountedFeatureConfig(option, DEFAULT_SKILLS_MOUNT),
 		cache: resolvedOption?.cache,
 		lockfile: resolvedOption?.lockfile ?? true,
 	};
+	const commandOptions: SkillsCommandOptions = {
+		cache: config.cache,
+		lockfile: config.lockfile,
+		mountPoint: config.mountPoint,
+	};
+	const feature: SkillsFeature = {
+		name: "skills",
+		createCommand: () => createSkillsCommand(commandOptions),
+		install: (spec, ctx) => installSkill(spec, ctx, commandOptions),
+		list: (fs) => listSkills(fs, commandOptions),
+		search: (query) => searchSkills(query),
+		update: (ctx) => updateSkills(ctx, commandOptions),
+	};
+
+	if (!config.enabled) {
+		return feature;
+	}
 
 	return {
-		name: "skills",
-		prompt: config.enabled
-			? () =>
-					`Skills mount: ${config.mountPoint}. Use x-skills to install, list, search, and update mounted skills.`
-			: undefined,
-		command: config.enabled
-			? [
-					createSkillsCommand({
-						cache: config.cache,
-						lockfile: config.lockfile,
-						mountPoint: config.mountPoint,
-					}),
-				]
-			: undefined,
-		env: config.enabled
-			? {
-					SKILLS_HOME: config.mountPoint,
-				}
-			: undefined,
-		init: config.enabled
-			? async (context) => {
-					await initializeMountedFeature(context, config, DEFAULT_SKILLS_MOUNT);
-				}
-			: undefined,
+		...feature,
+		prompt: () =>
+			`Skills mount: ${config.mountPoint}. Use x-skills to install, list, search, and update mounted skills.`,
+		command: [feature.createCommand()],
+		env: {
+			SKILLS_HOME: config.mountPoint,
+		},
+		init: async (context) => {
+			await initializeMountedFeature(context, config, DEFAULT_SKILLS_MOUNT);
+		},
 	};
 }
 

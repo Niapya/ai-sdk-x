@@ -7,23 +7,24 @@ export function createWorkspaceFeature(
 	option: boolean | WorkspaceOptions | undefined = true,
 ): Feature {
 	const config: WorkspaceConfig = resolveMountedFeatureConfig(option, DEFAULT_WORKSPACE_MOUNT);
+	const feature: Feature = {
+		name: "workspace",
+	};
+
+	if (!config.enabled) {
+		return feature;
+	}
 
 	return {
-		name: "workspace",
-		prompt: config.enabled
-			? () =>
-					`Workspace mount: ${config.mountPoint}. Use the mounted workspace to inspect and edit files.`
-			: undefined,
-		env: config.enabled
-			? {
-					WORKSPACE_HOME: config.mountPoint,
-				}
-			: undefined,
-		init: config.enabled
-			? async (context) => {
-					await initializeMountedFeature(context, config, DEFAULT_WORKSPACE_MOUNT);
-				}
-			: undefined,
+		...feature,
+		prompt: () =>
+			`Workspace mount: ${config.mountPoint}. Use the mounted workspace to inspect and edit files.`,
+		env: {
+			WORKSPACE_HOME: config.mountPoint,
+		},
+		init: async (context) => {
+			await initializeMountedFeature(context, config, DEFAULT_WORKSPACE_MOUNT);
+		},
 	};
 }
 

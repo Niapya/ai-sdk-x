@@ -1,7 +1,7 @@
-import type { Command } from "just-bash";
-import { createAddMemoryCommand } from "@/features/memory/add";
-import { createListMemoryCommand } from "@/features/memory/list";
-import { createSearchMemoryCommand } from "@/features/memory/search";
+import type { Command, CommandContext, IFileSystem } from "just-bash";
+import { type AddMemoryInput, addMemory, createAddMemoryCommand } from "@/features/memory/add";
+import { createListMemoryCommand, listMemory } from "@/features/memory/list";
+import { createSearchMemoryCommand, searchMemory } from "@/features/memory/search";
 import type { MemoryCommandOptions, MemoryConfig, MemoryOptions } from "@/features/memory/types";
 import { DEFAULT_MEMORY_MOUNT } from "@/runtime/constants";
 import {
@@ -41,37 +41,48 @@ export function createMemoryCommand(options: MemoryCommandOptions): Command {
 	});
 }
 
-export function createMemoryFeature(option: boolean | MemoryOptions | undefined = true): Feature {
+export type MemoryFeature = Feature & {
+	readonly add: (input: AddMemoryInput, ctx: CommandContext) => ReturnType<typeof addMemory>;
+	readonly createCommand: () => Command;
+	readonly list: (fs: IFileSystem) => ReturnType<typeof listMemory>;
+	readonly search: (query: string, fs: IFileSystem) => ReturnType<typeof searchMemory>;
+};
+
+export function createMemoryFeature(
+	option: boolean | MemoryOptions | undefined = true,
+): MemoryFeature {
 	const resolvedOption = resolveFeatureOption(option);
 	const config: MemoryConfig = {
 		...resolveMountedFeatureConfig(option, DEFAULT_MEMORY_MOUNT),
 		cache: resolvedOption?.cache,
 	};
+	const commandOptions: MemoryCommandOptions = {
+		cache: config.cache,
+		mountPoint: config.mountPoint,
+	};
+	const feature: MemoryFeature = {
+		name: "memory",
+		createCommand: () => createMemoryCommand(commandOptions),
+		add: (input, ctx) => addMemory(input, ctx, commandOptions),
+		list: (fs) => listMemory(fs, commandOptions),
+		search: (query, fs) => searchMemory(query, fs, commandOptions),
+	};
+
+	if (!config.enabled) {
+		return feature;
+	}
 
 	return {
-		name: "memory",
-		prompt: config.enabled
-			? () =>
-					`Memory mount: ${config.mountPoint}. Use x-memory to store and search mounted memory notes.`
-			: undefined,
-		command: config.enabled
-			? [
-					createMemoryCommand({
-						cache: config.cache,
-						mountPoint: config.mountPoint,
-					}),
-				]
-			: undefined,
-		env: config.enabled
-			? {
-					MEMORY_HOME: config.mountPoint,
-				}
-			: undefined,
-		init: config.enabled
-			? async (context) => {
-					await initializeMountedFeature(context, config, DEFAULT_MEMORY_MOUNT);
-				}
-			: undefined,
+		...feature,
+		prompt: () =>
+			`Memory mount: ${config.mountPoint}. Use x-memory to store and search mounted memory notes.`,
+		command: [feature.createCommand()],
+		env: {
+			MEMORY_HOME: config.mountPoint,
+		},
+		init: async (context) => {
+			await initializeMountedFeature(context, config, DEFAULT_MEMORY_MOUNT);
+		},
 	};
 }
 

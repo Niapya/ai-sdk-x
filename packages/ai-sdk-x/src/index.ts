@@ -40,6 +40,8 @@ export {
 	createWorkspaceFeature,
 	parseSkillInstallTarget,
 };
+export type { MemoryFeature } from "@/features/memory";
+export type { SkillsFeature } from "@/features/skills";
 export type {
 	CliCommandDefinition,
 	CliDefinition,
