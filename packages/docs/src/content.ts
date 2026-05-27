@@ -1,12 +1,12 @@
-import v0GuideGettingStarted from "@/content/v0/guide/getting-started.txt";
-import v0Index from "@/content/v0/index.txt";
-import v0PackagesExecute from "@/content/v0/packages/execute.txt";
-import v0PackagesMemo from "@/content/v0/packages/memo.txt";
-import v0PackagesMemory from "@/content/v0/packages/memory.txt";
-import v0PackagesSkill from "@/content/v0/packages/skill.txt";
+import v0GuideGettingStarted from "@/content/v0/guide/getting-started.md";
+import v0Index from "@/content/v0/index.md";
+import v0PackagesExecute from "@/content/v0/packages/execute.md";
+import v0PackagesMemo from "@/content/v0/packages/memo.md";
+import v0PackagesMemory from "@/content/v0/packages/memory.md";
+import v0PackagesSkill from "@/content/v0/packages/skill.md";
 
-import v1GuideGettingStarted from "@/content/v1/guide/getting-started.txt";
-import v1Index from "@/content/v1/index.txt";
+import v1GuideGettingStarted from "@/content/v1/guide/getting-started.md";
+import v1Index from "@/content/v1/index.md";
 
 const pages: Record<string, string> = {
 	"/v0/": v0Index,

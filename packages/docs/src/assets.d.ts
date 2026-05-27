@@ -8,7 +8,7 @@ declare module "*.html" {
 	export default src;
 }
 
-declare module "*.txt" {
+declare module "*.md" {
 	const src: string;
 	export default src;
 }
