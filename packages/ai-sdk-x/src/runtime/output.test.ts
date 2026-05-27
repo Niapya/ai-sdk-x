@@ -63,4 +63,51 @@ describe("truncateToolOutput", () => {
 		expect(output.stdout).toBe("");
 		expect(output.stderr.length).toBe(5);
 	});
+
+	it("handles empty stdout and stderr without truncation", () => {
+		const output = truncateToolOutput("", "", { maxOutput: 100 });
+		expect(output.stdout).toBe("");
+		expect(output.stderr).toBe("");
+	});
+
+	it("handles empty stdout with non-empty stderr within limits", () => {
+		const output = truncateToolOutput("", "error", { maxOutput: 100 });
+		expect(output.stdout).toBe("");
+		expect(output.stderr).toBe("error");
+	});
+
+	it("handles non-empty stdout with empty stderr within limits", () => {
+		const output = truncateToolOutput("output", "", { maxOutput: 100 });
+		expect(output.stdout).toBe("output");
+		expect(output.stderr).toBe("");
+	});
+
+	it("truncates only the empty stdout allocation to 0 when stderr alone exceeds limit", () => {
+		// stdout is empty, stderr is 200 chars, maxOutput 50
+		const output = truncateToolOutput("", "x".repeat(200), { maxOutput: 50 });
+		expect(output.stdout).toBe("");
+		expect(output.stderr.length).toBeLessThanOrEqual(50);
+		expect(output.stderr).toContain("truncated");
+	});
+
+	it("preserves exact output at boundary without truncation hint", () => {
+		const output = truncateToolOutput("abc", "def", { maxOutput: 6 });
+		expect(output.stdout).toBe("abc");
+		expect(output.stderr).toBe("def");
+	});
+
+	it("respects maxLines=1 leaving only the first line", () => {
+		const output = truncateToolOutput("line1\nline2\nline3", "", {
+			maxLines: 1,
+			maxOutput: 1000,
+		});
+		expect(output.stdout).toContain("line1");
+		expect(output.stdout).not.toContain("line2");
+		expect(output.stdout).toContain("truncated");
+	});
+
+	it("does not truncate when maxLines equals actual line count", () => {
+		const output = truncateToolOutput("a\nb\nc", "", { maxLines: 3, maxOutput: 1000 });
+		expect(output.stdout).toBe("a\nb\nc");
+	});
 });

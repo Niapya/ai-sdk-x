@@ -131,3 +131,37 @@ describe("createBashTool", () => {
 		});
 	});
 });
+
+describe("createToolDescription – edge cases", () => {
+	const minimalContext = {
+		bash: { getCwd: () => "/workspace" },
+	} as import("@/types").FeatureSetupContext;
+
+	it("renders description with no features and no commands", async () => {
+		const desc = await createToolDescription([], [], minimalContext);
+		expect(desc).toContain("Run shell commands");
+		expect(desc).toContain("/workspace");
+		expect(desc).not.toContain("Available custom commands");
+		expect(desc).not.toContain("Feature guidance");
+	});
+
+	it("renders description with only commands (no features)", async () => {
+		const cmd = {
+			name: "x-only",
+			trusted: true,
+			execute: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+		};
+		const desc = await createToolDescription([], [cmd], minimalContext);
+		expect(desc).toContain("x-only");
+		expect(desc).not.toContain("Feature guidance");
+	});
+
+	it("skips features that return empty or whitespace-only prompt", async () => {
+		const features: import("@/types").Feature[] = [
+			{ name: "empty-prompt", prompt: async () => "   " },
+			{ name: "no-prompt" },
+		];
+		const desc = await createToolDescription(features, [], minimalContext);
+		expect(desc).not.toContain("Feature guidance");
+	});
+});

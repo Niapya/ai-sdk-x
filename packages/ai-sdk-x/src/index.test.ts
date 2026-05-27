@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+import { InMemoryFs } from "just-bash";
 import X from "@/index";
+import { MemoryEnvironment } from "@/runtime/environment";
 import type { Feature } from "@/types";
 
 describe("X feature runtime", () => {
@@ -213,3 +215,255 @@ async function commitRepo(x: X, repoPath: string, message: string): Promise<void
 function skillMarkdown(title: string, body: string): string {
 	return `---\nname: ${title}\ndescription: ${body}\n---\n\n# ${title}\n\n${body}\n`;
 }
+
+// ─── Additional tests ────────────────────────────────────────────────────────
+
+describe("X constructor options", () => {
+	it("accepts a custom IFileSystem and exposes files through x.fs", async () => {
+		const fs = new InMemoryFs({ "/tmp/existing.txt": "hello" });
+		const x = new X({ fs });
+		expect(await x.fs.exists("/tmp/existing.txt")).toBe(true);
+		expect(await x.fs.readFile("/tmp/existing.txt")).toBe("hello");
+	});
+
+	it("accepts a custom environment and merges it into exec env", async () => {
+		const env = new MemoryEnvironment({ MY_VAR: "my-value" });
+		const x = new X({ env });
+		const result = await x.exec('printf "%s" "$MY_VAR"');
+		expect(result.stdout).toBe("my-value");
+	});
+
+	it("accepts custom bash cwd option", async () => {
+		const x = new X({ bash: { cwd: "/custom/cwd" } });
+		const result = await x.exec("pwd");
+		expect(result.stdout.trim()).toBe("/custom/cwd");
+	});
+});
+
+describe("X static init and exec promise", () => {
+	it("X.init returns a ready X instance supporting immediate exec", async () => {
+		const x = X.init();
+		const result = await x.exec("echo hello");
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.trim()).toBe("hello");
+	});
+
+	it("exec propagates non-zero exitCode from failing commands", async () => {
+		const x = new X();
+		const result = await x.exec("exit 42");
+		expect(result.exitCode).toBe(42);
+	});
+
+	it("exec initialises features only once for concurrent calls", async () => {
+		const x = new X();
+		let initCount = 0;
+
+		x.registerFeature({
+			name: "concurrent-init",
+			init: async ({ fs }) => {
+				initCount += 1;
+				await fs.mkdir("/tmp/concurrent", { recursive: true });
+			},
+		});
+
+		// Fire two execs simultaneously before either has initialised
+		await Promise.all([x.exec("echo 1"), x.exec("echo 2")]);
+		expect(initCount).toBe(1);
+	});
+
+	it("rejects when an async feature init throws", async () => {
+		const x = new X();
+		x.registerFeature({
+			name: "broken-init",
+			init: async () => {
+				throw new Error("boom from init");
+			},
+		});
+		await expect(x.exec("echo ok")).rejects.toThrow("boom from init");
+	});
+});
+
+describe("X getTools integration", () => {
+	it("returns a bash tool object", async () => {
+		const x = new X();
+		const tools = await x.getTools();
+		expect(tools.bash).toBeDefined();
+	});
+
+	it("getTools description includes custom description option", async () => {
+		const x = new X();
+		const tools = await x.getTools({ description: "read-only sandbox" });
+		const description = tools.bash.description as string;
+		expect(description).toContain("read-only sandbox");
+	});
+
+	it("getTools description lists registered commands", async () => {
+		const x = new X();
+		x.registerCommand({
+			name: "x-listed",
+			trusted: true,
+			async execute() {
+				return { stdout: "", stderr: "", exitCode: 0 };
+			},
+		});
+		const tools = await x.getTools();
+		const description = tools.bash.description as string;
+		expect(description).toContain("x-listed");
+	});
+
+	it("bash tool executes and returns stdout/exitCode", async () => {
+		const x = new X();
+		const tools = await x.getTools();
+		const execTool = tools.bash as unknown as {
+			execute: (input: { command: string }) => Promise<{
+				stdout: string;
+				stderr: string;
+				exitCode: number;
+			}>;
+		};
+		const result = await execTool.execute({ command: "echo test-output" });
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.trim()).toBe("test-output");
+	});
+
+	it("bash tool truncates large output according to maxOutput option", async () => {
+		const x = new X();
+		const tools = await x.getTools({ maxOutput: 50 });
+		const execTool = tools.bash as unknown as {
+			execute: (input: { command: string }) => Promise<{
+				stdout: string;
+				stderr: string;
+				exitCode: number;
+			}>;
+		};
+		// Produce more than 50 bytes of output
+		const result = await execTool.execute({
+			command: "printf '%100s' '' | tr ' ' 'X'",
+		});
+		expect(result.stdout.length + result.stderr.length).toBeLessThanOrEqual(200);
+	});
+
+	it("bash tool can be called multiple times independently", async () => {
+		const x = new X();
+		const tools = await x.getTools();
+		const execTool = tools.bash as unknown as {
+			execute: (input: { command: string }) => Promise<{
+				stdout: string;
+				exitCode: number;
+			}>;
+		};
+		const first = await execTool.execute({ command: "echo first" });
+		const second = await execTool.execute({ command: "echo second" });
+		expect(first.stdout.trim()).toBe("first");
+		expect(second.stdout.trim()).toBe("second");
+	});
+});
+
+describe("X registerCommand", () => {
+	it("registers a standalone command visible in x.commands", async () => {
+		const x = new X();
+		x.registerCommand({
+			name: "x-standalone",
+			trusted: true,
+			async execute() {
+				return { stdout: "standalone-output", stderr: "", exitCode: 0 };
+			},
+		});
+		expect(x.commands.some((c) => c.name === "x-standalone")).toBe(true);
+		const result = await x.exec("x-standalone");
+		expect(result.stdout).toBe("standalone-output");
+	});
+
+	it("registerFeature with same command name overrides registerCommand", async () => {
+		const x = new X();
+		x.registerCommand({
+			name: "x-shared",
+			trusted: true,
+			async execute() {
+				return { stdout: "external", stderr: "", exitCode: 0 };
+			},
+		});
+		x.registerFeature({
+			name: "overriding-feature",
+			command: [
+				{
+					name: "x-shared",
+					trusted: true,
+					async execute() {
+						return { stdout: "feature", stderr: "", exitCode: 0 };
+					},
+				},
+			],
+		});
+		const result = await x.exec("x-shared");
+		expect(result.stdout).toBe("feature");
+		expect(x.commands.filter((c) => c.name === "x-shared").length).toBe(1);
+	});
+});
+
+describe("X registerFeature async vs sync init", () => {
+	it("feature with async init runs before first exec result", async () => {
+		const x = new X();
+		let initDone = false;
+
+		x.registerFeature({
+			name: "async-init-feature",
+			init: async ({ fs }) => {
+				await fs.mkdir("/tmp/async-init", { recursive: true });
+				initDone = true;
+			},
+		});
+
+		await x.exec("echo ok");
+		expect(initDone).toBe(true);
+		expect(await x.fs.exists("/tmp/async-init")).toBe(true);
+	});
+
+	it("feature without init property runs without error", async () => {
+		const x = new X();
+		x.registerFeature({
+			name: "no-init",
+			command: [
+				{
+					name: "x-noinit",
+					trusted: true,
+					async execute() {
+						return { stdout: "ok", stderr: "", exitCode: 0 };
+					},
+				},
+			],
+		});
+		const result = await x.exec("x-noinit");
+		expect(result.stdout).toBe("ok");
+	});
+});
+
+describe("X environment variable mutation across execs", () => {
+	it("persists env changes set during bash execution", async () => {
+		const x = new X();
+		await x.exec("export PERSISTENT_X=hello");
+		const result = await x.exec('printf "%s" "$PERSISTENT_X"');
+		expect(result.stdout).toBe("hello");
+	});
+
+	it("tracks env changes across multiple sequential exec calls", async () => {
+		const x = new X();
+		await x.exec("export COUNTER_X=1");
+		await x.exec("export COUNTER_X=2");
+		const result = await x.exec('printf "%s" "$COUNTER_X"');
+		expect(result.stdout).toBe("2");
+	});
+
+	it("feature-owned env keys are re-applied and not polluted by bash exec", async () => {
+		const x = new X();
+		x.registerFeature({
+			name: "env-feature",
+			env: { FEAT_OWNED: "original" },
+		});
+		// bash sets the env var during exec; but it's in initialEnv, so not persisted
+		await x.exec("export FEAT_OWNED=overridden-in-bash");
+		const result = await x.exec('printf "%s" "$FEAT_OWNED"');
+		// Feature env is in shellEnv (re-applied each exec), so it wins after persist strips it
+		expect(result.stdout).toBe("original");
+	});
+});

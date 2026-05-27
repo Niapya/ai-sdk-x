@@ -177,10 +177,11 @@ export class X {
 		return this;
 	}
 
-	registerFeature(feature: Feature): void {
+	registerFeature(feature: Feature): this {
 		const runtimeState = this.runtimeState;
 		registerRuntimeFeature(runtimeState, this.bash, feature);
 		syncCommands(this, runtimeState);
+		return this;
 	}
 
 	async getTools(
