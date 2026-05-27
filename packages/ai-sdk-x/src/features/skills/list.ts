@@ -50,7 +50,9 @@ export async function listSkills(
 	return { stdout, stderr: "", exitCode: 0 };
 }
 
-export function createListSkillsCommand(options: SkillsCommandOptions) {
+export function createListSkillsCommand(
+	options: SkillsCommandOptions,
+): ReturnType<typeof defineCliCommand> {
 	return defineCliCommand({
 		id: "list",
 		type: "command",

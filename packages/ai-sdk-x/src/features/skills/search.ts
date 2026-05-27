@@ -115,7 +115,7 @@ function sanitizeMetadata(value: string): string {
 	return sanitized.trim();
 }
 
-export function createSearchSkillsCommand() {
+export function createSearchSkillsCommand(): ReturnType<typeof defineCliCommand> {
 	return defineCliCommand({
 		id: "search",
 		type: "command",

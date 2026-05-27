@@ -65,7 +65,9 @@ export async function installSkill(
 	}
 }
 
-export function createInstallSkillCommand(options: SkillsCommandOptions) {
+export function createInstallSkillCommand(
+	options: SkillsCommandOptions,
+): ReturnType<typeof defineCliCommand> {
 	return defineCliCommand({
 		id: "install",
 		type: "command",

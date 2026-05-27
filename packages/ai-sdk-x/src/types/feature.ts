@@ -13,7 +13,7 @@ export interface Feature {
 	readonly command?: Command[];
 	readonly env?: Record<string, string>;
 	readonly init?: (ctx: FeatureSetupContext) => Awaitable<void>;
-} 
+}
 
 export interface FeatureConfig {
 	readonly enabled: boolean;

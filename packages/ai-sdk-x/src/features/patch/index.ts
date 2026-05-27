@@ -66,7 +66,7 @@ It is important to remember:
 - You must include a header with your intended action (Add/Delete/Update)
 - You must prefix new lines with "+" even when creating a new file`;
 
-export const PATCH_DESCRIPTION_LINES = PATCH_DESCRIPTION.split("\n");
+export const PATCH_DESCRIPTION_LINES: string[] = PATCH_DESCRIPTION.split("\n");
 
 const PATCH_COMMAND = defineCliCommand({
 	id: "x-patch",
