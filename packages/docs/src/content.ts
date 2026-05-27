@@ -30,8 +30,8 @@ export function getRoutes(): string[] {
 export type DocsVersion = "v0" | "v1";
 
 export const versionInfo: Record<DocsVersion, { label: string; note?: string }> = {
-	v0: { label: "v0", note: "Stable API (packages)" },
-	v1: { label: "v1", note: "Latest guide and docs" },
+	v0: { label: "v0" },
+	v1: { label: "v1" },
 };
 
 export function getVersion(route: string): DocsVersion | undefined {

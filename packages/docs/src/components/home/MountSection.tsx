@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { navigate } from "@/router";
 
 // Illustration: true horizontal left-to-right layout (matches hand-drawn sketch)
@@ -14,16 +15,18 @@ import { navigate } from "@/router";
 
 function MountIllustration() {
 	const layerBox =
-		"flex h-16 w-36 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white";
+		"flex h-16 w-36 flex-col items-center justify-center gap-1 rounded-xl border border-zinc-200 bg-white text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white";
 	const backendBox =
 		"flex h-16 w-36 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-300";
+	const badge =
+		"rounded-full bg-zinc-100 text-xs px-2 py-1 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
 
 	return (
 		<div className="flex items-center justify-center gap-3 overflow-x-auto py-2 text-zinc-400 dark:text-zinc-600">
 			{/* Col 1: X — full height wrapper so it centers against the 3 rows */}
 			<div className="flex h-56 items-center">
 				<div className="rounded-xl border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
-					X
+					AI SDK X
 				</div>
 			</div>
 
@@ -49,16 +52,31 @@ function MountIllustration() {
 			{/* Col 3: Three layer rows */}
 			<div className="flex flex-col gap-4">
 				<div className={layerBox}>
-					<span>📁</span>
-					<span>Workspace</span>
+					<div className="flex items-center gap-2">
+						<span>📁</span>
+						<span>Workspace</span>
+					</div>
+					<div className="flex flex-wrap items-center justify-center gap-1">
+						<span className={badge}>x-patch</span>
+					</div>
 				</div>
 				<div className={layerBox}>
-					<span>🧠</span>
-					<span>Memory</span>
+					<div className="flex items-center gap-2">
+						<span>🧠</span>
+						<span>Memory</span>
+					</div>
+					<div className="flex flex-wrap items-center justify-center gap-1">
+						<span className={badge}>x-memory add</span>
+					</div>
 				</div>
 				<div className={layerBox}>
-					<span>🔧</span>
-					<span>Skills</span>
+					<div className="flex items-center gap-2">
+						<span>🔧</span>
+						<span>Skills</span>
+					</div>
+					<div className="flex flex-wrap items-center justify-center gap-1">
+						<span className={badge}>x-skills install</span>
+					</div>
 				</div>
 			</div>
 
@@ -73,7 +91,12 @@ function MountIllustration() {
 			<div className="flex flex-col gap-4">
 				<div className={backendBox}>node:fs</div>
 				<div className={backendBox}>AWS S3</div>
-				<div className={backendBox}>Vercel Blob</div>
+				<div className={clsx(backendBox, "flex flex-col items-center justify-center gap-1 px-2")}>
+					<div className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">caching-fs</div>
+					<div className="flex p-1 w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-xs font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
+						Vercel Blob
+					</div>
+				</div>
 			</div>
 		</div>
 	);
@@ -85,20 +108,12 @@ export function MountSection() {
 			<div className="grid items-start gap-12 lg:grid-cols-2">
 				{/* text */}
 				<div className="lg:pt-4">
-					<p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-						Memory · Skills · Workspace
-					</p>
 					<h2 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-4xl">
-						Three layers, any backend
+						Built on any Backend
 					</h2>
 					<p className="mt-4 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
-						Memory, Skills, and Workspace are virtual filesystems that mount into the shell at
-						well-known paths. Each layer can be independently backed by a different storage driver —
-						local disk, Amazon S3, Cloudflare R2, Vercel Blob, or any storage driver.
-					</p>
-					<p className="mt-3 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
-						Skills support one-line installs straight from a Git repository. Memory has built-in
-						commands for long-term and daily notes that the agent can call directly from the shell.
+						These can be virtual file systems mounted by different file systems, such as local
+						disks, Amazon S3, or any unified interface.
 					</p>
 					<div className="mt-7 flex flex-col gap-3 sm:flex-row">
 						<button

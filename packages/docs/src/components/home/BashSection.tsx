@@ -38,7 +38,7 @@ function TerminalIllustration() {
 				<span className="h-3 w-3 rounded-full bg-red-500/80" />
 				<span className="h-3 w-3 rounded-full bg-yellow-500/80" />
 				<span className="h-3 w-3 rounded-full bg-green-500/80" />
-				<span className="ml-3 text-zinc-500">REPL</span>
+				<span className="ml-3 text-zinc-500">Shell REPL</span>
 			</div>
 			{LINES.map((line, i) => (
 				<div
@@ -66,9 +66,6 @@ export function BashSection() {
 					<TerminalIllustration />
 				</div>
 				<div className="order-1 lg:order-2">
-					<p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-						Virtual Bash
-					</p>
 					<h2 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-4xl">
 						Bash is everything
 					</h2>

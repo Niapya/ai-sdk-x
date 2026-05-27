@@ -9,12 +9,11 @@ export function DeploySection() {
 	return (
 		<section className="mx-auto max-w-6xl px-6 py-20">
 			<div className="mb-10">
-				<p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Deployment</p>
 				<h2 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-4xl">
 					Runs wherever your stack lives
 				</h2>
 				<p className="mt-3 max-w-2xl text-base text-zinc-600 dark:text-zinc-400">
-					Pure ESM, no native binaries. Drop it into any JavaScript runtime.
+					It runs on Node.js, Vercel, Cloudflare Workers, and even in embedded environments.
 				</p>
 			</div>
 			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

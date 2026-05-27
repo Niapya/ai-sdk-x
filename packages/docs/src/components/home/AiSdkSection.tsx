@@ -1,18 +1,27 @@
+import hljs from "highlight.js";
+
 const CODE = `import { X } from "ai-sdk-x";
-import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { ToolLoopAgent } from "ai";
 
 const bash = X.init();
+const tools = await bash.getTools();
 
-const { text } = await generateText({
-  model: openai("gpt-4o"),
-	tools: await bash.getTools({
-		maxOutput: 20_000,
-		description: "Use grep or head before reading very large files.",
-	}),
-  maxSteps: 10,
-  prompt: "List the files in my workspace.",
+const agent = ToolLoopAgent({
+  model: "gpt-5.5",
+  tools,
+  stopWhen: stepCountIs(20),
+});
+
+await agent.generate({
+  prompt: \`
+    First, search and install "frontend-design" Skills.
+
+    Then, read it and implement a "Snake game" in the Workspace.
+
+    Finally, summarise into Memory.\`
 });`.trim();
+
+const highlightedCode = hljs.highlight(CODE, { language: "typescript" }).value;
 
 function CodeBlock() {
 	return (
@@ -23,8 +32,13 @@ function CodeBlock() {
 				<span className="h-3 w-3 rounded-full bg-green-500/80" />
 				<span className="ml-3 text-xs text-zinc-500">agent.ts</span>
 			</div>
-			<pre className="overflow-x-auto p-5 font-mono text-xs leading-relaxed text-zinc-100">
-				{CODE}
+			<pre className="overflow-x-hidden whitespace-pre-wrap wrap-break-word p-5 font-mono text-xs leading-relaxed">
+				<code
+					className="hljs language-typescript"
+					style={{ backgroundColor: "transparent", padding: 0 }}
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted static code sample
+					dangerouslySetInnerHTML={{ __html: highlightedCode }}
+				/>
 			</pre>
 		</div>
 	);
@@ -36,11 +50,8 @@ export function AiSdkSection() {
 			<div className="grid items-center gap-12 lg:grid-cols-2">
 				{/* text */}
 				<div>
-					<p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-						AI SDK Compatible
-					</p>
 					<h2 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-4xl">
-						One call to get the tool
+						Integrate with AI SDK
 					</h2>
 					<p className="mt-4 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
 						AI SDK X is built on top of{" "}
@@ -52,20 +63,19 @@ export function AiSdkSection() {
 						>
 							Vercel AI SDK
 						</a>
-						. Call{" "}
+						. Call
 						<code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs dark:bg-zinc-800">
 							bash.getTools()
-						</code>{" "}
-						and pass the result directly into{" "}
+						</code>
+						and pass the result directly into
 						<code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs dark:bg-zinc-800">
 							generateText
 						</code>
-						,{" "}
+						,
 						<code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs dark:bg-zinc-800">
 							streamText
 						</code>
-						, or any AI SDK helper — no adapter needed. You can also cap tool output and add model
-						guidance per call.
+						.
 					</p>
 					<ul className="mt-5 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
 						{[

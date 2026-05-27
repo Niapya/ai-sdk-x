@@ -59,7 +59,7 @@ Then, try your agent:
 import { X } from "ai-sdk-x";
 import { ToolLoopAgent } from "ai";
 
-const bash = new X();
+const bash = X.init();
 const tools = await bash.getTools();
 
 const agent = ToolLoopAgent({

@@ -7,20 +7,7 @@ AI SDK X is a collection of environment-agnostic agent tool packages built on to
 Install all packages at once via the umbrella package:
 
 ```bash
-# npm
 npm install ai-sdk-x
-
-# bun
-bun add ai-sdk-x
-
-# pnpm
-pnpm add ai-sdk-x
-
-# yarn
-yarn add ai-sdk-x
-
-# Deno
-deno add npm:ai-sdk-x
 ```
 
 Or install individual packages:

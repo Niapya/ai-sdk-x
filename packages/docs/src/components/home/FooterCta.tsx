@@ -4,7 +4,7 @@ export function FooterCta() {
 	return (
 		<section className="mx-auto max-w-6xl px-6 py-20">
 			<div className="rounded-3xl border border-zinc-200 bg-zinc-50 px-8 py-16 text-center dark:border-zinc-800 dark:bg-zinc-900">
-				<h2 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white">
+				<h2 className="text-3xl font-semibold tracking-tight transition-all text-zinc-900 dark:text-white hover:font-extrabold">
 					Ready to give your agent a shell?
 				</h2>
 				<p className="mx-auto mt-4 max-w-xl text-base text-zinc-600 dark:text-zinc-400">

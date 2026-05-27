@@ -46,9 +46,11 @@ export function VersionHome({ version }: { version: DocsVersion }) {
 					{versionInfo[version].label}
 				</p>
 				{intro && <Markdown content={intro} />}
-				<div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-300">
-					{versionInfo[version].note}
-				</div>
+				{versionInfo[version].note && (
+					<div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-300">
+						{versionInfo[version].note}
+					</div>
+				)}
 			</div>
 
 			<div className="space-y-6">

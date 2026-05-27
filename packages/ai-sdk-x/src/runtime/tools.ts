@@ -22,6 +22,7 @@ export async function createToolDescription(
 	options: GetToolsOptions = {},
 ): Promise<string> {
 	const sections = [
+		"",
 		"Run shell commands in the mounted workspace.",
 		[
 			"Prefer grep, sed, head, tail, split, and similar tools when inspecting large files.",
@@ -75,9 +76,9 @@ export async function createBashTool(
 	return tool<BashToolInput, BashToolOutput>({
 		description,
 		inputSchema: z.object({
-			command: z.string().describe("The bash command to execute."),
+			command: z.string().describe("The full bash command to execute."),
 			cwd: z.string().optional().describe("Optional working directory for this command."),
-			stdin: z.string().optional().describe("Optional stdin passed to the command."),
+			// stdin: z.string().optional().describe("Optional stdin passed to the command."),
 		}),
 		execute: async ({ command, cwd, stdin }) => {
 			const result = await executeCommand(command, {
