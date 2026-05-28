@@ -4,7 +4,6 @@ import {
 	type BashOptions,
 	type Command,
 	type ExecOptions,
-	type IFileSystem,
 	InMemoryFs,
 	MountableFs,
 } from "just-bash";
@@ -13,22 +12,9 @@ import { createMemoryFeature } from "@/features/memory";
 import { createPatchFeature } from "@/features/patch";
 import { createSkillsFeature, parseSkillInstallTarget } from "@/features/skills";
 import { createWorkspaceFeature } from "@/features/workspace";
+import { AsyncOnce } from "@/runtime/async-once";
 import { resolveBashConfig } from "@/runtime/config";
-import {
-	createEnvironment,
-	persistEnvironmentSnapshot,
-	resolveEnvironmentSnapshot,
-} from "@/runtime/environment";
-import {
-	createFeatureRuntimeState,
-	ensureRuntimeFeaturesInitialized,
-	type FeatureRuntimeState,
-	listRuntimeCommands,
-	listRuntimeFeatures,
-	registerRuntimeCommand,
-	registerRuntimeFeature,
-	resolveRuntimeFeatureEnv,
-} from "@/runtime/features";
+import { type EnvBackend, type EnvSnapshot, MemoryEnvBackend, mergeEnv } from "@/runtime/env";
 import { MAX_OUTPUT } from "@/runtime/output";
 import { createBashTool, createToolDescription } from "@/runtime/tools";
 
@@ -55,8 +41,9 @@ export { createCommand, defineCliCommand, defineCliTopic } from "@/utils";
 
 import type {
 	DefaultFeatureOptions,
-	Environment,
+	ExecHook,
 	Feature,
+	FeatureSetupContext,
 	GetToolsOptions,
 	XOptions,
 } from "@/types";
@@ -64,7 +51,7 @@ import type {
 export type {
 	BashConfig,
 	DefaultFeatureOptions,
-	Environment,
+	ExecHook,
 	Feature,
 	FeatureConfig,
 	FeatureSetupContext,
@@ -85,6 +72,8 @@ export type {
 	XOptions,
 } from "@/types";
 export { MAX_OUTPUT };
+export type { EnvBackend, EnvSnapshot } from "@/runtime/env";
+export { KvEnvBackend, MemoryEnvBackend } from "@/runtime/env";
 export type {
 	CachingFsOptions,
 	IndexedFsOptions,
@@ -100,30 +89,45 @@ export type { InMemoryKVStoreOptions } from "@/runtime/storage";
 export { InMemoryKVStore } from "@/runtime/storage";
 export type { FsDirent } from "@/utils";
 
+interface RegisteredExecHook {
+	hook: ExecHook;
+	initialize: AsyncOnce;
+}
+
 export class X {
 	readonly bash: Bash;
 	readonly commands: Command[];
-	readonly env: Environment;
-	readonly fs: IFileSystem;
-	private readonly runtimeState: FeatureRuntimeState;
+	readonly features: Feature[];
+	readonly fs: MountableFs;
+	private readonly envBackend: EnvBackend;
+	private readonly execHooks: RegisteredExecHook[];
+	private readonly hookEnv = new Map<string, string>();
 
 	constructor(options: XOptions = {}) {
 		const bashConfig = resolveBashConfig(options.bash);
-		this.env = createEnvironment(options.env);
 
-		const baseFs = options.fs ?? new InMemoryFs();
-		const mountableFs = new MountableFs({ base: baseFs });
+		const sourceFs = options.fs ?? new InMemoryFs();
+		const mountableFs = new MountableFs({ base: sourceFs });
 		this.fs = mountableFs;
 		this.commands = [];
-
-		const runtimeState = createFeatureRuntimeState(baseFs, mountableFs, bashConfig);
-		this.runtimeState = runtimeState;
+		this.features = [];
+		this.execHooks = [];
 
 		const bashOptions: BashOptions = {
-			...this.runtimeState.bashConfig,
+			...bashConfig,
 			fs: mountableFs,
 		};
 		this.bash = new Bash(bashOptions);
+		this.envBackend =
+			options.envBackend ??
+			new MemoryEnvBackend({
+				cwd: bashConfig.cwd,
+				env: bashConfig.env,
+			});
+
+		for (const hook of options.execHooks ?? []) {
+			this.registerHook(hook);
+		}
 	}
 
 	/**
@@ -145,20 +149,31 @@ export class X {
 	}
 
 	async exec(command: string, options?: ExecOptions): Promise<BashExecResult> {
-		const runtimeState = this.runtimeState;
+		for (const entry of this.execHooks) {
+			await entry.initialize.run();
+		}
 
-		await ensureRuntimeFeaturesInitialized(runtimeState, () => ({
-			baseFs: runtimeState.baseFs,
-			bash: this.bash,
-			fs: runtimeState.fs,
-		}));
+		const shellEnv = this.resolveShellEnv();
+		const snapshot = (await this.envBackend.load()) ?? {
+			cwd: this.bash.getCwd(),
+			env: {},
+		};
+		const baseEnv = options?.replaceEnv ? shellEnv : mergeEnv(shellEnv, snapshot.env);
+		const execEnv = mergeEnv(baseEnv, options?.env);
+		const execCwd = options?.cwd ?? snapshot.cwd ?? execEnv.PWD ?? this.bash.getCwd();
+		const hookOptions = toHookOptions(options);
+		const startSnapshot: EnvSnapshot = {
+			cwd: snapshot.cwd,
+			env: snapshot.env,
+		};
 
-		const shellEnv = resolveShellEnv(runtimeState);
-		const baseEnv = await resolveEnvironmentSnapshot(this.env, shellEnv);
-		const execEnv = options?.replaceEnv
-			? { ...(options.env ?? {}), ...shellEnv }
-			: { ...baseEnv, ...(options?.env ?? {}) };
-		const execCwd = options?.cwd ?? execEnv.PWD ?? runtimeState.bashConfig.cwd;
+		for (const entry of this.execHooks) {
+			await entry.hook.onExecStart?.({
+				command,
+				options: hookOptions,
+				snapshot: startSnapshot,
+			});
+		}
 		const result = await this.bash.exec(command, {
 			...options,
 			cwd: execCwd,
@@ -166,37 +181,73 @@ export class X {
 			replaceEnv: true,
 		});
 
-		await persistEnvironmentSnapshot(this.env, shellEnv, result.env);
+		const persistedEnv = mergeEnv(result.env);
+		for (const key of Object.keys(shellEnv)) {
+			delete persistedEnv[key];
+		}
+		const nextSnapshot: EnvSnapshot = {
+			cwd: result.env.PWD ?? execCwd,
+			env: persistedEnv,
+		};
+
+		await this.envBackend.save(nextSnapshot);
+		for (const entry of this.execHooks) {
+			await entry.hook.onExecEnd?.({
+				command,
+				options: hookOptions,
+				snapshot: nextSnapshot,
+				result,
+			});
+		}
 		return result;
 	}
 
 	registerCommand(command: Command): this {
-		const runtimeState = this.runtimeState;
-		registerRuntimeCommand(runtimeState, this.bash, command);
-		syncCommands(this, runtimeState);
+		const registeredCommand =
+			command.trusted === undefined
+				? {
+						...command,
+						trusted: true,
+					}
+				: command;
+		const existingIndex = this.commands.findIndex((item) => item.name === registeredCommand.name);
+		if (existingIndex === -1) {
+			this.commands.push(registeredCommand);
+		} else {
+			this.commands[existingIndex] = registeredCommand;
+		}
+		this.bash.registerCommand(registeredCommand);
 		return this;
 	}
 
 	registerFeature(feature: Feature): this {
-		const runtimeState = this.runtimeState;
-		registerRuntimeFeature(runtimeState, this.bash, feature);
-		syncCommands(this, runtimeState);
+		this.features.push(feature);
+		for (const command of feature.command ?? []) {
+			this.registerCommand(command);
+		}
+		if (feature.hooks) {
+			this.registerHook(feature.hooks);
+		}
+		return this;
+	}
+
+	registerHook(hook: ExecHook): this {
+		this.execHooks.push({
+			hook,
+			initialize: new AsyncOnce(() => hook.initialize?.(this.createFeatureContext()), {
+				retryOnFailure: true,
+			}),
+		});
 		return this;
 	}
 
 	async getTools(
 		options: GetToolsOptions = {},
 	): Promise<{ bash: Awaited<ReturnType<typeof createBashTool>> }> {
-		const runtimeState = this.runtimeState;
-		const featureContext = {
-			baseFs: runtimeState.baseFs,
-			bash: this.bash,
-			fs: runtimeState.fs,
-		};
 		const description = await createToolDescription(
-			listRuntimeFeatures(runtimeState),
+			this.features,
 			this.commands,
-			featureContext,
+			this.createFeatureContext(),
 			options,
 		);
 
@@ -206,19 +257,32 @@ export class X {
 			bash,
 		};
 	}
+
+	private createFeatureContext(): FeatureSetupContext {
+		return {
+			bash: this.bash,
+			fs: this.fs,
+			setEnv: (key, value) => {
+				this.hookEnv.set(key, value);
+			},
+		};
+	}
+
+	private resolveShellEnv(): Record<string, string> {
+		return mergeEnv(this.bash.getEnv(), Object.fromEntries(this.hookEnv.entries()));
+	}
 }
 
-function syncCommands(x: X, runtimeState: FeatureRuntimeState): void {
-	const nextCommands = listRuntimeCommands(runtimeState);
-	x.commands.length = 0;
-	x.commands.push(...nextCommands);
-}
-
-function resolveShellEnv(runtimeState: FeatureRuntimeState): Record<string, string> {
-	return {
-		...runtimeState.bashConfig.env,
-		...resolveRuntimeFeatureEnv(runtimeState),
-	};
+function toHookOptions(options: ExecOptions | undefined) {
+	return options
+		? {
+				cwd: options.cwd,
+				env: options.env,
+				replaceEnv: options.replaceEnv,
+				stdin: options.stdin,
+				stdinKind: options.stdinKind,
+			}
+		: undefined;
 }
 
 export default X;

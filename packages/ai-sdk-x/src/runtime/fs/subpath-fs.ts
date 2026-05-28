@@ -6,6 +6,9 @@ type MkdirOptions = Parameters<IFileSystem["mkdir"]>[1];
 type RmOptions = Parameters<IFileSystem["rm"]>[1];
 type CpOptions = Parameters<IFileSystem["cp"]>[2];
 
+/**
+ * Create a filesystem view rooted at `root`, translating all local paths into the wrapped fs.
+ */
 export function createSubpathFs(fs: IFileSystem, root: string): IFileSystem {
 	return new SubpathFs(fs, root);
 }
@@ -119,6 +122,7 @@ class SubpathFs implements IFileSystem {
 	}
 
 	private toSourcePath(path: string): string {
+		assertMountLocalPath(path);
 		const normalizedPath = normalizePath(path);
 		if (normalizedPath === "/") {
 			return this.root;
@@ -189,6 +193,24 @@ function normalizePath(path: string): string {
 	}
 
 	return `/${resolvedSegments.join("/")}`;
+}
+
+function assertMountLocalPath(path: string): void {
+	let depth = 0;
+	const segments = path.split("/");
+	for (const segment of segments) {
+		if (!segment || segment === ".") {
+			continue;
+		}
+		if (segment === "..") {
+			if (depth === 0) {
+				throw new Error(`EACCES: permission denied, path escapes mounted root '${path}'`);
+			}
+			depth -= 1;
+			continue;
+		}
+		depth += 1;
+	}
 }
 
 function resolvePath(base: string, path: string): string {

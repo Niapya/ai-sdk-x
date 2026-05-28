@@ -4,17 +4,14 @@ import type { MemoryOptions } from "@/features/memory/types";
 import type { PatchOptions } from "@/features/patch/types";
 import type { SkillsOptions } from "@/features/skills/types";
 import type { WorkspaceOptions } from "@/features/workspace/types";
+import type { EnvBackend } from "@/runtime/env";
+import type { ExecHook } from "@/types/feature";
 
 export type { GitConfig, GitOptions } from "@/features/git/types";
 export type { MemoryConfig, MemoryOptions } from "@/features/memory/types";
 export type { PatchConfig, PatchOptions } from "@/features/patch/types";
 export type { SkillsConfig, SkillsOptions } from "@/features/skills/types";
 export type { WorkspaceConfig, WorkspaceOptions } from "@/features/workspace/types";
-
-export interface Environment {
-	get(): Promise<Record<string, string>> | Record<string, string>;
-	set(env: Record<string, string>): Promise<void> | void;
-}
 
 export interface GetToolsOptions {
 	description?: string;
@@ -24,7 +21,8 @@ export interface GetToolsOptions {
 
 export interface XOptions {
 	bash?: Omit<BashOptions, "customCommands" | "fs">;
-	env?: Environment;
+	envBackend?: EnvBackend;
+	execHooks?: ExecHook[];
 	fs?: IFileSystem;
 }
 

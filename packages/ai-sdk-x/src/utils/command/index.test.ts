@@ -270,11 +270,16 @@ describe("command parser and help", () => {
 	it("returns usage errors for invalid flag and arg inputs", async () => {
 		const cases: Array<{ argv: string[]; expected: string }> = [
 			{ argv: ["source.txt", "--mode"], expected: "Missing value for flag: --mode" },
+			{
+				argv: ["source.txt", "--mode", "--verbose"],
+				expected: "Missing value for flag: --mode",
+			},
 			{ argv: ["source.txt", "--mode=weird"], expected: "Expected --mode to be one of" },
 			{ argv: ["source.txt", "--no-mode"], expected: "Nonexistent flag: --no-mode" },
 			{ argv: ["source.txt", "--unknown"], expected: "Nonexistent flag: --unknown" },
 			{ argv: ["source.txt", "--verbose=true"], expected: "Unexpected value for boolean flag" },
 			{ argv: ["source.txt", "-x"], expected: "Nonexistent flag: -x" },
+			{ argv: ["source.txt", "-t", "-v"], expected: "Missing value for flag: -t" },
 			{ argv: ["source.txt", "-vm", "safe"], expected: "Unsupported flag syntax: -vm" },
 			{
 				argv: ["source.txt", "dest.txt", "oops", "--mode", "safe"],
@@ -325,6 +330,21 @@ describe("command parser and help", () => {
 		const result = await command.execute(["a", "b", "c"], {} as never);
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout).toBe("a");
+	});
+
+	it("rejects positional definitions after a variadic arg", async () => {
+		const command = createCommand(
+			defineCliCommand({
+				id: "x-bad",
+				type: "command",
+				args: [{ name: "items", multiple: true }, { name: "tail" }],
+				run: () => ({ stdout: "", stderr: "", exitCode: 0 }),
+			}),
+		);
+
+		const result = await command.execute(["a", "b"], {} as never);
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr).toContain("Variadic arg must be the final arg: items");
 	});
 
 	it("returns explicit command usage errors helper output", () => {

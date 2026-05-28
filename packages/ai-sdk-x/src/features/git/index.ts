@@ -13,7 +13,6 @@ export function createGitFeature(option: boolean | GitOptions | undefined = true
 	};
 	const feature: Feature = {
 		name: "git",
-		prompt: () => "Use the git command to inspect or modify repository state.",
 	};
 
 	if (!config.enabled) {
@@ -22,6 +21,7 @@ export function createGitFeature(option: boolean | GitOptions | undefined = true
 
 	return {
 		...feature,
+		prompt: () => "Use the git command to inspect or modify repository state.",
 		command: [wrapGitCommand(gitCommand)],
 	};
 }

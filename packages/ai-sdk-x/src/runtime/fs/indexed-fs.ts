@@ -9,7 +9,13 @@ import type {
 } from "just-bash";
 import { InMemoryKVStore } from "@/runtime/storage/in-memory-kv-store";
 import type { KVStorage } from "@/types/storage";
-import { createStat, directoryNotEmptyError, type FsDirent, toByteString } from "@/utils/data";
+import {
+	createStat,
+	directoryNotEmptyError,
+	type FsDirent,
+	isSameOrDescendant,
+	toByteString,
+} from "@/utils/data";
 import { dirname, joinPath, normalizePath, parentPaths, resolvePath } from "@/utils/path";
 
 type ReadFileOptions = Parameters<IFileSystem["readFile"]>[1];
@@ -328,8 +334,8 @@ export class IndexedFs implements IFileSystem {
 			throw new Error(`ERR_FS_CP_EISDIR: cp '${src}'`);
 		}
 
-		const nodeKeys = (await this.cache.list(this.nodeKey(src))).sort();
-		const childrenKeys = (await this.cache.list(this.childrenKey(src))).sort();
+		const nodeKeys = (await this.listNodeKeysUnder(src)).sort();
+		const childrenKeys = (await this.listChildrenKeysUnder(src)).sort();
 
 		// Copy manifest records by key rewrite so list/stat stay index-only after cp.
 		for (const key of nodeKeys) {
@@ -369,10 +375,10 @@ export class IndexedFs implements IFileSystem {
 			throw new Error(`ENOENT: no such file or directory, rm '${path}'`);
 		}
 
-		const nodeKeys = (await this.cache.list(this.nodeKey(normalized))).sort(
+		const nodeKeys = (await this.listNodeKeysUnder(normalized)).sort(
 			(left, right) => right.length - left.length,
 		);
-		const childKeys = (await this.cache.list(this.childrenKey(normalized))).sort(
+		const childKeys = (await this.listChildrenKeysUnder(normalized)).sort(
 			(left, right) => right.length - left.length,
 		);
 
@@ -389,6 +395,24 @@ export class IndexedFs implements IFileSystem {
 	private async readNode(path: string): Promise<ManifestNode | null> {
 		const raw = await this.cache.get(this.nodeKey(normalizePath(path)));
 		return raw ? (JSON.parse(raw) as ManifestNode) : null;
+	}
+
+	private async listNodeKeysUnder(path: string): Promise<string[]> {
+		const normalized = normalizePath(path);
+		const keys = await this.cache.list(this.nodeKey(normalized));
+		return keys.filter((key) => {
+			const candidate = key.slice(this.nodeKeyPrefix.length);
+			return isSameOrDescendant(normalized, candidate);
+		});
+	}
+
+	private async listChildrenKeysUnder(path: string): Promise<string[]> {
+		const normalized = normalizePath(path);
+		const keys = await this.cache.list(this.childrenKey(normalized));
+		return keys.filter((key) => {
+			const candidate = key.slice(this.childrenKeyPrefix.length);
+			return isSameOrDescendant(normalized, candidate);
+		});
 	}
 
 	private async writeNode(path: string, node: ManifestNode): Promise<void> {

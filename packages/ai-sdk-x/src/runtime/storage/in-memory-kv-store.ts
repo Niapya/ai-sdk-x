@@ -4,6 +4,9 @@ import type { KVStorage } from "@/types/storage";
  * Options for the default in-memory KV store used by runtime wrappers.
  */
 export interface InMemoryKVStoreOptions {
+	/**
+	 * Clock used for TTL checks. Inject a deterministic clock in tests.
+	 */
 	now?: () => number;
 }
 
@@ -25,7 +28,7 @@ export class InMemoryKVStore implements KVStorage {
 	}
 
 	/**
-	 * List stored keys, optionally filtered by prefix and capped by limit.
+	 * List non-expired keys, optionally filtered by prefix and capped by limit.
 	 */
 	async list(prefix?: string, limit?: number): Promise<string[]> {
 		this.purgeExpired();
@@ -33,7 +36,11 @@ export class InMemoryKVStore implements KVStorage {
 			.filter((key) => (prefix ? key.startsWith(prefix) : true))
 			.sort();
 
-		return typeof limit === "number" ? values.slice(0, limit) : values;
+		if (typeof limit !== "number") {
+			return values;
+		}
+
+		return values.slice(0, Math.max(0, Math.floor(limit)));
 	}
 
 	/**
@@ -55,13 +62,15 @@ export class InMemoryKVStore implements KVStorage {
 
 	/**
 	 * Store a value with an optional TTL in milliseconds.
+	 *
+	 * Missing, zero, negative, or non-finite TTL values are treated as no expiry.
 	 */
 	async set(key: string, value: string, ttl?: number): Promise<void> {
 		const now = this.now();
 		this.entries.set(key, {
 			value,
 			updatedAt: now,
-			expiresAt: ttl && ttl > 0 ? now + ttl : null,
+			expiresAt: typeof ttl === "number" && Number.isFinite(ttl) && ttl > 0 ? now + ttl : null,
 		});
 	}
 

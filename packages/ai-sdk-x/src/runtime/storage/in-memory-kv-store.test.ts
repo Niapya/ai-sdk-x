@@ -78,10 +78,31 @@ describe("InMemoryKVStore – additional edge cases", () => {
 		expect(await store.get("permanent")).toBe("value");
 	});
 
+	it("zero negative and infinite TTL values never expire", async () => {
+		let now = 0;
+		const store = new InMemoryKVStore({ now: () => now });
+
+		await store.set("zero", "0", 0);
+		await store.set("negative", "-1", -1);
+		await store.set("infinite", "inf", Number.POSITIVE_INFINITY);
+
+		now = 1_000_000;
+		expect(await store.list()).toEqual(["infinite", "negative", "zero"]);
+	});
+
 	it("list limit=0 returns an empty array", async () => {
 		const store = new InMemoryKVStore();
 		await store.set("a", "1");
 		expect(await store.list(undefined, 0)).toEqual([]);
+	});
+
+	it("list with a negative limit returns an empty array", async () => {
+		const store = new InMemoryKVStore();
+		await store.set("a", "1");
+		await store.set("b", "2");
+		await store.set("c", "3");
+
+		expect(await store.list(undefined, -1)).toEqual([]);
 	});
 
 	it("expired keys do not appear in list even without prefix", async () => {

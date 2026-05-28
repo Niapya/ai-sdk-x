@@ -84,11 +84,11 @@ export function createSkillsFeature(
 		prompt: () =>
 			`Skills mount: ${config.mountPoint}. Use x-skills to install, list, search, and update mounted skills.`,
 		command: [feature.createCommand()],
-		env: {
-			SKILLS_HOME: config.mountPoint,
-		},
-		init: async (context) => {
-			await initializeMountedFeature(context, config, DEFAULT_SKILLS_MOUNT);
+		hooks: {
+			initialize: async (context) => {
+				await initializeMountedFeature(context, config, DEFAULT_SKILLS_MOUNT);
+				context.setEnv("SKILLS_HOME", config.mountPoint);
+			},
 		},
 	};
 }

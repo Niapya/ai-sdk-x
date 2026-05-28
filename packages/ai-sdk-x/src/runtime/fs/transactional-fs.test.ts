@@ -98,4 +98,25 @@ describe("TransactionalFs", () => {
 		expect(status.modified).toContain("/repo/existing.txt");
 		expect(status.deleted).toContain("/repo/remove.txt");
 	});
+
+	it("does not keep a deleted parent root after recreating a child path", async () => {
+		const base = new InMemoryFs({
+			"/repo/old.txt": "old",
+		});
+		const fs = new TransactionalFs({ fs: base });
+
+		await fs.rm("/repo", { recursive: true });
+		await fs.writeFile("/repo/new.txt", "new");
+
+		expect(await fs.readFile("/repo/new.txt")).toBe("new");
+		expect(await fs.status()).toEqual({
+			added: ["/repo/new.txt"],
+			modified: ["/repo"],
+			deleted: ["/repo/old.txt"],
+		});
+
+		await fs.commit();
+		expect(await base.readFile("/repo/new.txt")).toBe("new");
+		expect(await base.exists("/repo/old.txt")).toBe(false);
+	});
 });

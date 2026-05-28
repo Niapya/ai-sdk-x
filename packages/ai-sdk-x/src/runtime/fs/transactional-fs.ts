@@ -106,6 +106,7 @@ export class TransactionalFs implements IFileSystem {
 
 		await this.overlay.writeFile(normalized, toBytes(content, this.getEncoding(options)));
 		await this.overlay.utimes(normalized, this.now(), this.now());
+		await this.materializeDeletedRootRemainders(normalized);
 		if (previousStat) {
 			await this.overlay.chmod(normalized, previousStat.mode);
 		}
@@ -168,6 +169,7 @@ export class TransactionalFs implements IFileSystem {
 
 		await this.overlay.mkdir(normalized, { recursive: options?.recursive ?? false });
 		await this.overlay.utimes(normalized, this.now(), this.now());
+		await this.materializeDeletedRootRemainders(normalized);
 	}
 
 	async readdir(path: string): Promise<string[]> {
@@ -293,6 +295,7 @@ export class TransactionalFs implements IFileSystem {
 		const normalized = normalizePath(linkPath);
 		await this.ensureParentDirectories(normalized);
 		await this.overlay.symlink(target, normalized);
+		await this.materializeDeletedRootRemainders(normalized);
 	}
 
 	async link(existingPath: string, newPath: string): Promise<void> {
@@ -459,6 +462,42 @@ export class TransactionalFs implements IFileSystem {
 		}
 
 		this.deletedRoots.add(normalized);
+	}
+
+	private async materializeDeletedRootRemainders(path: string): Promise<void> {
+		const normalized = normalizePath(path);
+		for (const existing of Array.from(this.deletedRoots)) {
+			if (isSameOrDescendant(existing, normalized)) {
+				this.deletedRoots.delete(existing);
+				await this.addDeletedRemainders(existing);
+			}
+		}
+	}
+
+	private async addDeletedRemainders(root: string): Promise<void> {
+		if (!(await this.fs.exists(root))) {
+			return;
+		}
+
+		const stat = await this.fs.lstat(root);
+		if (!stat.isDirectory) {
+			if (!(await this.overlay.exists(root))) {
+				this.addDeletedRoot(root);
+			}
+			return;
+		}
+
+		for (const entry of await this.readDirentsFromStats(this.fs, root)) {
+			const childPath = joinPath(root, entry.name);
+			if (await this.overlay.exists(childPath)) {
+				if (entry.isDirectory) {
+					await this.addDeletedRemainders(childPath);
+				}
+				continue;
+			}
+
+			this.addDeletedRoot(childPath);
+		}
 	}
 
 	private isDeleted(path: string): boolean {

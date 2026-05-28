@@ -11,8 +11,7 @@ describe("createMemoryFeature", () => {
 		expect(feature.name).toBe("memory");
 		expect(feature.prompt).toBeUndefined();
 		expect(feature.command).toBeUndefined();
-		expect(feature.env).toBeUndefined();
-		expect(feature.init).toBeUndefined();
+		expect(feature.hooks).toBeUndefined();
 		expect(feature.createCommand().name).toBe("x-memory");
 		expect(typeof feature.add).toBe("function");
 		expect(typeof feature.list).toBe("function");

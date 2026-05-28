@@ -9,6 +9,7 @@ import type {
 } from "just-bash";
 import { InMemoryFs } from "just-bash";
 import { CachingFs } from "@/runtime/fs/caching-fs";
+import { InMemoryKVStore } from "@/runtime/storage";
 
 describe("CachingFs", () => {
 	it("caches readFile and stat until ttl expiry", async () => {
@@ -106,6 +107,36 @@ describe("CachingFs", () => {
 
 		expect(await fs.readdir("/repo/source")).toEqual([]);
 		expect(await fs.readdir("/repo/dest")).toEqual(["a.txt"]);
+	});
+
+	it("invalidates cached entries written by another wrapper sharing the same KV store", async () => {
+		const cache = new InMemoryKVStore();
+		const tracked = new TrackingFs({
+			"/repo/file.txt": "before",
+		});
+		const first = new CachingFs({ fs: tracked, cache, ttlMs: 1_000 });
+		const second = new CachingFs({ fs: tracked, cache, ttlMs: 1_000 });
+
+		expect(await first.readFile("/repo/file.txt")).toBe("before");
+		await second.writeFile("/repo/file.txt", "after");
+
+		expect(await first.readFile("/repo/file.txt")).toBe("after");
+		expect(tracked.calls.readFile).toBe(2);
+	});
+
+	it("expires shared cache indexes with their cached entries", async () => {
+		let now = 0;
+		const cache = new InMemoryKVStore({ now: () => now });
+		const tracked = new TrackingFs({
+			"/repo/file.txt": "before",
+		});
+		const fs = new CachingFs({ fs: tracked, cache, now: () => now, ttlMs: 10 });
+
+		expect(await fs.readFile("/repo/file.txt")).toBe("before");
+		expect(await cache.list("runtime-storage:index:")).toHaveLength(1);
+
+		now = 11;
+		expect(await cache.list("runtime-storage:index:")).toEqual([]);
 	});
 
 	it("evicts old entries when maxBytes is exceeded", async () => {

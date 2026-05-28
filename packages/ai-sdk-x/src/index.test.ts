@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { InMemoryFs } from "just-bash";
 import X from "@/index";
-import { MemoryEnvironment } from "@/runtime/environment";
+import { MemoryEnvBackend } from "@/runtime/env";
 import type { Feature } from "@/types";
 
 describe("X feature runtime", () => {
@@ -37,9 +37,11 @@ describe("X feature runtime", () => {
 					},
 				},
 			],
-			init: async ({ fs }) => {
-				initCount += 1;
-				await fs.mkdir("/tmp/demo", { recursive: true });
+			hooks: {
+				initialize: async ({ fs }) => {
+					initCount += 1;
+					await fs.mkdir("/tmp/demo", { recursive: true });
+				},
 			},
 		});
 
@@ -170,8 +172,10 @@ function createEchoFeature(name: string, commandName: string, output: string): F
 				},
 			},
 		],
-		env: {
-			DEMO_HOME: output,
+		hooks: {
+			initialize: ({ setEnv }) => {
+				setEnv("DEMO_HOME", output);
+			},
 		},
 	};
 }
@@ -226,9 +230,12 @@ describe("X constructor options", () => {
 		expect(await x.fs.readFile("/tmp/existing.txt")).toBe("hello");
 	});
 
-	it("accepts a custom environment and merges it into exec env", async () => {
-		const env = new MemoryEnvironment({ MY_VAR: "my-value" });
-		const x = new X({ env });
+	it("accepts a custom env backend and merges it into exec env", async () => {
+		const envBackend = new MemoryEnvBackend({
+			cwd: "/home/user",
+			env: { MY_VAR: "my-value" },
+		});
+		const x = new X({ envBackend });
 		const result = await x.exec('printf "%s" "$MY_VAR"');
 		expect(result.stdout).toBe("my-value");
 	});
@@ -260,9 +267,11 @@ describe("X static init and exec promise", () => {
 
 		x.registerFeature({
 			name: "concurrent-init",
-			init: async ({ fs }) => {
-				initCount += 1;
-				await fs.mkdir("/tmp/concurrent", { recursive: true });
+			hooks: {
+				initialize: async ({ fs }) => {
+					initCount += 1;
+					await fs.mkdir("/tmp/concurrent", { recursive: true });
+				},
 			},
 		});
 
@@ -275,8 +284,10 @@ describe("X static init and exec promise", () => {
 		const x = new X();
 		x.registerFeature({
 			name: "broken-init",
-			init: async () => {
-				throw new Error("boom from init");
+			hooks: {
+				initialize: async () => {
+					throw new Error("boom from init");
+				},
 			},
 		});
 		await expect(x.exec("echo ok")).rejects.toThrow("boom from init");
@@ -357,6 +368,79 @@ describe("X getTools integration", () => {
 		expect(first.stdout.trim()).toBe("first");
 		expect(second.stdout.trim()).toBe("second");
 	});
+
+	it("bash tool execution triggers hooks in registration order", async () => {
+		const calls: string[] = [];
+		const x = new X({
+			execHooks: [
+				{
+					onExecStart: () => {
+						calls.push("constructor:start");
+					},
+					onExecEnd: () => {
+						calls.push("constructor:end");
+					},
+				},
+			],
+		});
+		x.registerFeature({
+			name: "hook-feature",
+			hooks: {
+				onExecStart: () => {
+					calls.push("feature:start");
+				},
+				onExecEnd: () => {
+					calls.push("feature:end");
+				},
+			},
+		});
+		x.registerHook({
+			onExecStart: () => {
+				calls.push("registered:start");
+			},
+			onExecEnd: () => {
+				calls.push("registered:end");
+			},
+		});
+
+		const tools = await x.getTools();
+		const execTool = tools.bash as unknown as {
+			execute: (input: { command: string }) => Promise<{
+				stdout: string;
+				exitCode: number;
+			}>;
+		};
+		const result = await execTool.execute({ command: "echo hooked" });
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.trim()).toBe("hooked");
+		expect(calls).toEqual([
+			"constructor:start",
+			"feature:start",
+			"registered:start",
+			"constructor:end",
+			"feature:end",
+			"registered:end",
+		]);
+	});
+
+	it("FeatureSetupContext exposes the main fs and no baseFs", async () => {
+		const x = new X();
+		let sawMainFs = false;
+		let sawBaseFs = false;
+
+		x.registerHook({
+			initialize: (context) => {
+				sawMainFs = context.fs === x.fs;
+				sawBaseFs = "baseFs" in context;
+			},
+		});
+
+		await x.exec("echo ok");
+
+		expect(sawMainFs).toBe(true);
+		expect(sawBaseFs).toBe(false);
+	});
 });
 
 describe("X registerCommand", () => {
@@ -402,15 +486,17 @@ describe("X registerCommand", () => {
 });
 
 describe("X registerFeature async vs sync init", () => {
-	it("feature with async init runs before first exec result", async () => {
+	it("feature with async initialize hook runs before first exec result", async () => {
 		const x = new X();
 		let initDone = false;
 
 		x.registerFeature({
 			name: "async-init-feature",
-			init: async ({ fs }) => {
-				await fs.mkdir("/tmp/async-init", { recursive: true });
-				initDone = true;
+			hooks: {
+				initialize: async ({ fs }) => {
+					await fs.mkdir("/tmp/async-init", { recursive: true });
+					initDone = true;
+				},
 			},
 		});
 
@@ -419,7 +505,7 @@ describe("X registerFeature async vs sync init", () => {
 		expect(await x.fs.exists("/tmp/async-init")).toBe(true);
 	});
 
-	it("feature without init property runs without error", async () => {
+	it("feature without hooks runs without error", async () => {
 		const x = new X();
 		x.registerFeature({
 			name: "no-init",
@@ -458,12 +544,32 @@ describe("X environment variable mutation across execs", () => {
 		const x = new X();
 		x.registerFeature({
 			name: "env-feature",
-			env: { FEAT_OWNED: "original" },
+			hooks: {
+				initialize: ({ setEnv }) => {
+					setEnv("FEAT_OWNED", "original");
+				},
+			},
 		});
-		// bash sets the env var during exec; but it's in initialEnv, so not persisted
 		await x.exec("export FEAT_OWNED=overridden-in-bash");
 		const result = await x.exec('printf "%s" "$FEAT_OWNED"');
-		// Feature env is in shellEnv (re-applied each exec), so it wins after persist strips it
 		expect(result.stdout).toBe("original");
+	});
+
+	it("later hook setEnv calls override earlier values", async () => {
+		const x = new X();
+		x.registerHook({
+			initialize: ({ setEnv }) => {
+				setEnv("HOOK_ORDERED", "first");
+			},
+		});
+		x.registerHook({
+			initialize: ({ setEnv }) => {
+				setEnv("HOOK_ORDERED", "second");
+			},
+		});
+
+		const result = await x.exec('printf "%s" "$HOOK_ORDERED"');
+
+		expect(result.stdout).toBe("second");
 	});
 });

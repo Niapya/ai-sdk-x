@@ -49,6 +49,12 @@ interface CacheRecord {
 	writtenAt: number;
 }
 
+interface CacheIndexRecord {
+	kind: CacheKeyKind;
+	path: string;
+	size: number;
+}
+
 /**
  * Configuration for the read-through caching filesystem wrapper.
  */
@@ -77,6 +83,7 @@ export interface CachingFsOptions {
 export class CachingFs implements IFileSystem {
 	private readonly cache: KVStorage;
 	private readonly fs: IFileSystem;
+	private readonly keyPrefix: string;
 	private readonly maxBytes: number;
 	private readonly metadata = new Map<string, CacheRecord>();
 	private readonly negativeTtlMs: number;
@@ -86,6 +93,7 @@ export class CachingFs implements IFileSystem {
 	constructor(options: CachingFsOptions) {
 		this.fs = options.fs;
 		this.cache = options.cache ?? new InMemoryKVStore();
+		this.keyPrefix = "runtime-storage";
 		this.maxBytes = options.maxBytes ?? Number.POSITIVE_INFINITY;
 		this.negativeTtlMs = options.negativeTtlMs ?? 5_000;
 		this.now = options.now ?? Date.now;
@@ -301,7 +309,7 @@ export class CachingFs implements IFileSystem {
 	}
 
 	private key(kind: CacheKeyKind, path: string, suffix?: string): string {
-		return `runtime-storage:${kind}:${path}${suffix ? `:${suffix}` : ""}`;
+		return `${this.keyPrefix}:${kind}:${path}${suffix ? `:${suffix}` : ""}`;
 	}
 
 	private async readCache(key: string): Promise<CacheEnvelope | null> {
@@ -377,6 +385,15 @@ export class CachingFs implements IFileSystem {
 			size,
 			writtenAt: this.now(),
 		});
+		await this.writeIndexRecord(
+			key,
+			{
+				kind,
+				path,
+				size,
+			},
+			envelope.expiresAt,
+		);
 	}
 
 	private async evictUntilFit(incomingSize: number, incomingKey: string): Promise<void> {
@@ -416,7 +433,8 @@ export class CachingFs implements IFileSystem {
 
 	private async invalidatePath(path: string, includeDescendants: boolean): Promise<void> {
 		const normalized = normalizePath(path);
-		for (const [key, meta] of Array.from(this.metadata.entries())) {
+		const records = await this.listCacheRecords();
+		for (const [key, meta] of records) {
 			const matchesPath = meta.path === normalized;
 			const matchesDescendant =
 				includeDescendants && meta.path.startsWith(descendantPrefix(normalized));
@@ -433,6 +451,81 @@ export class CachingFs implements IFileSystem {
 
 	private async deleteKey(key: string): Promise<void> {
 		await this.cache.delete(key);
+		await this.cache.delete(this.indexKey(key));
 		this.metadata.delete(key);
 	}
+
+	private indexKey(key: string): string {
+		return `${this.keyPrefix}:index:${key}`;
+	}
+
+	private async writeIndexRecord(
+		key: string,
+		record: CacheIndexRecord,
+		expiresAt: null | number,
+	): Promise<void> {
+		await this.cache.set(
+			this.indexKey(key),
+			JSON.stringify(record),
+			expiresAt === null ? undefined : expiresAt - this.now(),
+		);
+	}
+
+	private async listCacheRecords(): Promise<Array<[string, CacheIndexRecord]>> {
+		const records = new Map<string, CacheIndexRecord>();
+		for (const [key, meta] of this.metadata) {
+			records.set(key, {
+				kind: meta.kind,
+				path: meta.path,
+				size: meta.size,
+			});
+		}
+
+		for (const key of await this.cache.list(`${this.keyPrefix}:index:`)) {
+			const raw = await this.cache.get(key);
+			if (!raw) {
+				continue;
+			}
+
+			const parsed = this.parseIndexRecord(raw);
+			if (!parsed) {
+				await this.cache.delete(key);
+				continue;
+			}
+
+			records.set(key.slice(`${this.keyPrefix}:index:`.length), parsed);
+		}
+
+		return Array.from(records.entries());
+	}
+
+	private parseIndexRecord(raw: string): CacheIndexRecord | null {
+		try {
+			const parsed = JSON.parse(raw) as Partial<CacheIndexRecord>;
+			if (!parsed || typeof parsed !== "object") {
+				return null;
+			}
+			if (!isCacheKeyKind(parsed.kind) || typeof parsed.path !== "string") {
+				return null;
+			}
+			return {
+				kind: parsed.kind,
+				path: normalizePath(parsed.path),
+				size: typeof parsed.size === "number" ? parsed.size : 0,
+			};
+		} catch {
+			return null;
+		}
+	}
+}
+
+function isCacheKeyKind(value: unknown): value is CacheKeyKind {
+	return (
+		value === "readFile" ||
+		value === "readFileBuffer" ||
+		value === "readFileBytes" ||
+		value === "stat" ||
+		value === "readdir" ||
+		value === "readdirWithFileTypes"
+	);
 }

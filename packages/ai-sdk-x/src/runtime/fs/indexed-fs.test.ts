@@ -46,6 +46,22 @@ describe("IndexedFs", () => {
 		await expect(fs.stat("/repo/moved/file.txt")).rejects.toThrow("ENOENT");
 	});
 
+	it("does not clone or remove sibling paths that only share a string prefix", async () => {
+		const tracked = new IndexedTrackingFs();
+		const fs = new IndexedFs({ fs: tracked });
+
+		await fs.writeFile("/repo/source/file.txt", "source");
+		await fs.writeFile("/repo/source2/file.txt", "sibling");
+
+		await fs.cp("/repo/source", "/repo/copied", { recursive: true });
+		expect(await fs.readdir("/repo/copied")).toEqual(["file.txt"]);
+		await expect(fs.stat("/repo/copied2/file.txt")).rejects.toThrow("ENOENT");
+
+		await fs.rm("/repo/source", { recursive: true });
+		expect(await fs.readFile("/repo/source2/file.txt")).toBe("sibling");
+		expect(await fs.readdir("/repo")).toEqual(["copied", "source2"]);
+	});
+
 	it("delegates content reads to the base fs once the path is indexed", async () => {
 		const tracked = new IndexedTrackingFs();
 		const fs = new IndexedFs({ fs: tracked });

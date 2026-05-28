@@ -83,4 +83,15 @@ describe("SubpathFs", () => {
 		expect(await fs.realpath("/inside-link.txt")).toBe("/inside.txt");
 		await expect(fs.realpath("/outside-link.txt")).rejects.toThrow("EACCES");
 	});
+
+	it("rejects input paths that escape the mounted root", async () => {
+		const base = new InMemoryFs({
+			"/workspace/project/secret.txt": "not reachable by ../secret.txt",
+		});
+		const fs = createSubpathFs(base, "/workspace/project");
+
+		await expect(fs.readFile("../secret.txt")).rejects.toThrow("EACCES");
+		await expect(fs.writeFile("/../../secret.txt", "x")).rejects.toThrow("EACCES");
+		expect(await fs.readFile("/secret.txt")).toBe("not reachable by ../secret.txt");
+	});
 });

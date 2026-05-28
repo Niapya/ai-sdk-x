@@ -19,11 +19,11 @@ export function createWorkspaceFeature(
 		...feature,
 		prompt: () =>
 			`Workspace mount: ${config.mountPoint}. Use the mounted workspace to inspect and edit files.`,
-		env: {
-			WORKSPACE_HOME: config.mountPoint,
-		},
-		init: async (context) => {
-			await initializeMountedFeature(context, config, DEFAULT_WORKSPACE_MOUNT);
+		hooks: {
+			initialize: async (context) => {
+				await initializeMountedFeature(context, config, DEFAULT_WORKSPACE_MOUNT);
+				context.setEnv("WORKSPACE_HOME", config.mountPoint);
+			},
 		},
 	};
 }

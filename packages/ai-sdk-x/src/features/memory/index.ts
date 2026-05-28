@@ -77,11 +77,11 @@ export function createMemoryFeature(
 		prompt: () =>
 			`Memory mount: ${config.mountPoint}. Use x-memory to store and search mounted memory notes.`,
 		command: [feature.createCommand()],
-		env: {
-			MEMORY_HOME: config.mountPoint,
-		},
-		init: async (context) => {
-			await initializeMountedFeature(context, config, DEFAULT_MEMORY_MOUNT);
+		hooks: {
+			initialize: async (context) => {
+				await initializeMountedFeature(context, config, DEFAULT_MEMORY_MOUNT);
+				context.setEnv("MEMORY_HOME", config.mountPoint);
+			},
 		},
 	};
 }

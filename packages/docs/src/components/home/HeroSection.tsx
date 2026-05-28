@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import logoUrl from "@/logo.svg";
 import { navigate } from "@/router";
 
-const PROMPT =
-	`First, search and install "frontend-design" Skills. Then, read it and implement a "Snake game" in the Workspace. Finally, summarise into Memory.`;
+const PROMPT = `First, search and install "frontend-design" Skills. Then, read it and implement a "Snake game" in the Workspace. Finally, summarise into Memory.`;
 
 type OutputLine = { text: string; kind: "cmd" | "out" | "ok" | "think" };
 

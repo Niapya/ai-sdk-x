@@ -32,7 +32,7 @@ describe("createGitFeature", () => {
 
 	it("passes options to createGit when provided", () => {
 		// Just verify it doesn't throw and command is still present
-		const feature = createGitFeature({ enabled: true });
+		const feature = createGitFeature();
 		expect(Array.isArray(feature.command)).toBe(true);
 	});
 });

@@ -11,8 +11,7 @@ describe("createSkillsFeature", () => {
 		expect(feature.name).toBe("skills");
 		expect(feature.prompt).toBeUndefined();
 		expect(feature.command).toBeUndefined();
-		expect(feature.env).toBeUndefined();
-		expect(feature.init).toBeUndefined();
+		expect(feature.hooks).toBeUndefined();
 		expect(feature.createCommand().name).toBe("x-skills");
 		expect(typeof feature.install).toBe("function");
 		expect(typeof feature.list).toBe("function");

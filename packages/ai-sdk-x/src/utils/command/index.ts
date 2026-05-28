@@ -380,6 +380,11 @@ function parseCommandInput<
 ): CommandInput<Args, Flags> | { error: string } {
 	const flagDefinitions = (definition.flags ?? {}) as Record<string, CommandFlagDefinition>;
 	const aliasToName = new Map<string, string>();
+	const argDefinitionError = validateArgDefinitions(definition.args ?? []);
+	if (argDefinitionError) {
+		return { error: argDefinitionError };
+	}
+
 	for (const [name, flag] of Object.entries(flagDefinitions)) {
 		if (flag.char) {
 			aliasToName.set(flag.char, name);
@@ -432,7 +437,7 @@ function parseCommandInput<
 				index += 1;
 				value = argv[index];
 			}
-			if (value === undefined) {
+			if (value === undefined || looksLikeFlagToken(value)) {
 				return { error: `Missing value for flag: --${name}\n` };
 			}
 
@@ -472,7 +477,7 @@ function parseCommandInput<
 
 			index += 1;
 			const value = argv[index];
-			if (value === undefined) {
+			if (value === undefined || looksLikeFlagToken(value)) {
 				return { error: `Missing value for flag: ${token}\n` };
 			}
 
@@ -552,6 +557,19 @@ function parseCommandInput<
 		argv,
 		flags: flags as ResolvedCommandFlags<Flags>,
 	};
+}
+
+function validateArgDefinitions(definitions: CommandArgDefinitions): string | undefined {
+	const variadicIndex = definitions.findIndex((arg) => arg.multiple);
+	if (variadicIndex >= 0 && variadicIndex < definitions.length - 1) {
+		return `Variadic arg must be the final arg: ${definitions[variadicIndex].name}\n`;
+	}
+
+	return undefined;
+}
+
+function looksLikeFlagToken(value: string): boolean {
+	return value !== "-" && value.startsWith("-");
 }
 
 function commandHelp(definition: AnyCliCommandDefinition, path: string[]): ExecResult {
