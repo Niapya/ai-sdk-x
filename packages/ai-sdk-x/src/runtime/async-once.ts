@@ -1,22 +1,22 @@
-export class AsyncOnce {
+export class AsyncOnce<Args extends unknown[] = []> {
 	private done = false;
 	private promise: Promise<void> | null = null;
 
 	constructor(
-		private readonly fn: () => Promise<void> | void,
+		private readonly fn: (...args: Args) => Promise<void> | void,
 		private readonly options: {
 			retryOnFailure?: boolean;
 		} = {},
 	) {}
 
-	run(): Promise<void> {
+	run = (...args: Args): Promise<void> => {
 		if (this.done) {
 			return Promise.resolve();
 		}
 
 		if (!this.promise) {
 			this.promise = Promise.resolve()
-				.then(() => this.fn())
+				.then(() => this.fn(...args))
 				.then(() => {
 					this.done = true;
 				})
@@ -30,5 +30,5 @@ export class AsyncOnce {
 		}
 
 		return this.promise;
-	}
+	};
 }

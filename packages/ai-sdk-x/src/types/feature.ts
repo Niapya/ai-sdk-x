@@ -21,13 +21,14 @@ export interface ExecHookContext {
 	readonly snapshot: EnvSnapshot;
 }
 
+export interface ExecHookStartContext extends FeatureSetupContext, ExecHookContext {}
+
 export interface ExecHookResultContext extends ExecHookContext {
 	readonly result: BashExecResult;
 }
 
 export interface ExecHook {
-	initialize?(ctx: FeatureSetupContext): Awaitable<void>;
-	onExecStart?(ctx: ExecHookContext): Awaitable<void>;
+	onExecStart?(ctx: ExecHookStartContext): Awaitable<void>;
 	onExecEnd?(ctx: ExecHookResultContext): Awaitable<void>;
 }
 

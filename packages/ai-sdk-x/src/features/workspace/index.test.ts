@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { InMemoryFs, MountableFs } from "just-bash";
-import { createWorkspaceFeature } from "@/features/workspace";
-import { DEFAULT_WORKSPACE_MOUNT } from "@/runtime/constants";
+import { createWorkspaceFeature, DEFAULT_WORKSPACE_MOUNT } from "@/features/workspace";
 
 function makeInitCtx(fs = new MountableFs({ base: new InMemoryFs() })) {
 	const env = new Map<string, string>();
@@ -27,10 +26,10 @@ describe("createWorkspaceFeature", () => {
 		expect(feature.hooks).toBeUndefined();
 	});
 
-	it("provides prompt and initialize hook when enabled", () => {
+	it("provides prompt and onExecStart hook when enabled", () => {
 		const feature = createWorkspaceFeature(true);
 		expect(typeof feature.prompt).toBe("function");
-		expect(typeof feature.hooks?.initialize).toBe("function");
+		expect(typeof feature.hooks?.onExecStart).toBe("function");
 	});
 
 	it("prompt includes the mount point path", async () => {
@@ -39,28 +38,40 @@ describe("createWorkspaceFeature", () => {
 		expect(text).toContain(DEFAULT_WORKSPACE_MOUNT);
 	});
 
-	it("initialize hook creates the mount directory and sets env", async () => {
+	it("onExecStart creates the mount directory and sets env", async () => {
 		const fs = new MountableFs({ base: new InMemoryFs() });
 		const feature = createWorkspaceFeature(true);
 		const ctx = makeInitCtx(fs);
-		await feature.hooks?.initialize?.(ctx);
+		await feature.hooks?.onExecStart?.({
+			...ctx,
+			command: "echo ok",
+			snapshot: { cwd: "/", env: {} },
+		});
 		expect(await fs.exists(DEFAULT_WORKSPACE_MOUNT)).toBe(true);
 		expect(ctx.env.get("WORKSPACE_HOME")).toBe(DEFAULT_WORKSPACE_MOUNT);
 	});
 
-	it("initialize hook uses custom mountPoint from options", async () => {
+	it("onExecStart uses custom mountPoint from options", async () => {
 		const feature = createWorkspaceFeature({ mountPoint: "/custom/ws" });
 		const ctx = makeInitCtx();
-		await feature.hooks?.initialize?.(ctx);
+		await feature.hooks?.onExecStart?.({
+			...ctx,
+			command: "echo ok",
+			snapshot: { cwd: "/", env: {} },
+		});
 		expect(ctx.env.get("WORKSPACE_HOME")).toBe("/custom/ws");
 	});
 
-	it("initialize hook mounts custom fs at the mountPoint", async () => {
+	it("onExecStart mounts custom fs at the mountPoint", async () => {
 		const fs = new MountableFs({ base: new InMemoryFs() });
 		const customFs = new InMemoryFs({ "/file.txt": "hello" });
 		const feature = createWorkspaceFeature({ mountPoint: "/mnt/ws", fs: customFs });
 		const ctx = makeInitCtx(fs);
-		await feature.hooks?.initialize?.(ctx);
+		await feature.hooks?.onExecStart?.({
+			...ctx,
+			command: "echo ok",
+			snapshot: { cwd: "/", env: {} },
+		});
 		expect(await ctx.fs.exists("/mnt/ws/file.txt")).toBe(true);
 	});
 });

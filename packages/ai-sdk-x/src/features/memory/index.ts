@@ -3,14 +3,12 @@ import { type AddMemoryInput, addMemory, createAddMemoryCommand } from "@/featur
 import { createListMemoryCommand, listMemory } from "@/features/memory/list";
 import { createSearchMemoryCommand, searchMemory } from "@/features/memory/search";
 import type { MemoryCommandOptions, MemoryConfig, MemoryOptions } from "@/features/memory/types";
-import { DEFAULT_MEMORY_MOUNT } from "@/runtime/constants";
-import {
-	initializeMountedFeature,
-	resolveFeatureOption,
-	resolveMountedFeatureConfig,
-} from "@/runtime/features";
-import type { Feature } from "@/types";
+import { AsyncOnce } from "@/runtime/async-once";
+import { createSubpathFs } from "@/runtime/fs/subpath-fs";
+import type { ExecHookStartContext, Feature } from "@/types";
 import { type CliTopicDefinition, createCommand } from "@/utils/command";
+
+export const DEFAULT_MEMORY_MOUNT = "/home/user/memory";
 
 const MEMORY_COMMAND = {
 	id: "x-memory",
@@ -51,9 +49,11 @@ export type MemoryFeature = Feature & {
 export function createMemoryFeature(
 	option: boolean | MemoryOptions | undefined = true,
 ): MemoryFeature {
-	const resolvedOption = resolveFeatureOption(option);
+	const resolvedOption = typeof option === "object" ? option : undefined;
 	const config: MemoryConfig = {
-		...resolveMountedFeatureConfig(option, DEFAULT_MEMORY_MOUNT),
+		enabled: option !== false,
+		fs: resolvedOption?.fs,
+		mountPoint: resolvedOption?.mountPoint ?? DEFAULT_MEMORY_MOUNT,
 		cache: resolvedOption?.cache,
 	};
 	const commandOptions: MemoryCommandOptions = {
@@ -72,16 +72,27 @@ export function createMemoryFeature(
 		return feature;
 	}
 
+	const initialize = new AsyncOnce<[ExecHookStartContext]>(async (context) => {
+		if (config.fs) {
+			context.fs.mount(config.mountPoint, config.fs);
+		} else {
+			if (config.mountPoint !== DEFAULT_MEMORY_MOUNT) {
+				context.fs.mount(config.mountPoint, createSubpathFs(context.fs, DEFAULT_MEMORY_MOUNT));
+			}
+
+			await context.fs.mkdir(DEFAULT_MEMORY_MOUNT, { recursive: true });
+		}
+
+		context.setEnv("MEMORY_HOME", config.mountPoint);
+	});
+
 	return {
 		...feature,
 		prompt: () =>
 			`Memory mount: ${config.mountPoint}. Use x-memory to store and search mounted memory notes.`,
 		command: [feature.createCommand()],
 		hooks: {
-			initialize: async (context) => {
-				await initializeMountedFeature(context, config, DEFAULT_MEMORY_MOUNT);
-				context.setEnv("MEMORY_HOME", config.mountPoint);
-			},
+			onExecStart: (context) => initialize.run(context),
 		},
 	};
 }

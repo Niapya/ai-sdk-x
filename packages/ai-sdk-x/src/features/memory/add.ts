@@ -73,18 +73,18 @@ export function createAddMemoryCommand(options: MemoryCommandOptions): CliComman
 				multiple: true,
 				summary: "Optional title for the memory entry.",
 			},
-		],
+		] as const,
 		flags: {
 			"long-term": {
 				allowNo: true,
 				description: "Write the memory entry into MEMORY.md.",
 				type: "boolean",
 			},
-		},
+		} as const,
 		examples: [
 			{ command: "printf 'note' | x-memory add note-title" },
 			{ command: "printf 'important' | x-memory add --long-term note-title" },
-		],
+		] as const,
 		run: ({ args: { title = [] }, flags: { "long-term": longTerm = false } }, ctx) => {
 			return addMemory(
 				{

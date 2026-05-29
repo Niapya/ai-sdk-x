@@ -1,14 +1,13 @@
 import { type Command, type ExecResult, latin1FromBytes } from "just-bash";
 import { createGit } from "just-git";
 import type { GitConfig, GitOptions } from "@/features/git/types";
-import { resolveFeatureEnabled, resolveFeatureOption } from "@/runtime/features";
 import type { Feature } from "@/types";
 
 export function createGitFeature(option: boolean | GitOptions | undefined = true): Feature {
-	const resolvedOption = resolveFeatureOption(option);
+	const resolvedOption = typeof option === "object" ? option : undefined;
 	const gitCommand = resolvedOption ? createGit(resolvedOption) : createGit();
 	const config: GitConfig = {
-		enabled: resolveFeatureEnabled(option),
+		enabled: option !== false,
 		...(resolvedOption ?? {}),
 	};
 	const feature: Feature = {

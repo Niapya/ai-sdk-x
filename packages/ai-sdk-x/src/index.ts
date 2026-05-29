@@ -12,7 +12,6 @@ import { createMemoryFeature } from "@/features/memory";
 import { createPatchFeature } from "@/features/patch";
 import { createSkillsFeature, parseSkillInstallTarget } from "@/features/skills";
 import { createWorkspaceFeature } from "@/features/workspace";
-import { AsyncOnce } from "@/runtime/async-once";
 import { resolveBashConfig } from "@/runtime/config";
 import { type EnvBackend, type EnvSnapshot, MemoryEnvBackend, mergeEnv } from "@/runtime/env";
 import { MAX_OUTPUT } from "@/runtime/output";
@@ -89,18 +88,13 @@ export type { InMemoryKVStoreOptions } from "@/runtime/storage";
 export { InMemoryKVStore } from "@/runtime/storage";
 export type { FsDirent } from "@/utils";
 
-interface RegisteredExecHook {
-	hook: ExecHook;
-	initialize: AsyncOnce;
-}
-
 export class X {
 	readonly bash: Bash;
 	readonly commands: Command[];
 	readonly features: Feature[];
 	readonly fs: MountableFs;
 	private readonly envBackend: EnvBackend;
-	private readonly execHooks: RegisteredExecHook[];
+	private readonly execHooks: ExecHook[];
 	private readonly hookEnv = new Map<string, string>();
 
 	constructor(options: XOptions = {}) {
@@ -149,31 +143,30 @@ export class X {
 	}
 
 	async exec(command: string, options?: ExecOptions): Promise<BashExecResult> {
-		for (const entry of this.execHooks) {
-			await entry.initialize.run();
-		}
-
-		const shellEnv = this.resolveShellEnv();
 		const snapshot = (await this.envBackend.load()) ?? {
 			cwd: this.bash.getCwd(),
 			env: {},
 		};
-		const baseEnv = options?.replaceEnv ? shellEnv : mergeEnv(shellEnv, snapshot.env);
-		const execEnv = mergeEnv(baseEnv, options?.env);
-		const execCwd = options?.cwd ?? snapshot.cwd ?? execEnv.PWD ?? this.bash.getCwd();
 		const hookOptions = toHookOptions(options);
 		const startSnapshot: EnvSnapshot = {
 			cwd: snapshot.cwd,
 			env: snapshot.env,
 		};
+		const featureContext = this.createFeatureContext();
 
-		for (const entry of this.execHooks) {
-			await entry.hook.onExecStart?.({
+		for (const hook of this.execHooks) {
+			await hook.onExecStart?.({
+				...featureContext,
 				command,
 				options: hookOptions,
 				snapshot: startSnapshot,
 			});
 		}
+
+		const shellEnv = this.resolveShellEnv();
+		const baseEnv = options?.replaceEnv ? shellEnv : mergeEnv(shellEnv, snapshot.env);
+		const execEnv = mergeEnv(baseEnv, options?.env);
+		const execCwd = options?.cwd ?? snapshot.cwd ?? execEnv.PWD ?? this.bash.getCwd();
 		const result = await this.bash.exec(command, {
 			...options,
 			cwd: execCwd,
@@ -191,8 +184,8 @@ export class X {
 		};
 
 		await this.envBackend.save(nextSnapshot);
-		for (const entry of this.execHooks) {
-			await entry.hook.onExecEnd?.({
+		for (const hook of this.execHooks) {
+			await hook.onExecEnd?.({
 				command,
 				options: hookOptions,
 				snapshot: nextSnapshot,
@@ -232,12 +225,7 @@ export class X {
 	}
 
 	registerHook(hook: ExecHook): this {
-		this.execHooks.push({
-			hook,
-			initialize: new AsyncOnce(() => hook.initialize?.(this.createFeatureContext()), {
-				retryOnFailure: true,
-			}),
-		});
+		this.execHooks.push(hook);
 		return this;
 	}
 

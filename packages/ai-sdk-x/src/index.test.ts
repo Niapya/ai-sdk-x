@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { InMemoryFs } from "just-bash";
 import X from "@/index";
+import { AsyncOnce } from "@/runtime/async-once";
 import { MemoryEnvBackend } from "@/runtime/env";
-import type { Feature } from "@/types";
+import type { ExecHookStartContext, Feature } from "@/types";
 
 describe("X feature runtime", () => {
 	it("starts with no default features in constructor", async () => {
@@ -19,9 +20,9 @@ describe("X feature runtime", () => {
 		expect(result.stdout).toBe("||");
 	});
 
-	it("registerFeature registers commands immediately and initializes once on exec", async () => {
+	it("registerFeature registers commands immediately and runs start hooks on exec", async () => {
 		const x = new X();
-		let initCount = 0;
+		let startCount = 0;
 
 		x.registerFeature({
 			name: "demo",
@@ -38,8 +39,8 @@ describe("X feature runtime", () => {
 				},
 			],
 			hooks: {
-				initialize: async ({ fs }) => {
-					initCount += 1;
+				onExecStart: async ({ fs }) => {
+					startCount += 1;
 					await fs.mkdir("/tmp/demo", { recursive: true });
 				},
 			},
@@ -50,12 +51,12 @@ describe("X feature runtime", () => {
 
 		const first = await x.exec("x-demo");
 		expect(first.stdout).toBe("demo");
-		expect(initCount).toBe(1);
+		expect(startCount).toBe(1);
 		expect(await x.fs.exists("/tmp/demo")).toBe(true);
 
 		const second = await x.exec("x-demo");
 		expect(second.stdout).toBe("demo");
-		expect(initCount).toBe(1);
+		expect(startCount).toBe(2);
 	});
 
 	it("overwrites same feature command and env directly", async () => {
@@ -173,7 +174,7 @@ function createEchoFeature(name: string, commandName: string, output: string): F
 			},
 		],
 		hooks: {
-			initialize: ({ setEnv }) => {
+			onExecStart: ({ setEnv }) => {
 				setEnv("DEMO_HOME", output);
 			},
 		},
@@ -268,10 +269,10 @@ describe("X static init and exec promise", () => {
 		x.registerFeature({
 			name: "concurrent-init",
 			hooks: {
-				initialize: async ({ fs }) => {
+				onExecStart: new AsyncOnce<[ExecHookStartContext]>(async ({ fs }) => {
 					initCount += 1;
 					await fs.mkdir("/tmp/concurrent", { recursive: true });
-				},
+				}).run,
 			},
 		});
 
@@ -285,9 +286,9 @@ describe("X static init and exec promise", () => {
 		x.registerFeature({
 			name: "broken-init",
 			hooks: {
-				initialize: async () => {
+				onExecStart: new AsyncOnce<[ExecHookStartContext]>(async () => {
 					throw new Error("boom from init");
-				},
+				}).run,
 			},
 		});
 		await expect(x.exec("echo ok")).rejects.toThrow("boom from init");
@@ -424,13 +425,13 @@ describe("X getTools integration", () => {
 		]);
 	});
 
-	it("FeatureSetupContext exposes the main fs and no baseFs", async () => {
+	it("onExecStart context exposes the main fs and no baseFs", async () => {
 		const x = new X();
 		let sawMainFs = false;
 		let sawBaseFs = false;
 
 		x.registerHook({
-			initialize: (context) => {
+			onExecStart: (context) => {
 				sawMainFs = context.fs === x.fs;
 				sawBaseFs = "baseFs" in context;
 			},
@@ -486,17 +487,17 @@ describe("X registerCommand", () => {
 });
 
 describe("X registerFeature async vs sync init", () => {
-	it("feature with async initialize hook runs before first exec result", async () => {
+	it("feature with async once onExecStart runs before first exec result", async () => {
 		const x = new X();
 		let initDone = false;
 
 		x.registerFeature({
 			name: "async-init-feature",
 			hooks: {
-				initialize: async ({ fs }) => {
+				onExecStart: new AsyncOnce<[ExecHookStartContext]>(async ({ fs }) => {
 					await fs.mkdir("/tmp/async-init", { recursive: true });
 					initDone = true;
-				},
+				}).run,
 			},
 		});
 
@@ -545,9 +546,9 @@ describe("X environment variable mutation across execs", () => {
 		x.registerFeature({
 			name: "env-feature",
 			hooks: {
-				initialize: ({ setEnv }) => {
+				onExecStart: new AsyncOnce<[ExecHookStartContext]>(({ setEnv }) => {
 					setEnv("FEAT_OWNED", "original");
-				},
+				}).run,
 			},
 		});
 		await x.exec("export FEAT_OWNED=overridden-in-bash");
@@ -558,14 +559,14 @@ describe("X environment variable mutation across execs", () => {
 	it("later hook setEnv calls override earlier values", async () => {
 		const x = new X();
 		x.registerHook({
-			initialize: ({ setEnv }) => {
+			onExecStart: new AsyncOnce<[ExecHookStartContext]>(({ setEnv }) => {
 				setEnv("HOOK_ORDERED", "first");
-			},
+			}).run,
 		});
 		x.registerHook({
-			initialize: ({ setEnv }) => {
+			onExecStart: new AsyncOnce<[ExecHookStartContext]>(({ setEnv }) => {
 				setEnv("HOOK_ORDERED", "second");
-			},
+			}).run,
 		});
 
 		const result = await x.exec('printf "%s" "$HOOK_ORDERED"');

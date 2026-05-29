@@ -6,7 +6,6 @@
 import { type Command, type CommandContext, decodeBytesToUtf8, type ExecResult } from "just-bash";
 import { deriveNewContentsFromChunks, type Hunk, parsePatch } from "@/features/patch/patch";
 import type { PatchCommandOptions, PatchConfig, PatchOptions } from "@/features/patch/types";
-import { resolveFeatureEnabled } from "@/runtime/features";
 import type { Feature } from "@/types";
 import { commandError, commandUsageError, createCommand, defineCliCommand } from "@/utils/command";
 
@@ -104,7 +103,7 @@ export function createPatchCommand(_options: PatchCommandOptions = {}): Command 
 
 export function createPatchFeature(option: boolean | PatchOptions | undefined = true): Feature {
 	const config: PatchConfig = {
-		enabled: resolveFeatureEnabled(option),
+		enabled: option !== false,
 	};
 	const feature: Feature = {
 		name: "patch",
