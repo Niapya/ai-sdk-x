@@ -224,6 +224,12 @@ function skillMarkdown(title: string, body: string): string {
 // ─── Additional tests ────────────────────────────────────────────────────────
 
 describe("X constructor options", () => {
+	it("defaults cwd to the home directory", async () => {
+		const x = new X();
+		const result = await x.exec("pwd");
+		expect(result.stdout.trim()).toBe("/home/user");
+	});
+
 	it("accepts a custom IFileSystem and exposes files through x.fs", async () => {
 		const fs = new InMemoryFs({ "/tmp/existing.txt": "hello" });
 		const x = new X({ fs });
@@ -541,6 +547,16 @@ describe("X environment variable mutation across execs", () => {
 		expect(result.stdout).toBe("2");
 	});
 
+	it("starts from bash env and lets persisted env override matching baseline keys", async () => {
+		const x = new X({ bash: { env: { SHARED_X: "baseline" } } });
+		const first = await x.exec('printf "%s" "$SHARED_X"');
+		expect(first.stdout).toBe("baseline");
+
+		await x.exec("export SHARED_X=persisted");
+		const second = await x.exec('printf "%s" "$SHARED_X"');
+		expect(second.stdout).toBe("persisted");
+	});
+
 	it("feature-owned env keys are re-applied and not polluted by bash exec", async () => {
 		const x = new X();
 		x.registerFeature({
@@ -572,5 +588,49 @@ describe("X environment variable mutation across execs", () => {
 		const result = await x.exec('printf "%s" "$HOOK_ORDERED"');
 
 		expect(result.stdout).toBe("second");
+	});
+
+	it("does not persist per-exec env options", async () => {
+		const x = new X();
+		const first = await x.exec('printf "%s" "$TEMP_X"', {
+			env: { TEMP_X: "one-shot" },
+		});
+		expect(first.stdout).toBe("one-shot");
+
+		const second = await x.exec('printf "%s" "$TEMP_X"');
+		expect(second.stdout).toBe("");
+	});
+
+	it("does not persist command changes made during per-exec env options", async () => {
+		const x = new X();
+		await x.exec("export TEMP_X=changed", {
+			env: { TEMP_X: "one-shot" },
+		});
+
+		const result = await x.exec('printf "%s" "$TEMP_X"');
+		expect(result.stdout).toBe("");
+	});
+
+	it("replaceEnv skips persisted env and does not overwrite it", async () => {
+		const x = new X();
+		await x.exec("export KEEP_X=persisted");
+
+		const replaceResult = await x.exec('printf "%s" "$KEEP_X"; export KEEP_X=replaced', {
+			replaceEnv: true,
+		});
+		expect(replaceResult.stdout).toBe("");
+
+		const result = await x.exec('printf "%s" "$KEEP_X"');
+		expect(result.stdout).toBe("persisted");
+	});
+
+	it("persists ordinary env changes through an external backend", async () => {
+		const envBackend = new MemoryEnvBackend();
+		const first = new X({ envBackend });
+		await first.exec("export BACKED_X=saved");
+
+		const second = new X({ envBackend });
+		const result = await second.exec('printf "%s" "$BACKED_X"');
+		expect(result.stdout).toBe("saved");
 	});
 });

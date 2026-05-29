@@ -95,7 +95,7 @@ export class X {
 	readonly fs: MountableFs;
 	private readonly envBackend: EnvBackend;
 	private readonly execHooks: ExecHook[];
-	private readonly hookEnv = new Map<string, string>();
+	private readonly featureEnv = new Map<string, string>();
 
 	constructor(options: XOptions = {}) {
 		const bashConfig = resolveBashConfig(options.bash);
@@ -147,7 +147,15 @@ export class X {
 			cwd: this.bash.getCwd(),
 			env: {},
 		};
-		const hookOptions = toHookOptions(options);
+		const hookOptions = options
+			? {
+					cwd: options.cwd,
+					env: options.env,
+					replaceEnv: options.replaceEnv,
+					stdin: options.stdin,
+					stdinKind: options.stdinKind,
+				}
+			: undefined;
 		const startSnapshot: EnvSnapshot = {
 			cwd: snapshot.cwd,
 			env: snapshot.env,
@@ -163,8 +171,10 @@ export class X {
 			});
 		}
 
-		const shellEnv = this.resolveShellEnv();
-		const baseEnv = options?.replaceEnv ? shellEnv : mergeEnv(shellEnv, snapshot.env);
+		const featureEnv = this.resolveFeatureEnv();
+		const baseEnv = options?.replaceEnv
+			? featureEnv
+			: mergeEnv(this.bash.getEnv(), snapshot.env, featureEnv);
 		const execEnv = mergeEnv(baseEnv, options?.env);
 		const execCwd = options?.cwd ?? snapshot.cwd ?? execEnv.PWD ?? this.bash.getCwd();
 		const result = await this.bash.exec(command, {
@@ -174,12 +184,13 @@ export class X {
 			replaceEnv: true,
 		});
 
-		const persistedEnv = mergeEnv(result.env);
-		for (const key of Object.keys(shellEnv)) {
+		const persistsEnv = !options?.env && !options?.replaceEnv;
+		const persistedEnv = mergeEnv(persistsEnv ? result.env : snapshot.env);
+		for (const key of Object.keys(featureEnv)) {
 			delete persistedEnv[key];
 		}
 		const nextSnapshot: EnvSnapshot = {
-			cwd: result.env.PWD ?? execCwd,
+			cwd: options?.cwd ? snapshot.cwd : (result.env.PWD ?? execCwd),
 			env: persistedEnv,
 		};
 
@@ -251,26 +262,14 @@ export class X {
 			bash: this.bash,
 			fs: this.fs,
 			setEnv: (key, value) => {
-				this.hookEnv.set(key, value);
+				this.featureEnv.set(key, value);
 			},
 		};
 	}
 
-	private resolveShellEnv(): Record<string, string> {
-		return mergeEnv(this.bash.getEnv(), Object.fromEntries(this.hookEnv.entries()));
+	private resolveFeatureEnv(): Record<string, string> {
+		return mergeEnv(Object.fromEntries(this.featureEnv.entries()));
 	}
-}
-
-function toHookOptions(options: ExecOptions | undefined) {
-	return options
-		? {
-				cwd: options.cwd,
-				env: options.env,
-				replaceEnv: options.replaceEnv,
-				stdin: options.stdin,
-				stdinKind: options.stdinKind,
-			}
-		: undefined;
 }
 
 export default X;
