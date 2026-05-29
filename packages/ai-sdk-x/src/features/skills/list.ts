@@ -9,12 +9,6 @@ export async function listSkills(
 	fs: IFileSystem,
 	options: SkillsCommandOptions,
 ): Promise<ExecResult> {
-	const cacheKey = "skills:list";
-	const cached = await options.cache?.get(cacheKey);
-	if (cached !== null && cached !== undefined) {
-		return { stdout: cached, stderr: "", exitCode: 0 };
-	}
-
 	if (!(await fs.exists(options.mountPoint))) {
 		return { stdout: "", stderr: "", exitCode: 0 };
 	}
@@ -46,7 +40,6 @@ export async function listSkills(
 
 	const output = lines.sort().join("\n");
 	const stdout = output ? `${output}\n` : "";
-	await options.cache?.set(cacheKey, stdout);
 	return { stdout, stderr: "", exitCode: 0 };
 }
 

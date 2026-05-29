@@ -58,11 +58,9 @@ export function createSkillsFeature(
 		enabled: option !== false,
 		fs: resolvedOption?.fs,
 		mountPoint: resolvedOption?.mountPoint ?? DEFAULT_SKILLS_MOUNT,
-		cache: resolvedOption?.cache,
 		lockfile: resolvedOption?.lockfile ?? true,
 	};
 	const commandOptions: SkillsCommandOptions = {
-		cache: config.cache,
 		lockfile: config.lockfile,
 		mountPoint: config.mountPoint,
 	};

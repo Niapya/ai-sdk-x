@@ -7,14 +7,8 @@ export async function listMemory(
 	fs: IFileSystem,
 	options: MemoryCommandOptions,
 ): Promise<ExecResult> {
-	const cached = await options.cache?.get("memory:list");
-	if (cached !== null && cached !== undefined) {
-		return { stdout: cached, stderr: "", exitCode: 0 };
-	}
-
 	const paths = await collectMemoryFiles(fs, options.mountPoint);
 	const stdout = paths.length > 0 ? `${paths.join("\n")}\n` : "";
-	await options.cache?.set("memory:list", stdout);
 	return { stdout, stderr: "", exitCode: 0 };
 }
 

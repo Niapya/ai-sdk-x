@@ -73,8 +73,6 @@ export async function updateSkills(
 			}
 		}
 
-		await options.cache?.delete("skills:list");
-
 		return {
 			stdout: `Updated ${installedSkills.length} skill${installedSkills.length === 1 ? "" : "s"}\n`,
 			stderr: "",

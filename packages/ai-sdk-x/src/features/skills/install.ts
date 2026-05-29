@@ -53,8 +53,6 @@ export async function installSkill(
 			await writeSkillLockfile(ctx.fs, options, target, frontmatter, description);
 		}
 
-		await options.cache?.delete("skills:list");
-
 		return {
 			stdout: `Installed ${target.selector} from ${target.repoUrl}\n`,
 			stderr: "",

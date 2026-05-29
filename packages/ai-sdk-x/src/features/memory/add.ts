@@ -31,7 +31,6 @@ export async function addMemory(
 		} else {
 			await ctx.fs.writeFile(memoryPath, `# Memory\n${entry}`);
 		}
-		await options.cache?.delete("memory:list");
 		return { stdout: `${memoryPath}\n`, stderr: "", exitCode: 0 };
 	}
 
@@ -41,7 +40,6 @@ export async function addMemory(
 
 	const memoryPath = ctx.fs.resolvePath(dailyDir, `${slugifyMemoryTitle(title || "memory")}.md`);
 	await ctx.fs.writeFile(memoryPath, `# ${title || "Memory"}\n\n${body.trim()}\n`);
-	await options.cache?.delete("memory:list");
 	return { stdout: `${memoryPath}\n`, stderr: "", exitCode: 0 };
 }
 

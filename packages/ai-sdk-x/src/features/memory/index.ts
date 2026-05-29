@@ -54,10 +54,8 @@ export function createMemoryFeature(
 		enabled: option !== false,
 		fs: resolvedOption?.fs,
 		mountPoint: resolvedOption?.mountPoint ?? DEFAULT_MEMORY_MOUNT,
-		cache: resolvedOption?.cache,
 	};
 	const commandOptions: MemoryCommandOptions = {
-		cache: config.cache,
 		mountPoint: config.mountPoint,
 	};
 	const feature: MemoryFeature = {

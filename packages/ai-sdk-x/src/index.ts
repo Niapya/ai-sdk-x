@@ -4,7 +4,6 @@ import {
 	type BashOptions,
 	type Command,
 	type ExecOptions,
-	type IFileSystem,
 	InMemoryFs,
 } from "just-bash";
 import { createGitFeature } from "@/features/git";

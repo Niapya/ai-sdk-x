@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { type CommandContext, EMPTY_BYTES, encodeUtf8ToBytes, InMemoryFs } from "just-bash";
 import { addMemory } from "@/features/memory/add";
-import { InMemoryKVStore } from "@/runtime/storage/in-memory-kv-store";
 
 const HOME = "/home/user";
 const MOUNT = "/home/user/memory";
@@ -60,19 +59,6 @@ describe("addMemory – daily entry", () => {
 			now: () => new Date("2025-06-01T00:00:00Z"),
 		});
 		expect(await fs.exists("/new/mount")).toBe(true);
-	});
-
-	it("invalidates the list cache on success", async () => {
-		const cache = new InMemoryKVStore();
-		await cache.set("memory:list", "stale-value");
-		const fs = new InMemoryFs();
-		const ctx = makeCtx("content", fs);
-		await addMemory({ longTerm: false, title: "cache" }, ctx, {
-			mountPoint: MOUNT,
-			cache,
-			now: () => new Date("2025-06-01T00:00:00Z"),
-		});
-		expect(await cache.get("memory:list")).toBeNull();
 	});
 });
 

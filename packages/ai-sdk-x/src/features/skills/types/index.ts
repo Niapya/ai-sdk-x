@@ -1,16 +1,13 @@
 import type { IFileSystem } from "just-bash";
-import type { KVStorage } from "@/types/storage";
 import type { JsonRecord } from "@/utils/json";
 
 export interface SkillsOptions {
-	cache?: KVStorage;
 	fs?: IFileSystem;
 	lockfile?: boolean;
 	mountPoint?: string;
 }
 
 export interface SkillsConfig {
-	readonly cache?: KVStorage;
 	readonly enabled: boolean;
 	readonly fs?: IFileSystem;
 	readonly lockfile: boolean;
@@ -18,7 +15,6 @@ export interface SkillsConfig {
 }
 
 export interface SkillsCommandOptions {
-	cache?: KVStorage;
 	lockfile: boolean;
 	mountPoint: string;
 }

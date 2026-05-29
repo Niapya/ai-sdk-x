@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { InMemoryFs } from "just-bash";
 import { listMemory } from "@/features/memory/list";
-import { InMemoryKVStore } from "@/runtime/storage/in-memory-kv-store";
 
 const MOUNT = "/home/user/memory";
 
@@ -36,27 +35,6 @@ describe("listMemory", () => {
 		const result = await listMemory(fs, { mountPoint: MOUNT });
 		expect(result.stdout).not.toContain("data.json");
 		expect(result.stdout).toContain("note.md");
-	});
-
-	it("returns cached value when cache has a hit", async () => {
-		const cache = new InMemoryKVStore();
-		await cache.set("memory:list", "cached-output\n");
-
-		// fs is empty so real listing would return ""
-		const fs = new InMemoryFs();
-		const result = await listMemory(fs, { mountPoint: MOUNT, cache });
-		expect(result.stdout).toBe("cached-output\n");
-	});
-
-	it("stores result in cache after first listing", async () => {
-		const cache = new InMemoryKVStore();
-		const fs = new InMemoryFs({
-			[`${MOUNT}/MEMORY.md`]: "# Memory",
-		});
-		await listMemory(fs, { mountPoint: MOUNT, cache });
-		const cached = await cache.get("memory:list");
-		expect(cached).toBeTruthy();
-		expect(cached).toContain("MEMORY.md");
 	});
 
 	it("returns empty stdout when mount exists but is empty", async () => {
