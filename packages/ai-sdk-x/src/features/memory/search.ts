@@ -1,6 +1,6 @@
 import type { ExecResult, IFileSystem } from "just-bash";
 import type { MemoryCommandOptions } from "@/features/memory/types";
-import { collectMemoryFiles } from "@/features/memory/utils/shared";
+import { listMemoryEntries, readMemoryIndex } from "@/features/memory/utils/store";
 import { type CliCommandDefinition, defineCliCommand } from "@/utils/command";
 
 export async function searchMemory(
@@ -14,12 +14,13 @@ export async function searchMemory(
 	}
 
 	const matches: string[] = [];
-	for (const path of await collectMemoryFiles(fs, options.mountPoint)) {
-		const lines = (await fs.readFile(path)).split("\n");
-		for (let index = 0; index < lines.length; index++) {
-			if (lines[index].toLowerCase().includes(normalizedQuery)) {
-				matches.push(`${path}:${index + 1}:${lines[index]}`);
-			}
+	const index = await readMemoryIndex(fs, options.mountPoint);
+	for (const ref of listMemoryEntries(index)) {
+		const haystack = [ref.date, ref.title, ref.entry.description, ...ref.entry.keywords]
+			.join("\n")
+			.toLowerCase();
+		if (haystack.includes(normalizedQuery)) {
+			matches.push(`${ref.date}:${ref.title}\t${ref.entry.description}`);
 		}
 	}
 

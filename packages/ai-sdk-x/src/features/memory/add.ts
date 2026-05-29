@@ -1,10 +1,11 @@
 import { type CommandContext, decodeBytesToUtf8, type ExecResult } from "just-bash";
 import type { MemoryCommandOptions } from "@/features/memory/types";
 import { formatDate } from "@/features/memory/utils/shared";
+import { upsertMemoryEntry } from "@/features/memory/utils/store";
 import { type CliCommandDefinition, defineCliCommand } from "@/utils/command";
 
 export interface AddMemoryInput {
-	longTerm: boolean;
+	keywords?: string[];
 	title: string;
 }
 
@@ -13,34 +14,23 @@ export async function addMemory(
 	ctx: CommandContext,
 	options: MemoryCommandOptions,
 ): Promise<ExecResult> {
-	const { longTerm, title } = input;
+	const { title } = input;
 	const body = decodeBytesToUtf8(ctx.stdin);
 
 	if (!body.trim()) {
 		return { stdout: "", stderr: "x-memory add: stdin is empty\n", exitCode: 1 };
 	}
 
-	await ctx.fs.mkdir(options.mountPoint, { recursive: true });
-
-	if (longTerm) {
-		const memoryPath = ctx.fs.resolvePath(options.mountPoint, "MEMORY.md");
-		const heading = title || "Memory";
-		const entry = `\n## ${heading}\n\n${body.trim()}\n`;
-		if (await ctx.fs.exists(memoryPath)) {
-			await ctx.fs.appendFile(memoryPath, entry);
-		} else {
-			await ctx.fs.writeFile(memoryPath, `# Memory\n${entry}`);
-		}
-		return { stdout: `${memoryPath}\n`, stderr: "", exitCode: 0 };
-	}
-
 	const date = formatDate(options.now?.() ?? new Date());
-	const dailyDir = ctx.fs.resolvePath(options.mountPoint, `daily/${date}`);
-	await ctx.fs.mkdir(dailyDir, { recursive: true });
+	const memoryTitle = title.trim() || "Memory";
+	await upsertMemoryEntry(ctx.fs, options.mountPoint, {
+		date,
+		description: body.trim(),
+		keywords: input.keywords ?? [],
+		title: memoryTitle,
+	});
 
-	const memoryPath = ctx.fs.resolvePath(dailyDir, `${slugifyMemoryTitle(title || "memory")}.md`);
-	await ctx.fs.writeFile(memoryPath, `# ${title || "Memory"}\n\n${body.trim()}\n`);
-	return { stdout: `${memoryPath}\n`, stderr: "", exitCode: 0 };
+	return { stdout: `${date}:${memoryTitle}\n`, stderr: "", exitCode: 0 };
 }
 
 export function createAddMemoryCommand(options: MemoryCommandOptions): CliCommandDefinition<
@@ -52,17 +42,18 @@ export function createAddMemoryCommand(options: MemoryCommandOptions): CliComman
 		},
 	],
 	{
-		"long-term": {
-			allowNo: true;
-			description: "Write the memory entry into MEMORY.md.";
-			type: "boolean";
+		keyword: {
+			aliases: ["keywords"];
+			description: "Keyword to attach to the memory entry.";
+			multiple: true;
+			type: "string";
 		};
 	}
 > {
 	return defineCliCommand({
 		id: "add",
 		type: "command",
-		summary: "Add a daily or long-term memory entry.",
+		summary: "Add a daily memory entry.",
 		description: "Reads the memory body from stdin.",
 		usage: "x-memory add [title] [flags]",
 		args: [
@@ -73,20 +64,21 @@ export function createAddMemoryCommand(options: MemoryCommandOptions): CliComman
 			},
 		] as const,
 		flags: {
-			"long-term": {
-				allowNo: true,
-				description: "Write the memory entry into MEMORY.md.",
-				type: "boolean",
+			keyword: {
+				aliases: ["keywords"],
+				description: "Keyword to attach to the memory entry.",
+				multiple: true,
+				type: "string",
 			},
 		} as const,
 		examples: [
 			{ command: "printf 'note' | x-memory add note-title" },
-			{ command: "printf 'important' | x-memory add --long-term note-title" },
+			{ command: "printf 'important' | x-memory add --keyword project note-title" },
 		] as const,
-		run: ({ args: { title = [] }, flags: { "long-term": longTerm = false } }, ctx) => {
+		run: ({ args: { title = [] }, flags: { keyword = [] } }, ctx) => {
 			return addMemory(
 				{
-					longTerm,
+					keywords: keyword,
 					title: title.join(" ").trim(),
 				},
 				ctx,
@@ -94,14 +86,4 @@ export function createAddMemoryCommand(options: MemoryCommandOptions): CliComman
 			);
 		},
 	});
-}
-
-function slugifyMemoryTitle(title: string): string {
-	const slug = title
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9._-]+/g, "-")
-		.replace(/^-+|-+$/g, "");
-
-	return slug || "memory";
 }

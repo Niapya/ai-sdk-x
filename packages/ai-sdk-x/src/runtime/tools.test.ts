@@ -1,56 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { BashExecResult } from "just-bash";
-import { createBashTool, createToolDescription } from "@/runtime/tools";
-import type { Feature, FeatureSetupContext } from "@/types";
-
-const commandStub = {
-	trusted: true,
-	execute: async () => ({
-		stdout: "",
-		stderr: "",
-		exitCode: 0,
-	}),
-};
-
-describe("createToolDescription", () => {
-	it("renders command list, feature prompts, and custom description", async () => {
-		const context = {
-			bash: {
-				getCwd: () => "/workspace/project",
-			},
-		} as FeatureSetupContext;
-
-		const features: Feature[] = [
-			{
-				name: "one",
-				prompt: async () => "  keep output short  ",
-			},
-			{
-				name: "two",
-				prompt: async () => "   ",
-			},
-			{
-				name: "three",
-			},
-		];
-
-		const description = await createToolDescription(
-			features,
-			[
-				{ name: "x-one", ...commandStub },
-				{ name: "x-two", ...commandStub },
-			],
-			context,
-			{ description: "Only run safe commands." },
-		);
-
-		expect(description).toContain("Default cwd: /workspace/project");
-		expect(description).toContain("Available custom commands: x-one, x-two");
-		expect(description).toContain("Feature guidance:\nkeep output short");
-		expect(description).toContain("Only run safe commands.");
-		expect(description).not.toContain("\n\n\n");
-	});
-});
+import { createBashTool } from "@/runtime/tools";
 
 describe("createBashTool", () => {
 	it("passes cwd/stdin to executeCommand and truncates output", async () => {
@@ -129,39 +79,5 @@ describe("createBashTool", () => {
 			stderr: "",
 			exitCode: 0,
 		});
-	});
-});
-
-describe("createToolDescription – edge cases", () => {
-	const minimalContext = {
-		bash: { getCwd: () => "/workspace" },
-	} as import("@/types").FeatureSetupContext;
-
-	it("renders description with no features and no commands", async () => {
-		const desc = await createToolDescription([], [], minimalContext);
-		expect(desc).toContain("Run shell commands");
-		expect(desc).toContain("/workspace");
-		expect(desc).not.toContain("Available custom commands");
-		expect(desc).not.toContain("Feature guidance");
-	});
-
-	it("renders description with only commands (no features)", async () => {
-		const cmd = {
-			name: "x-only",
-			trusted: true,
-			execute: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-		};
-		const desc = await createToolDescription([], [cmd], minimalContext);
-		expect(desc).toContain("x-only");
-		expect(desc).not.toContain("Feature guidance");
-	});
-
-	it("skips features that return empty or whitespace-only prompt", async () => {
-		const features: import("@/types").Feature[] = [
-			{ name: "empty-prompt", prompt: async () => "   " },
-			{ name: "no-prompt" },
-		];
-		const desc = await createToolDescription(features, [], minimalContext);
-		expect(desc).not.toContain("Feature guidance");
 	});
 });

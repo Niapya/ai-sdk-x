@@ -1,14 +1,19 @@
 import type { ExecResult, IFileSystem } from "just-bash";
 import type { MemoryCommandOptions } from "@/features/memory/types";
-import { collectMemoryFiles } from "@/features/memory/utils/shared";
+import {
+	formatMemoryEntry,
+	listMemoryEntries,
+	readMemoryIndex,
+} from "@/features/memory/utils/store";
 import { type CliCommandDefinition, defineCliCommand } from "@/utils/command";
 
 export async function listMemory(
 	fs: IFileSystem,
 	options: MemoryCommandOptions,
 ): Promise<ExecResult> {
-	const paths = await collectMemoryFiles(fs, options.mountPoint);
-	const stdout = paths.length > 0 ? `${paths.join("\n")}\n` : "";
+	const index = await readMemoryIndex(fs, options.mountPoint);
+	const entries = listMemoryEntries(index).map(formatMemoryEntry);
+	const stdout = entries.length > 0 ? `${entries.join("\n")}\n` : "";
 	return { stdout, stderr: "", exitCode: 0 };
 }
 

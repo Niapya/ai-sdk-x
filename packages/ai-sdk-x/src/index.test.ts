@@ -122,7 +122,9 @@ describe("X feature runtime", () => {
 		expect(await x.fs.readFile("/home/user/skills/demo/SKILL.md")).toContain("Version 1");
 
 		const lockfile = JSON.parse(await x.fs.readFile("/home/user/skills/skills.json"));
-		expect(lockfile.skills.demo.source.repo).toBe("/origin");
+		expect(lockfile.skills.demo.url).toBe("/origin");
+		expect(lockfile.skills.demo.skillPath).toBe("$SKILLS_HOME/demo/SKILL.md");
+		expect(lockfile.skills.demo.files).toContain("$SKILLS_HOME/demo/SKILL.md");
 
 		await writeSkillToRepo(x, "/origin", "demo", skillMarkdown("Demo", "Version 2"));
 		await commitRepo(x, "/origin", "update-demo");
@@ -131,6 +133,17 @@ describe("X feature runtime", () => {
 		expect(updateResult.exitCode).toBe(0);
 		expect(updateResult.stdout).toContain("Updated 1 skill");
 		expect(await x.fs.readFile("/home/user/skills/demo/SKILL.md")).toContain("Version 2");
+
+		const getResult = await x.exec("x-skills get demo");
+		expect(getResult.stdout).toContain("Version 2");
+
+		const infoResult = await x.exec("x-skills info demo");
+		expect(infoResult.stdout).toContain('"skillName": "demo"');
+		expect(infoResult.stdout).toContain('"url": "/origin"');
+
+		const removeResult = await x.exec("x-skills remove -y demo");
+		expect(removeResult.exitCode).toBe(0);
+		expect(await x.fs.exists("/home/user/skills/demo")).toBe(false);
 	});
 
 	it("does not write skills.json when lockfile support is disabled", async () => {
@@ -329,7 +342,7 @@ describe("X getTools integration", () => {
 		expect(description).toContain("read-only sandbox");
 	});
 
-	it("getTools description lists registered commands", async () => {
+	it("getTools description does not list standalone registered commands", async () => {
 		const x = new X();
 		x.registerCommand({
 			name: "x-listed",
@@ -340,7 +353,42 @@ describe("X getTools integration", () => {
 		});
 		const tools = await x.getTools();
 		const description = tools.bash.description as string;
-		expect(description).toContain("x-listed");
+		expect(description).not.toContain("Registered commands:");
+		expect(description).not.toContain("x-listed");
+	});
+
+	it("creates a dynamic tool description from enabled runtime options", async () => {
+		const x = new X({ bash: { javascript: false, network: false, python: false } });
+		const description = await x.createToolDescription();
+		expect(description).toContain("Bash is a virtual bash shell");
+		expect(description).toContain("Network: off");
+		expect(description).toContain("Only one callable tool exists: `bash`.");
+		expect(description).toContain("Do not put shell code in `stdin`");
+		expect(description).toContain("rg --files");
+		expect(description).not.toContain("curl https://example.com");
+		expect(description).not.toContain("js-exec");
+		expect(description).not.toContain("python3");
+	});
+
+	it("includes network, JavaScript, Python, feature metadata XML, and custom options when enabled", async () => {
+		const x = X.init({ workspace: { mountPoint: "/project" } });
+		const description = await x.createToolDescription({ description: "Extra policy." });
+		expect(description).toContain("Network: on");
+		expect(description).toContain("`cwd` is optional and sets the working directory");
+		expect(description).toContain("They are not separate callable tools.");
+		expect(description).toContain("curl https://github.blog | html-to-markdown");
+		expect(description).toContain("You may use `js-exec`");
+		expect(description).toContain("You may use `python3` or `python`");
+		expect(description).toContain("<name>workspace</name>");
+		expect(description).toContain("/project");
+		expect(description).toContain("<name>memory</name>");
+		expect(description).toContain("<name>skills</name>");
+		expect(description).toContain("<name>patch</name>");
+		expect(description).toContain("<name>git</name>");
+		expect(description).toContain("Extra policy.");
+		expect(description).not.toContain("Feature guidance");
+		expect(description).not.toContain("<feature>");
+		expect(description).not.toContain("\n\n\n");
 	});
 
 	it("bash tool executes and returns stdout/exitCode", async () => {

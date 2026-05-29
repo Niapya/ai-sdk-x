@@ -1,7 +1,6 @@
 import type { Tool } from "ai";
-import type { BashExecResult, Command, ExecOptions } from "just-bash";
+import type { BashExecResult, ExecOptions } from "just-bash";
 import { MAX_OUTPUT, type TruncateOutputOptions, truncateToolOutput } from "@/runtime/output";
-import type { Feature, FeatureSetupContext, GetToolsOptions } from "@/types";
 
 type BashToolInput = {
 	command: string;
@@ -14,49 +13,6 @@ type BashToolOutput = {
 	stderr: string;
 	exitCode: number;
 };
-
-export async function createToolDescription(
-	features: ReadonlyArray<Feature>,
-	commands: ReadonlyArray<Command>,
-	featureContext: FeatureSetupContext,
-	options: GetToolsOptions = {},
-): Promise<string> {
-	const sections = [
-		"",
-		"Run shell commands in the mounted workspace.",
-		[
-			"Prefer grep, sed, head, tail, split, and similar tools when inspecting large files.",
-			`Default cwd: ${featureContext.bash.getCwd()}`,
-		].join("\n"),
-	];
-
-	const commandNames = commands.map((cmd) => cmd.name);
-	if (commandNames.length > 0) {
-		sections.push(`Available custom commands: ${commandNames.join(", ")}`);
-	}
-
-	const promptValues = await Promise.all(
-		features.map(async (feature) => {
-			if (!feature.prompt) {
-				return undefined;
-			}
-
-			const prompt = await feature.prompt(featureContext);
-			return prompt.trim();
-		}),
-	);
-
-	const prompts = promptValues.filter((prompt): prompt is string => Boolean(prompt));
-	if (prompts.length > 0) {
-		sections.push(`Feature guidance:\n${prompts.join("\n")}`);
-	}
-
-	if (options.description) {
-		sections.push(options.description);
-	}
-
-	return sections.join("\n\n");
-}
 
 export async function createBashTool(
 	executeCommand: (command: string, options?: ExecOptions) => Promise<BashExecResult>,
@@ -73,12 +29,26 @@ export async function createBashTool(
 		throw new Error("Failed to load 'zod' package.");
 	}
 
-	return tool<BashToolInput, BashToolOutput>({
+	return tool({
 		description,
 		inputSchema: z.object({
-			command: z.string().describe("The full bash command to execute."),
-			cwd: z.string().optional().describe("Optional working directory for this command."),
-			// stdin: z.string().optional().describe("Optional stdin passed to the command."),
+			command: z
+				.string()
+				.describe(
+					'The full bash command to execute. Put shell code here, not in stdin. Examples include commands such as `sed -n "1,20p" file.ts` or `grep -n "TODO" src/index.ts` when those commands are available in the current environment.',
+				),
+			cwd: z
+				.string()
+				.optional()
+				.describe(
+					"Optional working directory for this command. Use this instead of starting the command with `cd`.",
+				),
+			stdin: z
+				.string()
+				.optional()
+				.describe(
+					"Optional raw stdin text passed to the executed process. Use this only when the command reads stdin.",
+				),
 		}),
 		execute: async ({ command, cwd, stdin }) => {
 			const result = await executeCommand(command, {

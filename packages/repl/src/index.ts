@@ -1,9 +1,5 @@
-import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
 import * as readline from "node:readline";
-import { fileURLToPath } from "node:url";
 import { X } from "ai-sdk-x";
-import { ReadWriteFs } from "just-bash";
 
 const colors = {
 	reset: "\x1b[0m",
@@ -18,30 +14,11 @@ const colors = {
 class VirtualRepl {
 	private readonly rl: readline.Interface;
 	private readonly tool: X;
-	private readonly root: string;
 	private cwd = "/home/user";
 	private running = true;
 
 	constructor() {
-		this.root = resolve(dirname(fileURLToPath(import.meta.url)), "../shell");
-		mkdirSync(this.root, { recursive: true });
-		const fs = new ReadWriteFs({ root: this.root });
-		this.tool = X.init({
-			fs,
-		}).registerCommand({
-			name: "test",
-			async execute(args, ctx) {
-				ctx.exec?.("asdasdsa", {
-					cwd: "",
-				});
-
-				return {
-					stdout: `You ran the test command with args: ${args.join(" ")} and cwd: ${ctx.cwd}`,
-					stderr: "",
-					exitCode: 0,
-				};
-			},
-		});
+		this.tool = X.init();
 
 		this.rl = readline.createInterface({
 			input: process.stdin,
@@ -65,7 +42,7 @@ class VirtualRepl {
 	private printWelcome(): void {
 		console.log(`${colors.cyan}${colors.bold}AI SDK X Bash REPL${colors.reset}`);
 		console.log(`${colors.dim}Type a bash command, or 'Ctrl+C' to quit.${colors.reset}`);
-		console.log(`${colors.dim}The root directory is: ${this.root}${colors.reset}\n`);
+		console.log(`${colors.dim}Using in-memory filesystem.${colors.reset}\n`);
 	}
 
 	private getPrompt(): string {

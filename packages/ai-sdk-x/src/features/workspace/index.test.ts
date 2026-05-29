@@ -22,20 +22,22 @@ describe("createWorkspaceFeature", () => {
 
 	it("returns bare feature (no prompt/hooks) when disabled", () => {
 		const feature = createWorkspaceFeature(false);
-		expect(feature.prompt).toBeUndefined();
+		expect(feature.description).toBeUndefined();
 		expect(feature.hooks).toBeUndefined();
 	});
 
-	it("provides prompt and onExecStart hook when enabled", () => {
+	it("provides description and onExecStart hook when enabled", () => {
 		const feature = createWorkspaceFeature(true);
-		expect(typeof feature.prompt).toBe("function");
+		expect(typeof feature.description).toBe("function");
 		expect(typeof feature.hooks?.onExecStart).toBe("function");
 	});
 
-	it("prompt includes the mount point path", async () => {
+	it("description includes the mount point path and bash usage guidance", async () => {
 		const feature = createWorkspaceFeature(true);
-		const text = await feature.prompt?.({} as never);
+		const text = await feature.description?.({} as never);
 		expect(text).toContain(DEFAULT_WORKSPACE_MOUNT);
+		expect(text).toContain("not a separate callable tool");
+		expect(text).toContain("WORKSPACE_HOME");
 	});
 
 	it("onExecStart creates the mount directory and sets env", async () => {

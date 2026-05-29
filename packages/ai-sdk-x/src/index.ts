@@ -15,7 +15,7 @@ import { resolveBashConfig } from "@/runtime/config";
 import { type EnvBackend, type EnvSnapshot, MemoryEnvBackend, mergeEnv } from "@/runtime/env";
 import { BootstrappableMountableFs } from "@/runtime/fs";
 import { MAX_OUTPUT } from "@/runtime/output";
-import { createBashTool, createToolDescription } from "@/runtime/tools";
+import { createBashTool } from "@/runtime/tools";
 
 export {
 	createGitFeature,
@@ -39,6 +39,7 @@ export type {
 export { createCommand, defineCliCommand, defineCliTopic } from "@/utils";
 
 import type {
+	BashConfig,
 	DefaultFeatureOptions,
 	ExecHook,
 	Feature,
@@ -52,7 +53,6 @@ export type {
 	DefaultFeatureOptions,
 	ExecHook,
 	Feature,
-	FeatureConfig,
 	FeatureSetupContext,
 	GetToolsOptions,
 	GitConfig,
@@ -60,8 +60,6 @@ export type {
 	KVStorage,
 	MemoryConfig,
 	MemoryOptions,
-	MountedFeatureConfig,
-	MountedFeatureOptions,
 	PatchConfig,
 	PatchOptions,
 	SkillsConfig,
@@ -94,13 +92,15 @@ export class X {
 	readonly commands: Command[];
 	readonly features: Feature[];
 	readonly fs: BootstrappableMountableFs;
+	private readonly bashConfig: BashConfig;
 	private readonly envBackend: EnvBackend;
 	private readonly execHooks: ExecHook[];
 	private readonly featureEnv = new Map<string, string>();
 
 	constructor(options: XOptions = {}) {
 		const bashConfig = resolveBashConfig(options.bash);
-		const { cwd, ...bashOptionsBase } = bashConfig;
+		this.bashConfig = bashConfig;
+		const { cwd, network, ...bashOptionsBase } = bashConfig;
 
 		const sourceFs = options.fs ?? new InMemoryFs();
 		const mountableFs = new BootstrappableMountableFs({ base: sourceFs });
@@ -112,6 +112,7 @@ export class X {
 		const bashOptions: BashOptions = {
 			...bashOptionsBase,
 			...(options.bash?.cwd === undefined ? {} : { cwd }),
+			...(network === false ? {} : { network }),
 			fs: mountableFs,
 		};
 		this.bash = new Bash(bashOptions);
@@ -174,7 +175,7 @@ export class X {
 			});
 		}
 
-		const featureEnv = this.resolveFeatureEnv();
+		const featureEnv = mergeEnv(Object.fromEntries(this.featureEnv.entries()));
 		const baseEnv = options?.replaceEnv
 			? featureEnv
 			: mergeEnv(this.bash.getEnv(), snapshot.env, featureEnv);
@@ -246,18 +247,72 @@ export class X {
 	async getTools(
 		options: GetToolsOptions = {},
 	): Promise<{ bash: Awaited<ReturnType<typeof createBashTool>> }> {
-		const description = await createToolDescription(
-			this.features,
-			this.commands,
-			this.createFeatureContext(),
-			options,
-		);
+		const description = await this.createToolDescription(options);
 
 		const bash = await createBashTool(this.exec.bind(this), description, options);
 
 		return {
 			bash,
 		};
+	}
+
+	async createToolDescription(options: GetToolsOptions = {}): Promise<string> {
+		const featureContext = this.createFeatureContext();
+		const networkEnabled = Boolean(this.bashConfig.fetch || this.bashConfig.network);
+		const javascriptEnabled = Boolean(this.bashConfig.javascript);
+		const pythonEnabled = Boolean(this.bashConfig.python);
+
+		const featureDescriptions = (
+			await Promise.all(
+				this.features.map(async (feature) => {
+					const description = await feature.description?.(featureContext);
+					if (!description) return "";
+
+					return `<name>${feature.name}</name>\n<description>${description}</description>`;
+				}),
+			)
+		).join("\n\n");
+
+		const sections = [
+			// Environment
+			"Bash tool is a virtual bash shell for running Unix-style commands and scripts inside a sandboxed environment.",
+			`Current cwd: ${featureContext.bash.getCwd()}`,
+			`Network: ${networkEnabled ? "on" : "off"}`,
+
+			// Tool contract
+			'`command` is required and must contain the shell command to run. Example: { command: "curl https://example.com" }.',
+			"`cwd` is optional and sets the working directory for that command. Use it instead of `cd ... && ...`.",
+			'`stdin` is optional raw stdin text for commands that read stdin. Example: { command: "cat", stdin: "hello\\n" }.',
+			"Do not put shell code in `stdin`; put it in `command`.",
+
+			// Command usage tips
+			"Use targeted commands for large files and large repositories. Prefer `rg --files` to discover files, `rg -n \"pattern\" <path>` to search with line numbers, `sed -n '120,180p' <path>` to read a specific range, and `nl -ba <path> | sed -n '120,180p'` when numbered output is needed.",
+			"Use `wc -l`, `file`, `du`, `head`, and `tail` to understand file size and shape before reading. Avoid dumping very large files with plain `cat`.",
+			"Use structured data tools when appropriate: `jq` for JSON, `yq` for YAML/TOML/XML/CSV, `sqlite3` for SQLite, and pipelines with `awk`, `sort`, `uniq`, `cut`, and `xargs` for text processing.",
+			"If you are unsure how a command works, run `<command> --help` or `help <command>`.",
+
+			networkEnabled
+				? "Network is on, you may use `curl` to fetch URLs. `html-to-markdown` is available for converting fetched HTML into Markdown, for example: `curl https://github.blog | html-to-markdown`."
+				: "",
+
+			javascriptEnabled
+				? "You may use `js-exec` for JavaScript or TypeScript processing. When importing local code, prefer `.mjs` or `.mts` modules. Imports may reference files from enabled feature mounts such as workspace or skills."
+				: "",
+
+			pythonEnabled
+				? "You may use `python3` or `python` for Python scripts and data processing when that is the most direct tool."
+				: "",
+
+			"Entries under Available features describe shell commands or mounted paths available inside this bash environment. They are NOT callable tools.",
+			"Available features:",
+			`<features>${featureDescriptions}</features>`,
+
+			`${options.description}`,
+		]
+			.filter(Boolean)
+			.join("\n");
+
+		return sections;
 	}
 
 	private createFeatureContext(): FeatureSetupContext {
@@ -268,10 +323,6 @@ export class X {
 				this.featureEnv.set(key, value);
 			},
 		};
-	}
-
-	private resolveFeatureEnv(): Record<string, string> {
-		return mergeEnv(Object.fromEntries(this.featureEnv.entries()));
 	}
 }
 

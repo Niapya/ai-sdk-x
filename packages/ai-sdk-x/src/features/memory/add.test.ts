@@ -14,90 +14,45 @@ function makeCtx(stdin: string, fs: InMemoryFs): CommandContext {
 	};
 }
 
-describe("addMemory – daily entry", () => {
-	it("creates a daily entry file under daily/YYYY-MM-DD/", async () => {
+describe("addMemory", () => {
+	it("creates memory.json with a daily entry", async () => {
 		const fs = new InMemoryFs();
 		const ctx = makeCtx("this is my note", fs);
-		const result = await addMemory({ longTerm: false, title: "My Note" }, ctx, {
+		const result = await addMemory({ keywords: ["project", "note"], title: "My Note" }, ctx, {
 			mountPoint: MOUNT,
 			now: () => new Date("2025-06-01T00:00:00Z"),
 		});
 
 		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toContain("/home/user/memory/daily/2025-06-01/");
-		const path = result.stdout.trim();
-		const content = await fs.readFile(path);
-		expect(content).toContain("this is my note");
-		expect(content).toContain("# My Note");
+		expect(result.stdout).toBe("2025-06-01:My Note\n");
+
+		const index = JSON.parse(await fs.readFile(`${MOUNT}/memory.json`));
+		expect(index.daily["2025-06-01"]["My Note"].description).toBe("this is my note");
+		expect(index.daily["2025-06-01"]["My Note"].keywords).toEqual(["project", "note"]);
+		expect(typeof index.daily["2025-06-01"]["My Note"].createAt).toBe("number");
 	});
 
-	it("slugifies the title for the filename", async () => {
+	it("uses Memory as title when title is empty", async () => {
 		const fs = new InMemoryFs();
 		const ctx = makeCtx("note body", fs);
-		const result = await addMemory({ longTerm: false, title: "Hello World!" }, ctx, {
+		const result = await addMemory({ title: "" }, ctx, {
 			mountPoint: MOUNT,
 			now: () => new Date("2025-06-01T00:00:00Z"),
 		});
-		expect(result.stdout).toContain("hello-world");
-	});
 
-	it("uses 'memory' as filename when title is empty", async () => {
-		const fs = new InMemoryFs();
-		const ctx = makeCtx("note body", fs);
-		const result = await addMemory({ longTerm: false, title: "" }, ctx, {
-			mountPoint: MOUNT,
-			now: () => new Date("2025-06-01T00:00:00Z"),
-		});
-		expect(result.stdout).toContain("/memory.md");
+		expect(result.stdout).toBe("2025-06-01:Memory\n");
+		const index = JSON.parse(await fs.readFile(`${MOUNT}/memory.json`));
+		expect(index.daily["2025-06-01"].Memory.description).toBe("note body");
 	});
 
 	it("creates the mountPoint directory if it does not exist", async () => {
 		const fs = new InMemoryFs();
 		const ctx = makeCtx("content", fs);
-		await addMemory({ longTerm: false, title: "auto-dir" }, ctx, {
+		await addMemory({ title: "auto-dir" }, ctx, {
 			mountPoint: "/new/mount",
 			now: () => new Date("2025-06-01T00:00:00Z"),
 		});
-		expect(await fs.exists("/new/mount")).toBe(true);
-	});
-});
-
-describe("addMemory – long-term entry", () => {
-	it("creates MEMORY.md when it does not exist", async () => {
-		const fs = new InMemoryFs();
-		const ctx = makeCtx("first entry", fs);
-		const result = await addMemory({ longTerm: true, title: "Long Term" }, ctx, {
-			mountPoint: MOUNT,
-		});
-
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toContain("MEMORY.md");
-		const content = await fs.readFile(result.stdout.trim());
-		expect(content).toContain("# Memory");
-		expect(content).toContain("## Long Term");
-		expect(content).toContain("first entry");
-	});
-
-	it("appends to MEMORY.md when it already exists", async () => {
-		const fs = new InMemoryFs({
-			[`${MOUNT}/MEMORY.md`]: "# Memory\n\n## First\n\nexisting\n",
-		});
-		const ctx = makeCtx("new content", fs);
-		const result = await addMemory({ longTerm: true, title: "Second" }, ctx, { mountPoint: MOUNT });
-
-		expect(result.exitCode).toBe(0);
-		const content = await fs.readFile(result.stdout.trim());
-		expect(content).toContain("existing");
-		expect(content).toContain("## Second");
-		expect(content).toContain("new content");
-	});
-
-	it("uses 'Memory' as heading when title is empty", async () => {
-		const fs = new InMemoryFs();
-		const ctx = makeCtx("body", fs);
-		await addMemory({ longTerm: true, title: "" }, ctx, { mountPoint: MOUNT });
-		const content = await fs.readFile(`${MOUNT}/MEMORY.md`);
-		expect(content).toContain("## Memory");
+		expect(await fs.exists("/new/mount/memory.json")).toBe(true);
 	});
 });
 
@@ -105,7 +60,7 @@ describe("addMemory – error handling", () => {
 	it("returns exitCode 1 when stdin is empty", async () => {
 		const fs = new InMemoryFs();
 		const ctx = makeCtx("", fs);
-		const result = await addMemory({ longTerm: false, title: "test" }, ctx, { mountPoint: MOUNT });
+		const result = await addMemory({ title: "test" }, ctx, { mountPoint: MOUNT });
 		expect(result.exitCode).toBe(1);
 		expect(result.stderr).toContain("stdin is empty");
 	});
@@ -113,7 +68,7 @@ describe("addMemory – error handling", () => {
 	it("returns exitCode 1 when stdin contains only whitespace", async () => {
 		const fs = new InMemoryFs();
 		const ctx = makeCtx("   \n  ", fs);
-		const result = await addMemory({ longTerm: false, title: "test" }, ctx, { mountPoint: MOUNT });
+		const result = await addMemory({ title: "test" }, ctx, { mountPoint: MOUNT });
 		expect(result.exitCode).toBe(1);
 	});
 });

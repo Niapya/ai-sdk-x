@@ -1,8 +1,13 @@
 import type { Command, CommandContext, IFileSystem } from "just-bash";
 import { type AddMemoryInput, addMemory, createAddMemoryCommand } from "@/features/memory/add";
+import { createDeleteMemoryCommand, deleteMemory } from "@/features/memory/delete";
+import { createGetMemoryCommand, getMemory } from "@/features/memory/get";
+import { createInitMemoryCommand, initMemory } from "@/features/memory/init";
 import { createListMemoryCommand, listMemory } from "@/features/memory/list";
 import { createSearchMemoryCommand, searchMemory } from "@/features/memory/search";
+import { createStatusMemoryCommand, statusMemory } from "@/features/memory/status";
 import type { MemoryCommandOptions, MemoryConfig, MemoryOptions } from "@/features/memory/types";
+import { createUpdateMemoryCommand, updateMemory } from "@/features/memory/update";
 import { AsyncOnce } from "@/runtime/async-once";
 import { createSubpathFs } from "@/runtime/fs/subpath-fs";
 import type { ExecHookStartContext, Feature } from "@/types";
@@ -10,31 +15,41 @@ import { type CliTopicDefinition, createCommand } from "@/utils/command";
 
 export const DEFAULT_MEMORY_MOUNT = "/home/user/memory";
 
+export function createMemoryFeatureDescription(mountPoint: string): string {
+	return `The memory feature provides persistent agent context storage at ${mountPoint}. Use x-memory through the bash tool, not as a separate callable tool. Put the shell command in command, for example command="x-memory search project" or command="x-memory add note-title" with stdin="note body". Run x-memory --help or x-memory <subcommand> --help when unsure. Use memory only for information that should survive across future sessions.`;
+}
+
 const MEMORY_COMMAND = {
 	id: "x-memory",
 	type: "topic",
 	summary: "Manage mounted long-term and daily memory.",
-	usage: "x-memory <list|add|search> [args]",
+	usage: "x-memory <init|add|note|search|get|update|delete|status> [args]",
 	description: [
-		"Stores long-term memory in MEMORY.md and daily memory in daily/YYYY-MM-DD/*.md.",
-		"Use stdin as the memory body when adding entries.",
+		"Stores daily memory metadata in memory.json.",
+		"Use stdin as the memory description when adding or updating entries.",
 	],
 	examples: [
-		{ command: "x-memory list" },
+		{ command: "x-memory init" },
 		{ command: "printf 'note' | x-memory add note-title" },
-		{ command: "printf 'important' | x-memory add --long-term note-title" },
 		{ command: "x-memory search important" },
 	],
 	hidden: false,
 } satisfies Omit<CliTopicDefinition, "subcommands">;
 
 export function createMemoryCommand(options: MemoryCommandOptions): Command {
+	const addCommand = createAddMemoryCommand(options);
 	return createCommand({
 		...MEMORY_COMMAND,
 		subcommands: [
-			createAddMemoryCommand(options),
+			createInitMemoryCommand(options),
+			addCommand,
+			{ ...addCommand, aliases: [], id: "note" },
 			createListMemoryCommand(options),
 			createSearchMemoryCommand(options),
+			createGetMemoryCommand(options),
+			createUpdateMemoryCommand(options),
+			createDeleteMemoryCommand(options),
+			createStatusMemoryCommand(options),
 		],
 	});
 }
@@ -42,8 +57,16 @@ export function createMemoryCommand(options: MemoryCommandOptions): Command {
 export type MemoryFeature = Feature & {
 	readonly add: (input: AddMemoryInput, ctx: CommandContext) => ReturnType<typeof addMemory>;
 	readonly createCommand: () => Command;
+	readonly delete: (ref: string, ctx: CommandContext) => ReturnType<typeof deleteMemory>;
+	readonly get: (ref: string, fs: IFileSystem) => ReturnType<typeof getMemory>;
+	readonly init: (ctx: CommandContext) => ReturnType<typeof initMemory>;
 	readonly list: (fs: IFileSystem) => ReturnType<typeof listMemory>;
 	readonly search: (query: string, fs: IFileSystem) => ReturnType<typeof searchMemory>;
+	readonly status: (fs: IFileSystem) => ReturnType<typeof statusMemory>;
+	readonly update: (
+		input: Parameters<typeof updateMemory>[0],
+		ctx: CommandContext,
+	) => ReturnType<typeof updateMemory>;
 };
 
 export function createMemoryFeature(
@@ -62,8 +85,13 @@ export function createMemoryFeature(
 		name: "memory",
 		createCommand: () => createMemoryCommand(commandOptions),
 		add: (input, ctx) => addMemory(input, ctx, commandOptions),
+		delete: (ref, ctx) => deleteMemory(ref, ctx, commandOptions),
+		get: (ref, fs) => getMemory(ref, fs, commandOptions),
+		init: (ctx) => initMemory(ctx, commandOptions),
 		list: (fs) => listMemory(fs, commandOptions),
 		search: (query, fs) => searchMemory(query, fs, commandOptions),
+		status: (fs) => statusMemory(fs, commandOptions),
+		update: (input, ctx) => updateMemory(input, ctx, commandOptions),
 	};
 
 	if (!config.enabled) {
@@ -86,8 +114,7 @@ export function createMemoryFeature(
 
 	return {
 		...feature,
-		prompt: () =>
-			`Memory mount: ${config.mountPoint}. Use x-memory to store and search mounted memory notes.`,
+		description: () => createMemoryFeatureDescription(config.mountPoint),
 		command: [feature.createCommand()],
 		hooks: {
 			onExecStart: (context) => initialize.run(context),

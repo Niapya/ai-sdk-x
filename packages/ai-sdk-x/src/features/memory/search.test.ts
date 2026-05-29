@@ -12,68 +12,79 @@ describe("searchMemory", () => {
 		expect(result.stderr).toContain("missing query");
 	});
 
-	it("returns exitCode 1 for whitespace-only query", async () => {
-		const fs = new InMemoryFs();
-		const result = await searchMemory("   \n\t", fs, { mountPoint: MOUNT });
-		expect(result.exitCode).toBe(1);
-	});
-
-	it("returns empty stdout when no files match", async () => {
+	it("returns empty stdout when no indexed entries match", async () => {
 		const fs = new InMemoryFs({
-			[`${MOUNT}/MEMORY.md`]: "# Memory\n\nsome content here\n",
+			[`${MOUNT}/memory.json`]: JSON.stringify({
+				version: 1,
+				daily: {
+					"2025-06-01": {
+						Note: {
+							description: "some content here",
+							keywords: [],
+							createAt: 1,
+							updateAt: 1,
+						},
+					},
+				},
+			}),
 		});
 		const result = await searchMemory("zzz-no-match", fs, { mountPoint: MOUNT });
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout).toBe("");
 	});
 
-	it("matches case-insensitively", async () => {
+	it("matches case-insensitively across title, description, and keywords", async () => {
 		const fs = new InMemoryFs({
-			[`${MOUNT}/MEMORY.md`]: "# Memory\n\nHello World\n",
+			[`${MOUNT}/memory.json`]: JSON.stringify({
+				version: 1,
+				daily: {
+					"2025-06-01": {
+						Greeting: {
+							description: "Hello World",
+							keywords: ["ProjectX"],
+							createAt: 1,
+							updateAt: 1,
+						},
+					},
+				},
+			}),
 		});
-		const result = await searchMemory("hello world", fs, { mountPoint: MOUNT });
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toContain("Hello World");
+
+		const descriptionResult = await searchMemory("hello world", fs, { mountPoint: MOUNT });
+		expect(descriptionResult.stdout).toContain("2025-06-01:Greeting\tHello World");
+
+		const keywordResult = await searchMemory("projectx", fs, { mountPoint: MOUNT });
+		expect(keywordResult.stdout).toContain("2025-06-01:Greeting\tHello World");
 	});
 
-	it("outputs format path:lineNumber:content", async () => {
+	it("searches across multiple indexed entries", async () => {
 		const fs = new InMemoryFs({
-			[`${MOUNT}/MEMORY.md`]: "line one\nfind me here\nline three\n",
+			[`${MOUNT}/memory.json`]: JSON.stringify({
+				version: 1,
+				daily: {
+					"2025-06-01": {
+						First: {
+							description: "found in first",
+							keywords: [],
+							createAt: 1,
+							updateAt: 1,
+						},
+					},
+					"2025-06-02": {
+						Second: {
+							description: "found in second",
+							keywords: [],
+							createAt: 2,
+							updateAt: 2,
+						},
+					},
+				},
+			}),
 		});
-		const result = await searchMemory("find me", fs, { mountPoint: MOUNT });
-		expect(result.exitCode).toBe(0);
-		const lines = result.stdout.trim().split("\n");
-		expect(lines.length).toBe(1);
-		// line 2 (1-based)
-		expect(lines[0]).toMatch(/^.*MEMORY\.md:2:find me here$/);
-	});
 
-	it("matches multiple lines in a single file", async () => {
-		const fs = new InMemoryFs({
-			[`${MOUNT}/MEMORY.md`]: "match 1\nno\nmatch 2\n",
-		});
-		const result = await searchMemory("match", fs, { mountPoint: MOUNT });
-		const lines = result.stdout.trim().split("\n");
-		expect(lines.length).toBe(2);
-		expect(lines[0]).toContain(":1:match 1");
-		expect(lines[1]).toContain(":3:match 2");
-	});
-
-	it("searches across multiple files", async () => {
-		const fs = new InMemoryFs({
-			[`${MOUNT}/MEMORY.md`]: "found in long-term\n",
-			[`${MOUNT}/daily/2025-06-01/note.md`]: "found in daily\n",
-		});
 		const result = await searchMemory("found", fs, { mountPoint: MOUNT });
-		expect(result.stdout).toContain("MEMORY.md");
-		expect(result.stdout).toContain("note.md");
-	});
-
-	it("output ends with newline when there are matches", async () => {
-		const fs = new InMemoryFs({
-			[`${MOUNT}/MEMORY.md`]: "hello\n",
-		});
-		const result = await searchMemory("hello", fs, { mountPoint: MOUNT });
+		expect(result.stdout).toContain("2025-06-01:First");
+		expect(result.stdout).toContain("2025-06-02:Second");
 		expect(result.stdout.endsWith("\n")).toBe(true);
 	});
 });

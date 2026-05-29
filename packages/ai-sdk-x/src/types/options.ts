@@ -19,8 +19,12 @@ export interface GetToolsOptions {
 	maxOutput?: number;
 }
 
+export type XBashOptions = Omit<BashOptions, "customCommands" | "fs" | "network"> & {
+	network?: BashOptions["network"] | false;
+};
+
 export interface XOptions {
-	bash?: Omit<BashOptions, "customCommands" | "fs">;
+	bash?: XBashOptions;
 	envBackend?: EnvBackend;
 	execHooks?: ExecHook[];
 	fs?: IFileSystem;
@@ -34,9 +38,10 @@ export interface DefaultFeatureOptions {
 	workspace?: boolean | WorkspaceOptions;
 }
 
-export interface BashConfig extends Omit<BashOptions, "customCommands" | "fs"> {
+export interface BashConfig extends Omit<BashOptions, "customCommands" | "fs" | "network"> {
 	readonly cwd: string;
 	readonly env: Record<string, string>;
 	readonly javascript: NonNullable<BashOptions["javascript"]>;
+	readonly network?: BashOptions["network"] | false;
 	readonly python: NonNullable<BashOptions["python"]>;
 }

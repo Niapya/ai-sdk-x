@@ -1,6 +1,9 @@
 import type { Command, CommandContext, IFileSystem } from "just-bash";
+import { createGetSkillCommand, getSkill } from "@/features/skills/get";
+import { createInfoSkillCommand, infoSkill } from "@/features/skills/info";
 import { createInstallSkillCommand, installSkill } from "@/features/skills/install";
 import { createListSkillsCommand, listSkills } from "@/features/skills/list";
+import { createRemoveSkillCommand, removeSkill } from "@/features/skills/remove";
 import { createSearchSkillsCommand, searchSkills } from "@/features/skills/search";
 import type { SkillsCommandOptions, SkillsConfig, SkillsOptions } from "@/features/skills/types";
 import { createUpdateSkillsCommand, updateSkills } from "@/features/skills/update";
@@ -11,11 +14,17 @@ import { type CliTopicDefinition, createCommand } from "@/utils/command";
 
 export const DEFAULT_SKILLS_MOUNT = "/home/user/skills";
 
+export function createSkillsFeatureDescription(mountPoint: string): string {
+	return `The skills feature provides mounted AI agent skills at ${mountPoint}.
+
+	Use \`x-skills\` command through the bash tool. Put the shell command in command, for example command="x-skills list" or command="x-skills install https://github.com/vercel-labs/agent-skills@vercel-composition-patterns". Run x-skills --help or x-skills <subcommand> --help when unsure. Skill files can be read directly from this mount, and JavaScript or TypeScript helper code may import local skill files when appropriate; prefer .mjs or .mts modules for js-exec.`;
+}
+
 const SKILLS_COMMAND = {
 	id: "x-skills",
 	type: "topic",
 	summary: "Manage mounted AI agent skills.",
-	usage: "x-skills <list|install|search|update> [args]",
+	usage: "x-skills <install|update|list|remove|search|get|info> [args]",
 	description: [
 		"Install and list skills stored under the mounted skills directory.",
 		"Install expects <repo-url>@<skill-name> and copies /skills/<skill-name> from the cloned repository.",
@@ -35,17 +44,26 @@ export function createSkillsCommand(options: SkillsCommandOptions): Command {
 		...SKILLS_COMMAND,
 		subcommands: [
 			createInstallSkillCommand(options),
-			createListSkillsCommand(options),
-			createSearchSkillsCommand(),
 			createUpdateSkillsCommand(options),
+			createListSkillsCommand(options),
+			createRemoveSkillCommand(options),
+			createSearchSkillsCommand(),
+			createGetSkillCommand(options),
+			createInfoSkillCommand(options),
 		],
 	});
 }
 
 export type SkillsFeature = Feature & {
 	readonly createCommand: () => Command;
+	readonly get: (skillName: string, fs: IFileSystem) => ReturnType<typeof getSkill>;
+	readonly info: (skillName: string, fs: IFileSystem) => ReturnType<typeof infoSkill>;
 	readonly install: (spec: string, ctx: CommandContext) => ReturnType<typeof installSkill>;
 	readonly list: (fs: IFileSystem) => ReturnType<typeof listSkills>;
+	readonly remove: (
+		input: Parameters<typeof removeSkill>[0],
+		ctx: CommandContext,
+	) => ReturnType<typeof removeSkill>;
 	readonly search: (query: string) => ReturnType<typeof searchSkills>;
 	readonly update: (ctx: CommandContext) => ReturnType<typeof updateSkills>;
 };
@@ -57,8 +75,8 @@ export function createSkillsFeature(
 	const config: SkillsConfig = {
 		enabled: option !== false,
 		fs: resolvedOption?.fs,
-		mountPoint: resolvedOption?.mountPoint ?? DEFAULT_SKILLS_MOUNT,
 		lockfile: resolvedOption?.lockfile ?? true,
+		mountPoint: resolvedOption?.mountPoint ?? DEFAULT_SKILLS_MOUNT,
 	};
 	const commandOptions: SkillsCommandOptions = {
 		lockfile: config.lockfile,
@@ -67,8 +85,11 @@ export function createSkillsFeature(
 	const feature: SkillsFeature = {
 		name: "skills",
 		createCommand: () => createSkillsCommand(commandOptions),
+		get: (skillName, fs) => getSkill(skillName, fs, commandOptions),
+		info: (skillName, fs) => infoSkill(skillName, fs, commandOptions),
 		install: (spec, ctx) => installSkill(spec, ctx, commandOptions),
 		list: (fs) => listSkills(fs, commandOptions),
+		remove: (input, ctx) => removeSkill(input, ctx, commandOptions),
 		search: (query) => searchSkills(query),
 		update: (ctx) => updateSkills(ctx, commandOptions),
 	};
@@ -93,8 +114,7 @@ export function createSkillsFeature(
 
 	return {
 		...feature,
-		prompt: () =>
-			`Skills mount: ${config.mountPoint}. Use x-skills to install, list, search, and update mounted skills.`,
+		description: () => createSkillsFeatureDescription(config.mountPoint),
 		command: [feature.createCommand()],
 		hooks: {
 			onExecStart: (context) => initialize.run(context),

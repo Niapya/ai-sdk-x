@@ -5,6 +5,10 @@ import type { ExecHookStartContext, Feature } from "@/types";
 
 export const DEFAULT_WORKSPACE_MOUNT = "/home/user/workspace";
 
+export function createWorkspaceFeatureDescription(mountPoint: string): string {
+	return `The workspace feature provides the persistent project filesystem at ${mountPoint}.`;
+}
+
 export function createWorkspaceFeature(
 	option: boolean | WorkspaceOptions | undefined = true,
 ): Feature {
@@ -38,8 +42,7 @@ export function createWorkspaceFeature(
 
 	return {
 		...feature,
-		prompt: () =>
-			`Workspace mount: ${config.mountPoint}. Use the mounted workspace to inspect and edit files.`,
+		description: () => createWorkspaceFeatureDescription(config.mountPoint),
 		hooks: {
 			onExecStart: (context) => initialize.run(context),
 		},

@@ -1,8 +1,13 @@
 import type { CommandContext, ExecResult } from "just-bash";
 import type { SkillsCommandOptions } from "@/features/skills/types";
 import { cloneSkillRepository } from "@/features/skills/utils/git";
-import { readSkillLockfile, writeSkillLockfile } from "@/features/skills/utils/lockfile";
-import { frontmatterDescription } from "@/features/skills/utils/metadata";
+import {
+	collectSkillFiles,
+	findSkillMarkdownFile,
+	readSkillsIndex,
+	writeSkillIndexEntry,
+} from "@/features/skills/utils/lockfile";
+import { frontmatterDescription, stringifyFrontmatter } from "@/features/skills/utils/metadata";
 import { type CliCommandDefinition, commandError, defineCliCommand } from "@/utils/command";
 import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
 
@@ -10,8 +15,8 @@ export async function updateSkills(
 	ctx: CommandContext,
 	options: SkillsCommandOptions,
 ): Promise<ExecResult> {
-	const lockfile = await readSkillLockfile(ctx.fs, options.mountPoint);
-	const installedSkills = Object.entries(lockfile.skills);
+	const index = await readSkillsIndex(ctx.fs, options.mountPoint);
+	const installedSkills = Object.entries(index.skills).filter(([, entry]) => entry.url);
 	if (installedSkills.length === 0) {
 		return {
 			stdout: "No installed skills to update\n",
@@ -24,34 +29,38 @@ export async function updateSkills(
 
 	try {
 		for (const [, entry] of installedSkills) {
-			if (cloneRoots.has(entry.source.repo)) {
+			if (!entry.url || cloneRoots.has(entry.url)) {
 				continue;
 			}
 
-			const { clonePath, result } = await cloneSkillRepository(entry.source.repo, ctx);
+			const { clonePath, result } = await cloneSkillRepository(entry.url, ctx);
 			if (result.exitCode !== 0) {
 				return result;
 			}
 
-			cloneRoots.set(entry.source.repo, clonePath);
+			cloneRoots.set(entry.url, clonePath);
 		}
 
 		for (const [selector, entry] of installedSkills) {
-			const cloneRoot = cloneRoots.get(entry.source.repo);
-			if (!cloneRoot) {
-				return commandError(`x-skills update: missing clone for ${entry.source.repo}\n`, 1);
+			if (!entry.url) {
+				continue;
 			}
 
-			const sourcePath = ctx.fs.resolvePath(cloneRoot, `skills/${entry.source.selector}`);
-			const skillFilePath = ctx.fs.resolvePath(sourcePath, "SKILL.md");
-			if (!(await ctx.fs.exists(skillFilePath))) {
+			const cloneRoot = cloneRoots.get(entry.url);
+			if (!cloneRoot) {
+				return commandError(`x-skills update: missing clone for ${entry.url}\n`, 1);
+			}
+
+			const sourcePath = ctx.fs.resolvePath(cloneRoot, `skills/${selector}`);
+			const sourceSkillFilePath = await findSkillMarkdownFile(ctx.fs, sourcePath);
+			if (!sourceSkillFilePath) {
 				return commandError(
-					`x-skills update: missing ${ctx.fs.resolvePath("/skills", `${entry.source.selector}/SKILL.md`)} in ${entry.source.repo}\n`,
+					`x-skills update: missing /skills/${selector}/SKILLS.md in ${entry.url}\n`,
 					1,
 				);
 			}
 
-			const markdown = await ctx.fs.readFile(skillFilePath);
+			const markdown = await ctx.fs.readFile(sourceSkillFilePath);
 			const { frontmatter } = parseMarkdownFrontmatter(markdown);
 			const description = frontmatterDescription(frontmatter);
 			const destinationPath = ctx.fs.resolvePath(options.mountPoint, selector);
@@ -59,17 +68,21 @@ export async function updateSkills(
 			await ctx.fs.rm(destinationPath, { force: true, recursive: true });
 			await ctx.fs.cp(sourcePath, destinationPath, { recursive: true });
 
+			const skillPath = ctx.fs.resolvePath(
+				destinationPath,
+				sourceSkillFilePath.slice(sourcePath.length).replace(/^\/+/, ""),
+			);
 			if (options.lockfile) {
-				await writeSkillLockfile(
-					ctx.fs,
-					options,
-					{
-						repoUrl: entry.source.repo,
-						selector: entry.source.selector,
-					},
-					frontmatter,
+				await writeSkillIndexEntry(ctx.fs, options, {
 					description,
-				);
+					files: await collectSkillFiles(ctx.fs, destinationPath),
+					frontmatter: stringifyFrontmatter(frontmatter),
+					skillPath,
+					target: {
+						repoUrl: entry.url,
+						selector,
+					},
+				});
 			}
 		}
 

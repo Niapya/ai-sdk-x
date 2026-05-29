@@ -32,7 +32,7 @@ const PATCH_FLAGS = {
 
 export const PATCH_DESCRIPTION = `Use the "x-patch" command to edit files. Your patch language is a stripped-down, file-oriented diff format designed to be easy to parse and safe to apply.
 
-Official example: #sym:patch
+Official example:
 
 You can think of it as a high-level envelope:
 
@@ -66,6 +66,10 @@ It is important to remember:
 - You must prefix new lines with "+" even when creating a new file`;
 
 export const PATCH_DESCRIPTION_LINES: string[] = PATCH_DESCRIPTION.split("\n");
+
+export function createPatchFeatureDescription(): string {
+	return "The patch feature provides x-patch, the preferred command for structured file edits. Use x-patch through the bash tool, not as a separate callable tool. Put x-patch in command and pass the patch body via stdin when convenient, for example command=\"x-patch\" with stdin=\"*** Begin Patch\\n...\". Durable edits should target files inside the enabled workspace mount. Run x-patch --help when unsure about the patch format.";
+}
 
 const PATCH_COMMAND = defineCliCommand({
 	id: "x-patch",
@@ -107,7 +111,6 @@ export function createPatchFeature(option: boolean | PatchOptions | undefined = 
 	};
 	const feature: Feature = {
 		name: "patch",
-		prompt: () => "Use x-patch to apply structured file edits.",
 	};
 
 	if (!config.enabled) {
@@ -116,6 +119,7 @@ export function createPatchFeature(option: boolean | PatchOptions | undefined = 
 
 	return {
 		...feature,
+		description: createPatchFeatureDescription,
 		command: [createPatchCommand()],
 	};
 }

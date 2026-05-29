@@ -29,8 +29,7 @@ export async function searchSkills(query: string): Promise<ExecResult> {
 		`
 Install with x-skills install <git-url@skill>.
 Example:
-	x-skills install https://github.com/upstash/context7@context7
-
+	x-skills install https://github.com/intellectronica/agent-skills@context7
 `,
 	];
 

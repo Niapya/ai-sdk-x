@@ -46,8 +46,7 @@ export function dirname(path: string): string {
  * Join a parent path and child name using virtual path semantics.
  */
 export function joinPath(parent: string, child: string): string {
-	const normalizedParent = normalizePath(parent);
-	return normalizedParent === "/" ? `/${child}` : `${normalizedParent}/${child}`;
+	return normalizePath(parent === "/" ? `/${child}` : `${parent}/${child}`);
 }
 
 /**

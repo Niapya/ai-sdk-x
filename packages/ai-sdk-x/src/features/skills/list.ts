@@ -1,6 +1,6 @@
 import type { ExecResult, IFileSystem } from "just-bash";
 import type { SkillsCommandOptions } from "@/features/skills/types";
-import { readSkillLockfile } from "@/features/skills/utils/lockfile";
+import { findSkillMarkdownFile, readSkillsIndex } from "@/features/skills/utils/lockfile";
 import { frontmatterDescription } from "@/features/skills/utils/metadata";
 import { defineCliCommand } from "@/utils/command";
 import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
@@ -13,8 +13,17 @@ export async function listSkills(
 		return { stdout: "", stderr: "", exitCode: 0 };
 	}
 
-	const lockfile = await readSkillLockfile(fs, options.mountPoint);
+	const index = await readSkillsIndex(fs, options.mountPoint);
 	const lines: string[] = [];
+
+	for (const [skillName, entry] of Object.entries(index.skills)) {
+		lines.push(`${skillName}\t${entry.description ?? ""}`);
+	}
+
+	if (lines.length > 0) {
+		const output = lines.sort().join("\n");
+		return { stdout: `${output}\n`, stderr: "", exitCode: 0 };
+	}
 
 	for (const entry of await fs.readdir(options.mountPoint)) {
 		if (entry === "skills.json") {
@@ -22,14 +31,8 @@ export async function listSkills(
 		}
 
 		const skillPath = fs.resolvePath(options.mountPoint, entry);
-		const skillFilePath = fs.resolvePath(skillPath, "SKILL.md");
-		if (!(await fs.exists(skillFilePath))) {
-			continue;
-		}
-
-		const locked = lockfile.skills[entry];
-		if (locked) {
-			lines.push(`${entry}\t${locked.description}`);
+		const skillFilePath = await findSkillMarkdownFile(fs, skillPath);
+		if (!skillFilePath) {
 			continue;
 		}
 

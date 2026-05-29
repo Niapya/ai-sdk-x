@@ -9,13 +9,38 @@ describe("createMemoryFeature", () => {
 		const feature = createMemoryFeature(false);
 
 		expect(feature.name).toBe("memory");
-		expect(feature.prompt).toBeUndefined();
+		expect(feature.description).toBeUndefined();
 		expect(feature.command).toBeUndefined();
 		expect(feature.hooks).toBeUndefined();
 		expect(feature.createCommand().name).toBe("x-memory");
 		expect(typeof feature.add).toBe("function");
+		expect(typeof feature.delete).toBe("function");
+		expect(typeof feature.get).toBe("function");
+		expect(typeof feature.init).toBe("function");
 		expect(typeof feature.list).toBe("function");
 		expect(typeof feature.search).toBe("function");
+		expect(typeof feature.status).toBe("function");
+		expect(typeof feature.update).toBe("function");
+	});
+
+	it("exposes note as its own subcommand", async () => {
+		const feature = createMemoryFeature(false);
+		const help = await feature.createCommand().execute(["--help"], {
+			bash: null,
+			command: null,
+			metadata: {},
+		} as never);
+
+		expect(help.exitCode).toBe(0);
+		expect(help.stdout).toContain("note - Add a daily memory entry.");
+	});
+
+	it("describes bash usage and stdin guidance when enabled", async () => {
+		const feature = createMemoryFeature(true);
+		const text = await feature.description?.({} as never);
+
+		expect(text).toContain("not as a separate callable tool");
+		expect(text).toContain('command="x-memory add note-title" with stdin="note body"');
 	});
 
 	it("binds helper methods to the configured mount point", async () => {
@@ -27,23 +52,25 @@ describe("createMemoryFeature", () => {
 
 		const addResult = await feature.add(
 			{
-				longTerm: false,
 				title: "Test Note",
 			},
 			ctx,
 		);
 
 		expect(addResult.exitCode).toBe(0);
-		expect(addResult.stdout).toContain("/notes/daily/");
+		expect(addResult.stdout).toContain(":Test Note");
 
 		const listResult = await feature.list(fs);
 		expect(listResult.exitCode).toBe(0);
-		expect(listResult.stdout).toContain("/notes/daily/");
+		expect(listResult.stdout).toContain("Test Note");
 
 		const searchResult = await feature.search("remember", fs);
 		expect(searchResult.exitCode).toBe(0);
-		expect(searchResult.stdout).toContain("/notes/daily/");
+		expect(searchResult.stdout).toContain("Test Note");
 		expect(searchResult.stdout).toContain("remember this");
+
+		const statusResult = await feature.status(fs);
+		expect(statusResult.stdout).toContain("entries\t1");
 	});
 });
 

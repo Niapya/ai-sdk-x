@@ -1,5 +1,4 @@
 import type { IFileSystem } from "just-bash";
-import type { JsonRecord } from "@/utils/json";
 
 export interface SkillsOptions {
 	fs?: IFileSystem;
@@ -24,17 +23,17 @@ export interface SkillInstallTarget {
 	selector: string;
 }
 
-export interface SkillLockEntry {
-	description: string;
-	frontmatter: JsonRecord;
-	source: {
-		path: string;
-		repo: string;
-		selector: string;
-	};
+export interface SkillIndexEntry {
+	createAt: number;
+	description?: string;
+	files: string[];
+	frontmatter?: Record<string, string>;
+	skillPath: string;
+	updateAt: number;
+	url?: string;
 }
 
-export interface SkillsLockfile {
-	skills: Record<string, SkillLockEntry>;
+export interface SkillsIndex {
+	skills: Record<string, SkillIndexEntry>;
 	version: 1;
 }

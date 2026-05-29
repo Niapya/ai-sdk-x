@@ -1,8 +1,12 @@
 import type { CommandContext, ExecResult } from "just-bash";
 import type { SkillsCommandOptions } from "@/features/skills/types";
 import { cloneSkillRepository } from "@/features/skills/utils/git";
-import { writeSkillLockfile } from "@/features/skills/utils/lockfile";
-import { frontmatterDescription } from "@/features/skills/utils/metadata";
+import {
+	collectSkillFiles,
+	findSkillMarkdownFile,
+	writeSkillIndexEntry,
+} from "@/features/skills/utils/lockfile";
+import { frontmatterDescription, stringifyFrontmatter } from "@/features/skills/utils/metadata";
 import { parseSkillInstallTarget } from "@/features/skills/utils/parser";
 import { commandError, defineCliCommand } from "@/utils/command";
 import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
@@ -31,26 +35,36 @@ export async function installSkill(
 
 	const cloneRoot = clonePath;
 	const sourcePath = ctx.fs.resolvePath(cloneRoot, `skills/${target.selector}`);
-	const skillFilePath = ctx.fs.resolvePath(sourcePath, "SKILL.md");
 	const destinationPath = ctx.fs.resolvePath(options.mountPoint, target.selector);
 
 	try {
-		if (!(await ctx.fs.exists(skillFilePath))) {
+		const sourceSkillFilePath = await findSkillMarkdownFile(ctx.fs, sourcePath);
+		if (!sourceSkillFilePath) {
 			return commandError(
-				`x-skills install: missing ${ctx.fs.resolvePath("/skills", `${target.selector}/SKILL.md`)} in ${target.repoUrl}\n`,
+				`x-skills install: missing /skills/${target.selector}/SKILLS.md in ${target.repoUrl}\n`,
 				1,
 			);
 		}
 
-		const markdown = await ctx.fs.readFile(skillFilePath);
+		const markdown = await ctx.fs.readFile(sourceSkillFilePath);
 		const { frontmatter } = parseMarkdownFrontmatter(markdown);
 		const description = frontmatterDescription(frontmatter);
 
 		await ctx.fs.rm(destinationPath, { force: true, recursive: true });
 		await ctx.fs.cp(sourcePath, destinationPath, { recursive: true });
 
+		const skillPath = ctx.fs.resolvePath(
+			destinationPath,
+			sourceSkillFilePath.slice(sourcePath.length).replace(/^\/+/, ""),
+		);
 		if (options.lockfile) {
-			await writeSkillLockfile(ctx.fs, options, target, frontmatter, description);
+			await writeSkillIndexEntry(ctx.fs, options, {
+				description,
+				files: await collectSkillFiles(ctx.fs, destinationPath),
+				frontmatter: stringifyFrontmatter(frontmatter),
+				skillPath,
+				target,
+			});
 		}
 
 		return {
@@ -68,6 +82,7 @@ export function createInstallSkillCommand(
 ): ReturnType<typeof defineCliCommand> {
 	return defineCliCommand({
 		id: "install",
+		aliases: ["add"],
 		type: "command",
 		summary: "Install a skill from a repository selector.",
 		usage: "x-skills install <repo@skill-name>",
@@ -80,7 +95,7 @@ export function createInstallSkillCommand(
 		],
 		examples: [
 			{
-				command: "x-skills install vercel-labs/agent-skills@vercel-composition-patterns",
+				command: "x-skills install intellectronica/agent-skills@context7",
 			},
 		],
 		run: ({ args: { spec } }, ctx) => installSkill(spec, ctx, options),

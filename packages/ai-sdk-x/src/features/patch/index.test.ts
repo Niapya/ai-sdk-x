@@ -1,10 +1,18 @@
 import { describe, expect, it } from "bun:test";
 import { type CommandContext, EMPTY_BYTES, encodeUtf8ToBytes, InMemoryFs } from "just-bash";
-import { createPatchCommand } from "@/features/patch";
+import { createPatchCommand, createPatchFeature } from "@/features/patch";
 
 const HOME = "/Users/tester";
 
 describe("x-patch", () => {
+	it("describes bash usage and stdin patch input", async () => {
+		const feature = createPatchFeature(true);
+		const text = await feature.description?.({} as never);
+
+		expect(text).toContain("not as a separate callable tool");
+		expect(text).toContain('command="x-patch" with stdin="*** Begin Patch\\n..."');
+	});
+
 	it("applies inline patch content relative to cwd by default", async () => {
 		const fs = new InMemoryFs();
 		const cwd = "/repo/app";

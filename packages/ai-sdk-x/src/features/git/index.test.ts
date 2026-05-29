@@ -8,13 +8,16 @@ describe("createGitFeature", () => {
 		expect(createGitFeature(undefined).name).toBe("git");
 	});
 
-	it("only exposes a prompt when enabled", async () => {
+	it("only exposes a description when enabled", async () => {
 		const featureEnabled = createGitFeature(true);
 		const featureDisabled = createGitFeature(false);
 
-		expect(typeof featureEnabled.prompt).toBe("function");
-		expect(featureDisabled.prompt).toBeUndefined();
-		expect(await featureEnabled.prompt?.({} as never)).toContain("git");
+		expect(typeof featureEnabled.description).toBe("function");
+		expect(featureDisabled.description).toBeUndefined();
+		const text = await featureEnabled.description?.({} as never);
+		expect(text).toContain("git");
+		expect(text).toContain("not as a separate callable tool");
+		expect(text).toContain('command="git status"');
 	});
 
 	it("includes a command array when enabled", () => {

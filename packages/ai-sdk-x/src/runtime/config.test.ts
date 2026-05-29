@@ -17,7 +17,15 @@ describe("resolveBashConfig", () => {
 
 	it("always sets network.dangerouslyAllowFullInternetAccess to true", () => {
 		const config = resolveBashConfig(undefined);
+		if (config.network === false) {
+			throw new Error("network should be enabled by default");
+		}
 		expect(config.network?.dangerouslyAllowFullInternetAccess).toBe(true);
+	});
+
+	it("allows disabling network commands", () => {
+		const config = resolveBashConfig({ network: false });
+		expect(config.network).toBe(false);
 	});
 
 	it("overrides cwd with provided value", () => {

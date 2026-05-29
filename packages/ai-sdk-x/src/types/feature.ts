@@ -1,11 +1,4 @@
-import type {
-	Bash,
-	BashExecResult,
-	Command,
-	ExecOptions,
-	IFileSystem,
-	MountableFs,
-} from "just-bash";
+import type { Bash, BashExecResult, Command, ExecOptions, MountableFs } from "just-bash";
 import type { EnvSnapshot } from "@/runtime/env";
 import type { Awaitable } from "@/types/utils";
 
@@ -33,22 +26,25 @@ export interface ExecHook {
 }
 
 export interface Feature {
+	/**
+	 * Stable feature identifier used for registration, diagnostics, and tests.
+	 */
 	readonly name: string;
-	readonly prompt?: (ctx: FeatureSetupContext) => Awaitable<string>;
+	/**
+	 * Optional model-facing description appended to the bash tool description when
+	 * the feature is enabled. Built-in features should return plain description
+	 * text. The top-level tool description is responsible for wrapping feature
+	 * metadata in XML.
+	 */
+	readonly description?: (ctx: FeatureSetupContext) => Awaitable<string>;
+	/**
+	 * Commands made available inside the virtual bash runtime while this feature is
+	 * enabled.
+	 */
 	readonly command?: Command[];
+	/**
+	 * Execution lifecycle hooks used to initialize mounts, set feature-owned env,
+	 * or observe command results.
+	 */
 	readonly hooks?: ExecHook;
-}
-
-export interface FeatureConfig {
-	readonly enabled: boolean;
-}
-
-export interface MountedFeatureOptions {
-	fs?: IFileSystem;
-	mountPoint?: string;
-}
-
-export interface MountedFeatureConfig extends FeatureConfig {
-	readonly fs?: IFileSystem;
-	readonly mountPoint: string;
 }
