@@ -230,6 +230,19 @@ describe("X constructor options", () => {
 		expect(result.stdout.trim()).toBe("/home/user");
 	});
 
+	it("preserves just-bash default filesystem layout", async () => {
+		const x = new X();
+
+		expect(await x.fs.exists("/home/user")).toBe(true);
+		expect(await x.fs.exists("/tmp")).toBe(true);
+		expect(await x.fs.exists("/dev/null")).toBe(true);
+		expect(await x.fs.exists("/proc/version")).toBe(true);
+
+		const result = await x.exec("ls /bin");
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain("echo");
+	});
+
 	it("accepts a custom IFileSystem and exposes files through x.fs", async () => {
 		const fs = new InMemoryFs({ "/tmp/existing.txt": "hello" });
 		const x = new X({ fs });
@@ -251,6 +264,7 @@ describe("X constructor options", () => {
 		const x = new X({ bash: { cwd: "/custom/cwd" } });
 		const result = await x.exec("pwd");
 		expect(result.stdout.trim()).toBe("/custom/cwd");
+		expect(await x.fs.exists("/tmp")).toBe(false);
 	});
 });
 

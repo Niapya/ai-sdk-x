@@ -4,8 +4,8 @@ import {
 	type BashOptions,
 	type Command,
 	type ExecOptions,
+	type IFileSystem,
 	InMemoryFs,
-	MountableFs,
 } from "just-bash";
 import { createGitFeature } from "@/features/git";
 import { createMemoryFeature } from "@/features/memory";
@@ -14,6 +14,7 @@ import { createSkillsFeature, parseSkillInstallTarget } from "@/features/skills"
 import { createWorkspaceFeature } from "@/features/workspace";
 import { resolveBashConfig } from "@/runtime/config";
 import { type EnvBackend, type EnvSnapshot, MemoryEnvBackend, mergeEnv } from "@/runtime/env";
+import { BootstrappableMountableFs } from "@/runtime/fs";
 import { MAX_OUTPUT } from "@/runtime/output";
 import { createBashTool, createToolDescription } from "@/runtime/tools";
 
@@ -80,6 +81,7 @@ export type {
 	TransactionalFsStatus,
 } from "@/runtime/fs";
 export {
+	BootstrappableMountableFs,
 	CachingFs,
 	IndexedFs,
 	TransactionalFs,
@@ -92,30 +94,32 @@ export class X {
 	readonly bash: Bash;
 	readonly commands: Command[];
 	readonly features: Feature[];
-	readonly fs: MountableFs;
+	readonly fs: BootstrappableMountableFs;
 	private readonly envBackend: EnvBackend;
 	private readonly execHooks: ExecHook[];
 	private readonly featureEnv = new Map<string, string>();
 
 	constructor(options: XOptions = {}) {
 		const bashConfig = resolveBashConfig(options.bash);
+		const { cwd, ...bashOptionsBase } = bashConfig;
 
 		const sourceFs = options.fs ?? new InMemoryFs();
-		const mountableFs = new MountableFs({ base: sourceFs });
+		const mountableFs = new BootstrappableMountableFs({ base: sourceFs });
 		this.fs = mountableFs;
 		this.commands = [];
 		this.features = [];
 		this.execHooks = [];
 
 		const bashOptions: BashOptions = {
-			...bashConfig,
+			...bashOptionsBase,
+			...(options.bash?.cwd === undefined ? {} : { cwd }),
 			fs: mountableFs,
 		};
 		this.bash = new Bash(bashOptions);
 		this.envBackend =
 			options.envBackend ??
 			new MemoryEnvBackend({
-				cwd: bashConfig.cwd,
+				cwd: this.bash.getCwd(),
 				env: bashConfig.env,
 			});
 
@@ -133,11 +137,11 @@ export class X {
 		const { git, memory, patch, skills, workspace, ...baseOptions } = options;
 		const x = new X(baseOptions);
 
+		x.registerFeature(createPatchFeature(patch));
 		x.registerFeature(createGitFeature(git));
 		x.registerFeature(createWorkspaceFeature(workspace));
 		x.registerFeature(createSkillsFeature(skills));
 		x.registerFeature(createMemoryFeature(memory));
-		x.registerFeature(createPatchFeature(patch));
 
 		return x;
 	}
