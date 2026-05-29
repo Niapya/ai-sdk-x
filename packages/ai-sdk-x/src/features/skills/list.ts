@@ -17,7 +17,7 @@ export async function listSkills(
 	const lines: string[] = [];
 
 	for (const [skillName, entry] of Object.entries(index.skills)) {
-		lines.push(`${skillName}\t${entry.description ?? ""}`);
+		lines.push(`${skillName}\t${entry.description ?? ""}\t${entry.skillPath}`);
 	}
 
 	if (lines.length > 0) {
@@ -38,7 +38,7 @@ export async function listSkills(
 
 		const markdown = await fs.readFile(skillFilePath);
 		const { frontmatter } = parseMarkdownFrontmatter(markdown);
-		lines.push(`${entry}\t${frontmatterDescription(frontmatter)}`);
+		lines.push(`${entry}\t${frontmatterDescription(frontmatter)}\t${skillFilePath}`);
 	}
 
 	const output = lines.sort().join("\n");

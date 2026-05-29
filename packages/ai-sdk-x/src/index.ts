@@ -268,7 +268,12 @@ export class X {
 					const description = await feature.description?.(featureContext);
 					if (!description) return "";
 
-					return `<name>${feature.name}</name>\n<description>${description}</description>`;
+					return [
+						"<feature>",
+						`<title>${feature.name}</title>`,
+						`<description>${description}</description>`,
+						"</feature>",
+					].join("\n");
 				}),
 			)
 		).join("\n\n");
@@ -280,7 +285,7 @@ export class X {
 			`Network: ${networkEnabled ? "on" : "off"}`,
 
 			// Tool contract
-			'`command` is required and must contain the shell command to run. Example: { command: "curl https://example.com" }.',
+			'`command` is required and must contain the shell command to run. Example: { command: "echo hello" }.',
 			"`cwd` is optional and sets the working directory for that command. Use it instead of `cd ... && ...`.",
 			'`stdin` is optional raw stdin text for commands that read stdin. Example: { command: "cat", stdin: "hello\\n" }.',
 			"Do not put shell code in `stdin`; put it in `command`.",
@@ -307,7 +312,7 @@ export class X {
 			"Available features:",
 			`<features>${featureDescriptions}</features>`,
 
-			`${options.description}`,
+			options.description ?? "",
 		]
 			.filter(Boolean)
 			.join("\n");

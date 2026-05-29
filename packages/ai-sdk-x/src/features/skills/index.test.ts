@@ -24,10 +24,14 @@ describe("createSkillsFeature", () => {
 
 	it("describes bash usage through x-skills when enabled", async () => {
 		const feature = createSkillsFeature(true);
-		const text = await feature.description?.({} as never);
+		const fs = new InMemoryFs({
+			"/home/user/skills/skills.json":
+				'{"version":1,"skills":{"demo":{"createAt":1,"updateAt":1,"files":["$SKILLS_HOME/demo/SKILL.md"],"skillPath":"$SKILLS_HOME/demo/SKILL.md","description":"Demo skill"}}}\n',
+		});
+		const text = await feature.description?.({ fs } as never);
 
-		expect(text).toContain("not as a separate callable tool");
 		expect(text).toContain('command="x-skills list"');
+		expect(text).toContain("demo: Demo skill skillPath=$SKILLS_HOME/demo/SKILL.md");
 	});
 
 	it("binds list and update helpers to the configured mount point", async () => {
@@ -45,7 +49,7 @@ describe("createSkillsFeature", () => {
 
 		const listResult = await feature.list(fs);
 		expect(listResult.exitCode).toBe(0);
-		expect(listResult.stdout).toContain("demo\tBound mount");
+		expect(listResult.stdout).toContain("demo\tBound mount\t/custom-skills/demo/SKILL.md");
 
 		await fs.writeFile("/custom-skills/skills.json", '{"version":1,"skills":{}}\n');
 		const updateResult = await feature.update(ctx);

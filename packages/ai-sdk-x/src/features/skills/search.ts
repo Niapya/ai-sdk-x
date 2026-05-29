@@ -37,6 +37,7 @@ Example:
 		const pkg = skill.source || skill.slug;
 		const installs = formatInstalls(skill.installs);
 		lines.push(`${pkg}@${skill.name}${installs ? ` (${installs})` : ""}`);
+		lines.push(`skillPath after install: $SKILLS_HOME/${skill.name}/SKILL.md`);
 		lines.push(`https://skills.sh/${skill.slug}`);
 		lines.push("");
 	}

@@ -4,6 +4,7 @@ import { cloneSkillRepository } from "@/features/skills/utils/git";
 import {
 	collectSkillFiles,
 	findSkillMarkdownFile,
+	toSkillsHomePath,
 	writeSkillIndexEntry,
 } from "@/features/skills/utils/lockfile";
 import { frontmatterDescription, stringifyFrontmatter } from "@/features/skills/utils/metadata";
@@ -67,8 +68,11 @@ export async function installSkill(
 			});
 		}
 
+		const outputSkillPath = options.lockfile
+			? toSkillsHomePath(ctx.fs, options.mountPoint, skillPath)
+			: skillPath;
 		return {
-			stdout: `Installed ${target.selector} from ${target.repoUrl}\n`,
+			stdout: `Installed ${target.selector} from ${target.repoUrl}\nskillPath\t${outputSkillPath}\n`,
 			stderr: "",
 			exitCode: 0,
 		};

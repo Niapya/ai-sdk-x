@@ -119,6 +119,7 @@ describe("X feature runtime", () => {
 
 		const installResult = await x.exec("x-skills install /origin@demo");
 		expect(installResult.exitCode).toBe(0);
+		expect(installResult.stdout).toContain("skillPath\t$SKILLS_HOME/demo/SKILL.md");
 		expect(await x.fs.readFile("/home/user/skills/demo/SKILL.md")).toContain("Version 1");
 
 		const lockfile = JSON.parse(await x.fs.readFile("/home/user/skills/skills.json"));
@@ -360,14 +361,14 @@ describe("X getTools integration", () => {
 	it("creates a dynamic tool description from enabled runtime options", async () => {
 		const x = new X({ bash: { javascript: false, network: false, python: false } });
 		const description = await x.createToolDescription();
-		expect(description).toContain("Bash is a virtual bash shell");
+		expect(description).toContain("Bash tool is a virtual bash shell");
 		expect(description).toContain("Network: off");
-		expect(description).toContain("Only one callable tool exists: `bash`.");
 		expect(description).toContain("Do not put shell code in `stdin`");
 		expect(description).toContain("rg --files");
 		expect(description).not.toContain("curl https://example.com");
 		expect(description).not.toContain("js-exec");
 		expect(description).not.toContain("python3");
+		expect(description).not.toContain("undefined");
 	});
 
 	it("includes network, JavaScript, Python, feature metadata XML, and custom options when enabled", async () => {
@@ -375,19 +376,18 @@ describe("X getTools integration", () => {
 		const description = await x.createToolDescription({ description: "Extra policy." });
 		expect(description).toContain("Network: on");
 		expect(description).toContain("`cwd` is optional and sets the working directory");
-		expect(description).toContain("They are not separate callable tools.");
+		expect(description).toContain("They are NOT callable tools.");
 		expect(description).toContain("curl https://github.blog | html-to-markdown");
 		expect(description).toContain("You may use `js-exec`");
 		expect(description).toContain("You may use `python3` or `python`");
-		expect(description).toContain("<name>workspace</name>");
+		expect(description).toContain("<feature>\n<title>workspace</title>");
 		expect(description).toContain("/project");
-		expect(description).toContain("<name>memory</name>");
-		expect(description).toContain("<name>skills</name>");
-		expect(description).toContain("<name>patch</name>");
-		expect(description).toContain("<name>git</name>");
+		expect(description).toContain("<title>memory</title>");
+		expect(description).toContain("<title>skills</title>");
+		expect(description).toContain("<title>patch</title>");
+		expect(description).toContain("<title>git</title>");
 		expect(description).toContain("Extra policy.");
 		expect(description).not.toContain("Feature guidance");
-		expect(description).not.toContain("<feature>");
 		expect(description).not.toContain("\n\n\n");
 	});
 

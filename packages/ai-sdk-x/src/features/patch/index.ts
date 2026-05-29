@@ -68,7 +68,7 @@ It is important to remember:
 export const PATCH_DESCRIPTION_LINES: string[] = PATCH_DESCRIPTION.split("\n");
 
 export function createPatchFeatureDescription(): string {
-	return "The patch feature provides x-patch, the preferred command for structured file edits. Use x-patch through the bash tool, not as a separate callable tool. Put x-patch in command and pass the patch body via stdin when convenient, for example command=\"x-patch\" with stdin=\"*** Begin Patch\\n...\". Durable edits should target files inside the enabled workspace mount. Run x-patch --help when unsure about the patch format.";
+	return 'The patch feature provides x-patch, the preferred command for structured file edits. Prefer x-patch over ad hoc shell rewriting commands when modifying files. Use x-patch through the bash tool, not as a separate callable tool. Put x-patch in command and pass the patch body via stdin when convenient, for example command="x-patch" with stdin="*** Begin Patch\\n...". Durable edits should target files inside the enabled workspace mount. Run x-patch --help when unsure about the patch format.';
 }
 
 const PATCH_COMMAND = defineCliCommand({
@@ -76,7 +76,7 @@ const PATCH_COMMAND = defineCliCommand({
 	type: "command",
 	summary: "Apply a structured patch to files.",
 	usage: "x-patch [<content>] [--file <path>] [--base <path>]",
-	description: ["#sym:PATCH_DESCRIPTION", ...PATCH_DESCRIPTION_LINES],
+	description: PATCH_DESCRIPTION_LINES,
 	args: PATCH_ARGS,
 	flags: PATCH_FLAGS,
 	examples: [
@@ -118,7 +118,7 @@ export function createPatchFeature(option: boolean | PatchOptions | undefined = 
 	}
 
 	return {
-		...feature,
+		name: "patch",
 		description: createPatchFeatureDescription,
 		command: [createPatchCommand()],
 	};

@@ -36,7 +36,7 @@ describe("createWorkspaceFeature", () => {
 		const feature = createWorkspaceFeature(true);
 		const text = await feature.description?.({} as never);
 		expect(text).toContain(DEFAULT_WORKSPACE_MOUNT);
-		expect(text).toContain("not a separate callable tool");
+		expect(text).toContain("All durable deliverable files");
 		expect(text).toContain("WORKSPACE_HOME");
 	});
 

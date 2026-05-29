@@ -10,6 +10,7 @@ describe("x-patch", () => {
 		const text = await feature.description?.({} as never);
 
 		expect(text).toContain("not as a separate callable tool");
+		expect(text).toContain("Prefer x-patch over ad hoc shell rewriting commands");
 		expect(text).toContain('command="x-patch" with stdin="*** Begin Patch\\n..."');
 	});
 

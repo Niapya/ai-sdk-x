@@ -7,17 +7,36 @@ import { createRemoveSkillCommand, removeSkill } from "@/features/skills/remove"
 import { createSearchSkillsCommand, searchSkills } from "@/features/skills/search";
 import type { SkillsCommandOptions, SkillsConfig, SkillsOptions } from "@/features/skills/types";
 import { createUpdateSkillsCommand, updateSkills } from "@/features/skills/update";
+import { readSkillsIndex } from "@/features/skills/utils/lockfile";
 import { AsyncOnce } from "@/runtime/async-once";
 import { createSubpathFs } from "@/runtime/fs/subpath-fs";
-import type { ExecHookStartContext, Feature } from "@/types";
+import type { ExecHookStartContext, Feature, FeatureSetupContext } from "@/types";
 import { type CliTopicDefinition, createCommand } from "@/utils/command";
 
 export const DEFAULT_SKILLS_MOUNT = "/home/user/skills";
 
-export function createSkillsFeatureDescription(mountPoint: string): string {
-	return `The skills feature provides mounted AI agent skills at ${mountPoint}.
+export async function createSkillsFeatureDescription(
+	ctx: FeatureSetupContext,
+	mountPoint: string,
+): Promise<string> {
+	const index = await readSkillsIndex(ctx.fs, mountPoint);
+	const installed = Object.entries(index.skills)
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(
+			([skillName, entry]) =>
+				`${skillName}: ${entry.description || "No description."} skillPath=${entry.skillPath}`,
+		);
+	const installedText =
+		installed.length > 0 ? `Installed skills:\n${installed.join("\n")}` : "Installed skills: none.";
 
-	Use \`x-skills\` command through the bash tool. Put the shell command in command, for example command="x-skills list" or command="x-skills install https://github.com/vercel-labs/agent-skills@vercel-composition-patterns". Run x-skills --help or x-skills <subcommand> --help when unsure. Skill files can be read directly from this mount, and JavaScript or TypeScript helper code may import local skill files when appropriate; prefer .mjs or .mts modules for js-exec.`;
+	return [
+		`The skills feature provides mounted AI agent skills at ${mountPoint}.`,
+		'Use `x-skills` command through the bash tool. Put the shell command in command, for example command="x-skills list" or command="x-skills install https://github.com/vercel-labs/agent-skills@vercel-composition-patterns".',
+		"Run x-skills --help or x-skills <subcommand> --help when unsure.",
+		"Skill files can be read directly from this mount, and JavaScript or TypeScript helper code may import local skill files when appropriate; prefer .mjs or .mts modules for js-exec.",
+		"`x-skills install`, `x-skills list`, and `x-skills search` return skillPath information when available; use skillPath to inspect the installed skill file.",
+		installedText,
+	].join("\n");
 }
 
 const SKILLS_COMMAND = {
@@ -114,7 +133,7 @@ export function createSkillsFeature(
 
 	return {
 		...feature,
-		description: () => createSkillsFeatureDescription(config.mountPoint),
+		description: (ctx) => createSkillsFeatureDescription(ctx, config.mountPoint),
 		command: [feature.createCommand()],
 		hooks: {
 			onExecStart: (context) => initialize.run(context),
