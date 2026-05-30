@@ -5,6 +5,11 @@ export function frontmatterDescription(frontmatter: JsonRecord): string {
 	return typeof description === "string" ? description : "";
 }
 
+export function frontmatterName(frontmatter: JsonRecord): string {
+	const name = frontmatter.name;
+	return typeof name === "string" ? name : "";
+}
+
 export function stringifyFrontmatter(frontmatter: JsonRecord): Record<string, string> {
 	const output: Record<string, string> = {};
 

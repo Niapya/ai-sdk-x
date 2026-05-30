@@ -29,6 +29,7 @@ export interface SkillIndexEntry {
 	files: string[];
 	frontmatter?: Record<string, string>;
 	skillPath: string;
+	source?: "git" | "local";
 	updateAt: number;
 	url?: string;
 }

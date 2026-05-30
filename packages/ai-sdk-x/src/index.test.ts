@@ -119,11 +119,15 @@ describe("X feature runtime", () => {
 
 		const installResult = await x.exec("x-skills install /origin@demo");
 		expect(installResult.exitCode).toBe(0);
+		expect(installResult.stdout).toContain("installed\tdemo");
+		expect(installResult.stdout).toContain("source\t/origin");
 		expect(installResult.stdout).toContain("skillPath\t$SKILLS_HOME/demo/SKILL.md");
+		expect(installResult.stdout).toContain("files\t1");
 		expect(await x.fs.readFile("/home/user/skills/demo/SKILL.md")).toContain("Version 1");
 
 		const lockfile = JSON.parse(await x.fs.readFile("/home/user/skills/skills.json"));
 		expect(lockfile.skills.demo.url).toBe("/origin");
+		expect(lockfile.skills.demo.source).toBe("git");
 		expect(lockfile.skills.demo.skillPath).toBe("$SKILLS_HOME/demo/SKILL.md");
 		expect(lockfile.skills.demo.files).toContain("$SKILLS_HOME/demo/SKILL.md");
 
@@ -136,6 +140,7 @@ describe("X feature runtime", () => {
 		expect(await x.fs.readFile("/home/user/skills/demo/SKILL.md")).toContain("Version 2");
 
 		const getResult = await x.exec("x-skills get demo");
+		expect(getResult.stdout).toContain("skillPath\t$SKILLS_HOME/demo/SKILL.md");
 		expect(getResult.stdout).toContain("Version 2");
 
 		const infoResult = await x.exec("x-skills info demo");

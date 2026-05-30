@@ -1,3 +1,4 @@
+import { DEFAULT_CWD, DEFAULT_ENV } from "@/runtime/constants";
 import type { BashConfig, XOptions } from "@/types";
 
 export function resolveBashConfig(options: XOptions["bash"]): BashConfig {
@@ -5,8 +6,8 @@ export function resolveBashConfig(options: XOptions["bash"]): BashConfig {
 
 	return {
 		...rest,
-		cwd: cwd ?? "/home/user",
-		env: { ...(env ?? {}) },
+		cwd: cwd ?? DEFAULT_CWD,
+		env: { ...DEFAULT_ENV, ...(env ?? {}) },
 		javascript: javascript ?? true,
 		network:
 			network === undefined

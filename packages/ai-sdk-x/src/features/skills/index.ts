@@ -1,5 +1,7 @@
 import type { Command, CommandContext, IFileSystem } from "just-bash";
+import { type AddSkillInput, addSkill, createAddSkillCommand } from "@/features/skills/add";
 import { createGetSkillCommand, getSkill } from "@/features/skills/get";
+import { createImportSkillCommand, importSkill } from "@/features/skills/import";
 import { createInfoSkillCommand, infoSkill } from "@/features/skills/info";
 import { createInstallSkillCommand, installSkill } from "@/features/skills/install";
 import { createListSkillsCommand, listSkills } from "@/features/skills/list";
@@ -31,10 +33,13 @@ export async function createSkillsFeatureDescription(
 
 	return [
 		`The skills feature provides mounted AI agent skills at ${mountPoint}.`,
-		'Use `x-skills` command through the bash tool. Put the shell command in command, for example command="x-skills list" or command="x-skills install https://github.com/vercel-labs/agent-skills@vercel-composition-patterns".',
+		"Skills are managed capability packages for agents: each skill is a directory with a SKILL.md/SKILLS.md entrypoint and metadata that explains when and how to use it.",
+		'Use `x-skills` command through the bash tool. Put the shell command in command, for example command="x-skills list", command="x-skills install https://github.com/vercel-labs/agent-skills@vercel-composition-patterns", command="x-skills add --stdin" with stdin containing SKILL.md, command="x-skills add --file ./SKILL.md", or command="x-skills import ./my-skill".',
 		"Run x-skills --help or x-skills <subcommand> --help when unsure.",
+		"Most external skills are installed from Git repositories with `x-skills install <repo>@<skill-name>`. Local skills should be added with `x-skills add --stdin`, `x-skills add --file <path>`, or `x-skills import <directory>`; do not write directly into SKILLS_HOME to add a skill because the index and metadata would be unmanaged.",
+		"Local skills must use the same shape as downloaded skills and include frontmatter metadata with at least name and description.",
 		"Skill files can be read directly from this mount, and JavaScript or TypeScript helper code may import local skill files when appropriate; prefer .mjs or .mts modules for js-exec.",
-		"`x-skills install`, `x-skills list`, and `x-skills search` return skillPath information when available; use skillPath to inspect the installed skill file.",
+		"`x-skills install`, `x-skills add`, `x-skills import`, `x-skills list`, `x-skills search`, and `x-skills get` return or expose skillPath information when available; use skillPath to inspect the installed skill file.",
 		installedText,
 	].join("\n");
 }
@@ -43,10 +48,10 @@ const SKILLS_COMMAND = {
 	id: "x-skills",
 	type: "topic",
 	summary: "Manage mounted AI agent skills.",
-	usage: "x-skills <install|update|list|remove|search|get|info> [args]",
+	usage: "x-skills <install|add|import|update|list|remove|search|get|info> [args]",
 	description: [
-		"Install and list skills stored under the mounted skills directory.",
-		"Install expects <repo-url>@<skill-name> and copies /skills/<skill-name> from the cloned repository.",
+		"Install, add, import, and list skills stored under the mounted skills directory.",
+		"Use install for Git repositories, add for local stdin/file markdown, and import for local skill directories.",
 	],
 	examples: [
 		{ command: "x-skills list" },
@@ -63,6 +68,8 @@ export function createSkillsCommand(options: SkillsCommandOptions): Command {
 		...SKILLS_COMMAND,
 		subcommands: [
 			createInstallSkillCommand(options),
+			createAddSkillCommand(options),
+			createImportSkillCommand(options),
 			createUpdateSkillsCommand(options),
 			createListSkillsCommand(options),
 			createRemoveSkillCommand(options),
@@ -74,17 +81,22 @@ export function createSkillsCommand(options: SkillsCommandOptions): Command {
 }
 
 export type SkillsFeature = Feature & {
-	readonly createCommand: () => Command;
-	readonly get: (skillName: string, fs: IFileSystem) => ReturnType<typeof getSkill>;
-	readonly info: (skillName: string, fs: IFileSystem) => ReturnType<typeof infoSkill>;
-	readonly install: (spec: string, ctx: CommandContext) => ReturnType<typeof installSkill>;
-	readonly list: (fs: IFileSystem) => ReturnType<typeof listSkills>;
-	readonly remove: (
+	readonly add?: (input: AddSkillInput, ctx: CommandContext) => ReturnType<typeof addSkill>;
+	readonly createCommand?: () => Command;
+	readonly get?: (skillName: string, fs: IFileSystem) => ReturnType<typeof getSkill>;
+	readonly import?: (
+		input: Parameters<typeof importSkill>[0],
+		ctx: CommandContext,
+	) => ReturnType<typeof importSkill>;
+	readonly info?: (skillName: string, fs: IFileSystem) => ReturnType<typeof infoSkill>;
+	readonly install?: (spec: string, ctx: CommandContext) => ReturnType<typeof installSkill>;
+	readonly list?: (fs: IFileSystem) => ReturnType<typeof listSkills>;
+	readonly remove?: (
 		input: Parameters<typeof removeSkill>[0],
 		ctx: CommandContext,
 	) => ReturnType<typeof removeSkill>;
-	readonly search: (query: string) => ReturnType<typeof searchSkills>;
-	readonly update: (ctx: CommandContext) => ReturnType<typeof updateSkills>;
+	readonly search?: (query: string) => ReturnType<typeof searchSkills>;
+	readonly update?: (ctx: CommandContext) => ReturnType<typeof updateSkills>;
 };
 
 export function createSkillsFeature(
@@ -97,25 +109,18 @@ export function createSkillsFeature(
 		lockfile: resolvedOption?.lockfile ?? true,
 		mountPoint: resolvedOption?.mountPoint ?? DEFAULT_SKILLS_MOUNT,
 	};
+
+	if (!config.enabled) {
+		return {
+			name: "skills",
+		};
+	}
+
 	const commandOptions: SkillsCommandOptions = {
 		lockfile: config.lockfile,
 		mountPoint: config.mountPoint,
 	};
-	const feature: SkillsFeature = {
-		name: "skills",
-		createCommand: () => createSkillsCommand(commandOptions),
-		get: (skillName, fs) => getSkill(skillName, fs, commandOptions),
-		info: (skillName, fs) => infoSkill(skillName, fs, commandOptions),
-		install: (spec, ctx) => installSkill(spec, ctx, commandOptions),
-		list: (fs) => listSkills(fs, commandOptions),
-		remove: (input, ctx) => removeSkill(input, ctx, commandOptions),
-		search: (query) => searchSkills(query),
-		update: (ctx) => updateSkills(ctx, commandOptions),
-	};
-
-	if (!config.enabled) {
-		return feature;
-	}
+	const createMainCommand = () => createSkillsCommand(commandOptions);
 
 	const initialize = new AsyncOnce<[ExecHookStartContext]>(async (context) => {
 		if (config.fs) {
@@ -132,12 +137,22 @@ export function createSkillsFeature(
 	});
 
 	return {
-		...feature,
+		name: "skills",
 		description: (ctx) => createSkillsFeatureDescription(ctx, config.mountPoint),
-		command: [feature.createCommand()],
+		command: [createMainCommand()],
 		hooks: {
 			onExecStart: (context) => initialize.run(context),
 		},
+		add: (input, ctx) => addSkill(input, ctx, commandOptions),
+		createCommand: createMainCommand,
+		get: (skillName, fs) => getSkill(skillName, fs, commandOptions),
+		import: (input, ctx) => importSkill(input, ctx, commandOptions),
+		info: (skillName, fs) => infoSkill(skillName, fs, commandOptions),
+		install: (spec, ctx) => installSkill(spec, ctx, commandOptions),
+		list: (fs) => listSkills(fs, commandOptions),
+		remove: (input, ctx) => removeSkill(input, ctx, commandOptions),
+		search: (query) => searchSkills(query),
+		update: (ctx) => updateSkills(ctx, commandOptions),
 	};
 }
 

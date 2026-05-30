@@ -78,6 +78,7 @@ export async function updateSkills(
 					files: await collectSkillFiles(ctx.fs, destinationPath),
 					frontmatter: stringifyFrontmatter(frontmatter),
 					skillPath,
+					source: "git",
 					target: {
 						repoUrl: entry.url,
 						selector,

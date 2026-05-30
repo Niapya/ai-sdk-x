@@ -9,21 +9,21 @@ export function createGitFeatureDescription(): string {
 
 export function createGitFeature(option: boolean | GitOptions | undefined = true): Feature {
 	const resolvedOption = typeof option === "object" ? option : undefined;
-	const gitCommand = resolvedOption ? createGit(resolvedOption) : createGit();
 	const config: GitConfig = {
 		enabled: option !== false,
 		...(resolvedOption ?? {}),
 	};
-	const feature: Feature = {
-		name: "git",
-	};
 
 	if (!config.enabled) {
-		return feature;
+		return {
+			name: "git",
+		};
 	}
 
+	const gitCommand = resolvedOption ? createGit(resolvedOption) : createGit();
+
 	return {
-		...feature,
+		name: "git",
 		description: createGitFeatureDescription,
 		command: [wrapGitCommand(gitCommand)],
 	};

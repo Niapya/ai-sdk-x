@@ -58,12 +58,14 @@ export async function installSkill(
 			destinationPath,
 			sourceSkillFilePath.slice(sourcePath.length).replace(/^\/+/, ""),
 		);
+		const files = await collectSkillFiles(ctx.fs, destinationPath);
 		if (options.lockfile) {
 			await writeSkillIndexEntry(ctx.fs, options, {
 				description,
-				files: await collectSkillFiles(ctx.fs, destinationPath),
+				files,
 				frontmatter: stringifyFrontmatter(frontmatter),
 				skillPath,
+				source: "git",
 				target,
 			});
 		}
@@ -72,7 +74,7 @@ export async function installSkill(
 			? toSkillsHomePath(ctx.fs, options.mountPoint, skillPath)
 			: skillPath;
 		return {
-			stdout: `Installed ${target.selector} from ${target.repoUrl}\nskillPath\t${outputSkillPath}\n`,
+			stdout: `installed\t${target.selector}\ndescription\t${description}\nsource\t${target.repoUrl}\nskillPath\t${outputSkillPath}\nfiles\t${files.length}\n`,
 			stderr: "",
 			exitCode: 0,
 		};
@@ -86,7 +88,6 @@ export function createInstallSkillCommand(
 ): ReturnType<typeof defineCliCommand> {
 	return defineCliCommand({
 		id: "install",
-		aliases: ["add"],
 		type: "command",
 		summary: "Install a skill from a repository selector.",
 		usage: "x-skills install <repo@skill-name>",

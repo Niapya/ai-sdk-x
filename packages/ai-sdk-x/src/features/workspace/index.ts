@@ -24,12 +24,11 @@ export function createWorkspaceFeature(
 		fs: resolvedOption?.fs,
 		mountPoint: resolvedOption?.mountPoint ?? DEFAULT_WORKSPACE_MOUNT,
 	};
-	const feature: Feature = {
-		name: "workspace",
-	};
 
 	if (!config.enabled) {
-		return feature;
+		return {
+			name: "workspace",
+		};
 	}
 
 	const initialize = new AsyncOnce<[ExecHookStartContext]>(async (context) => {
@@ -47,7 +46,7 @@ export function createWorkspaceFeature(
 	});
 
 	return {
-		...feature,
+		name: "workspace",
 		description: () => createWorkspaceFeatureDescription(config.mountPoint),
 		hooks: {
 			onExecStart: (context) => initialize.run(context),

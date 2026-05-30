@@ -15,6 +15,7 @@ export interface WriteSkillIndexEntryInput {
 	files: string[];
 	frontmatter?: Record<string, string>;
 	skillPath: string;
+	source?: "git" | "local";
 	target: SkillInstallTarget;
 }
 
@@ -35,7 +36,8 @@ export async function writeSkillIndexEntry(
 		...(input.frontmatter && Object.keys(input.frontmatter).length > 0
 			? { frontmatter: input.frontmatter }
 			: {}),
-		url: input.target.repoUrl,
+		source: input.source ?? (input.target.repoUrl ? "git" : "local"),
+		...(input.target.repoUrl ? { url: input.target.repoUrl } : {}),
 	};
 
 	await fs.mkdir(options.mountPoint, { recursive: true });
@@ -178,6 +180,7 @@ function isSkillIndexEntry(value: unknown): value is SkillIndexEntry {
 	const frontmatter = Object.getOwnPropertyDescriptor(value, "frontmatter")?.value;
 	const skillPath = Object.getOwnPropertyDescriptor(value, "skillPath")?.value;
 	const createAt = Object.getOwnPropertyDescriptor(value, "createAt")?.value;
+	const source = Object.getOwnPropertyDescriptor(value, "source")?.value;
 	const updateAt = Object.getOwnPropertyDescriptor(value, "updateAt")?.value;
 	const url = Object.getOwnPropertyDescriptor(value, "url")?.value;
 
@@ -196,6 +199,7 @@ function isSkillIndexEntry(value: unknown): value is SkillIndexEntry {
 		Number.isFinite(updateAt) &&
 		Array.isArray(files) &&
 		files.every((file) => typeof file === "string") &&
+		(source === undefined || source === "git" || source === "local") &&
 		(url === undefined || typeof url === "string")
 	);
 }

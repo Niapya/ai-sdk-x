@@ -1,6 +1,6 @@
 import type { ExecResult, IFileSystem } from "just-bash";
 import type { MemoryCommandOptions } from "@/features/memory/types";
-import { listMemoryEntries, readMemoryIndex } from "@/features/memory/utils/store";
+import { listMemoryEntries, readMemoryIndex } from "@/features/memory/utils/lockfile";
 import { defineCliCommand } from "@/utils/command";
 
 export async function statusMemory(
@@ -9,10 +9,10 @@ export async function statusMemory(
 ): Promise<ExecResult> {
 	const index = await readMemoryIndex(fs, options.mountPoint);
 	const entries = listMemoryEntries(index);
-	const dates = new Set(entries.map((entry) => entry.date));
+	const categories = new Set(entries.map((entry) => entry.category));
 
 	return {
-		stdout: `memoryHome\t${options.mountPoint}\nentries\t${entries.length}\ndates\t${dates.size}\n`,
+		stdout: `memoryHome\t${options.mountPoint}\nentries\t${entries.length}\ncategories\t${categories.size}\n`,
 		stderr: "",
 		exitCode: 0,
 	};

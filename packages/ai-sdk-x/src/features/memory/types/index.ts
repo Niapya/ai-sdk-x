@@ -17,13 +17,15 @@ export interface MemoryCommandOptions {
 }
 
 export interface MemoryEntry {
+	category: string;
 	createAt: number;
 	description: string;
 	keywords: string[];
+	path: string;
 	updateAt: number;
 }
 
 export interface MemoryIndex {
-	daily: Record<string, Record<string, MemoryEntry>>;
+	categories: Record<string, Record<string, MemoryEntry>>;
 	version: 1;
 }

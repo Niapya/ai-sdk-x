@@ -4,6 +4,7 @@ import {
 	findSkillMarkdownFile,
 	readSkillsIndex,
 	resolveSkillsHomePath,
+	toSkillsHomePath,
 } from "@/features/skills/utils/lockfile";
 import { commandError, defineCliCommand } from "@/utils/command";
 
@@ -27,8 +28,9 @@ export async function getSkill(
 		return commandError(`x-skills get: skill not found: ${normalizedName}\n`, 1);
 	}
 
+	const outputSkillPath = toSkillsHomePath(fs, options.mountPoint, skillPath);
 	return {
-		stdout: await fs.readFile(skillPath),
+		stdout: `skillPath\t${outputSkillPath}\n\n${await fs.readFile(skillPath)}`,
 		stderr: "",
 		exitCode: 0,
 	};

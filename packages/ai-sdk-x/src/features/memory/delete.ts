@@ -1,6 +1,6 @@
 import type { CommandContext, ExecResult } from "just-bash";
 import type { MemoryCommandOptions } from "@/features/memory/types";
-import { deleteMemoryEntry, parseMemoryRef } from "@/features/memory/utils/store";
+import { deleteMemoryEntry, parseMemoryRef } from "@/features/memory/utils/lockfile";
 import { commandError, defineCliCommand } from "@/utils/command";
 
 export async function deleteMemory(
@@ -10,15 +10,20 @@ export async function deleteMemory(
 ): Promise<ExecResult> {
 	const parsed = parseMemoryRef(ref);
 	if (!parsed) {
-		return commandError("x-memory delete: expected <date:title>\n", 1);
+		return commandError("x-memory delete: expected <category:title>\n", 1);
 	}
 
-	const deleted = await deleteMemoryEntry(ctx.fs, options.mountPoint, parsed.date, parsed.title);
+	const deleted = await deleteMemoryEntry(
+		ctx.fs,
+		options.mountPoint,
+		parsed.category,
+		parsed.title,
+	);
 	if (!deleted) {
 		return commandError(`x-memory delete: memory not found: ${ref}\n`, 1);
 	}
 
-	return { stdout: `Deleted ${parsed.date}:${parsed.title}\n`, stderr: "", exitCode: 0 };
+	return { stdout: `Deleted ${parsed.category}:${parsed.title}\n`, stderr: "", exitCode: 0 };
 }
 
 export function createDeleteMemoryCommand(
@@ -28,12 +33,12 @@ export function createDeleteMemoryCommand(
 		id: "delete",
 		type: "command",
 		summary: "Delete a memory entry.",
-		usage: "x-memory delete <date:title>",
+		usage: "x-memory delete <category:title>",
 		args: [
 			{
 				name: "ref",
 				required: true,
-				summary: "Memory reference formatted as YYYY-MM-DD:title.",
+				summary: "Memory reference formatted as category:title.",
 			},
 		],
 		run: ({ args: { ref } }, ctx) => deleteMemory(ref, ctx, options),

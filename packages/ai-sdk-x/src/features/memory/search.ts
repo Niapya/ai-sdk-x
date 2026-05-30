@@ -1,6 +1,10 @@
 import type { ExecResult, IFileSystem } from "just-bash";
 import type { MemoryCommandOptions } from "@/features/memory/types";
-import { listMemoryEntries, readMemoryIndex } from "@/features/memory/utils/store";
+import {
+	formatMemoryEntry,
+	listMemoryEntries,
+	readMemoryIndex,
+} from "@/features/memory/utils/lockfile";
 import { type CliCommandDefinition, defineCliCommand } from "@/utils/command";
 
 export async function searchMemory(
@@ -16,11 +20,11 @@ export async function searchMemory(
 	const matches: string[] = [];
 	const index = await readMemoryIndex(fs, options.mountPoint);
 	for (const ref of listMemoryEntries(index)) {
-		const haystack = [ref.date, ref.title, ref.entry.description, ...ref.entry.keywords]
+		const haystack = [ref.category, ref.title, ref.entry.description, ...ref.entry.keywords]
 			.join("\n")
 			.toLowerCase();
 		if (haystack.includes(normalizedQuery)) {
-			matches.push(`${ref.date}:${ref.title}\t${ref.entry.description}`);
+			matches.push(formatMemoryEntry(ref));
 		}
 	}
 
@@ -45,7 +49,9 @@ export function createSearchMemoryCommand(options: MemoryCommandOptions): CliCom
 	return defineCliCommand({
 		id: "search",
 		type: "command",
-		summary: "Search stored memory for matching text.",
+		summary: "Search memory metadata for matching text.",
+		description:
+			"Searches category, title, description, and keywords only; it does not scan body files.",
 		usage: "x-memory search <query>",
 		args: [
 			{

@@ -1,6 +1,6 @@
 import type { CommandContext, ExecResult } from "just-bash";
 import type { MemoryCommandOptions } from "@/features/memory/types";
-import { initMemoryIndex } from "@/features/memory/utils/store";
+import { initMemoryIndex, MEMORY_CORE_FILES } from "@/features/memory/utils/lockfile";
 import { defineCliCommand } from "@/utils/command";
 
 export async function initMemory(
@@ -9,7 +9,13 @@ export async function initMemory(
 ): Promise<ExecResult> {
 	await initMemoryIndex(ctx.fs, options.mountPoint);
 	return {
-		stdout: `${ctx.fs.resolvePath(options.mountPoint, "memory.json")}\n`,
+		stdout: `${[
+			`initialized\t${options.mountPoint}`,
+			`agent\t${ctx.fs.resolvePath(options.mountPoint, MEMORY_CORE_FILES.agent)}`,
+			`user\t${ctx.fs.resolvePath(options.mountPoint, MEMORY_CORE_FILES.user)}`,
+			`shared\t${ctx.fs.resolvePath(options.mountPoint, MEMORY_CORE_FILES.shared)}`,
+			`index\t${ctx.fs.resolvePath(options.mountPoint, "memory.json")}`,
+		].join("\n")}\n`,
 		stderr: "",
 		exitCode: 0,
 	};
@@ -21,7 +27,7 @@ export function createInitMemoryCommand(
 	return defineCliCommand({
 		id: "init",
 		type: "command",
-		summary: "Create the memory index file.",
+		summary: "Create the memory index and core files.",
 		usage: "x-memory init",
 		run: (_input, ctx) => initMemory(ctx, options),
 	});
