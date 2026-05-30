@@ -94,8 +94,21 @@ export function createAddSkillCommand(
 		id: "add",
 		type: "command",
 		summary: "Add a local skill from stdin or a markdown file.",
-		description:
-			"Local skills are managed through this command so the skills index stays accurate. The skill markdown must include frontmatter metadata with name and description.",
+		description: [
+			"Local skills are managed through this command so the skills index stays accurate.",
+			"The skill file must be a SKILL.md markdown document with YAML frontmatter and a markdown body.",
+			"Required frontmatter fields: name, description.",
+			"Minimal SKILL.md structure:",
+			"---",
+			"name: my-skill",
+			"description: Describe what the skill does and when Codex should use it.",
+			"---",
+			"",
+			"# My Skill",
+			"",
+			"Write concise instructions for using the skill.",
+			"For skills with bundled resources, use `x-skills import <folder>` instead.",
+		],
 		usage: "x-skills add [skillName] [--stdin|--file <path>]",
 		args: [
 			{
@@ -132,7 +145,12 @@ async function readSkillMarkdown(
 	if (!file) {
 		const markdown = decodeBytesToUtf8(ctx.stdin);
 		if (!markdown.trim()) {
-			return { error: commandError("x-skills add: stdin is empty\n", 1) };
+			return {
+				error: commandError(
+					"x-skills add: stdin is empty, use `x-skills add --help` to show help.\n",
+					1,
+				),
+			};
 		}
 		return { markdown };
 	}

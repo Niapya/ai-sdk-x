@@ -31,6 +31,21 @@ describe("x-skills import", () => {
 		expect(result.exitCode).toBe(1);
 		expect(result.stderr).toContain("name and description");
 	});
+
+	it("shows the expected skill folder structure in help", async () => {
+		const x = X.init();
+
+		const result = await x.exec("x-skills import --help");
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain("The folder must contain SKILL.md or SKILLS.md");
+		expect(result.stdout).toContain("Required frontmatter fields: name, description.");
+		expect(result.stdout).toContain("Expected folder structure:");
+		expect(result.stdout).toContain("skill-name/");
+		expect(result.stdout).toContain("scripts/      optional executable helpers");
+		expect(result.stdout).toContain("references/   optional docs loaded only when needed");
+		expect(result.stdout).toContain("assets/       optional templates");
+	});
 });
 
 async function writeLocalSkill(

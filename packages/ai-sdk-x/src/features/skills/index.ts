@@ -52,6 +52,8 @@ const SKILLS_COMMAND = {
 	description: [
 		"Install, add, import, and list skills stored under the mounted skills directory.",
 		"Use install for Git repositories, add for local stdin/file markdown, and import for local skill directories.",
+		"Run `x-skills add --help` for the single-file SKILL.md structure.",
+		"Run `x-skills import --help` for the folder structure with optional bundled resources.",
 	],
 	examples: [
 		{ command: "x-skills list" },

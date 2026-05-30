@@ -2,6 +2,16 @@ import { describe, expect, it } from "bun:test";
 import X from "@/index";
 
 describe("x-skills add", () => {
+	it("points users to add and import help from the root help", async () => {
+		const x = X.init();
+
+		const result = await x.exec("x-skills --help");
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain("Run `x-skills add --help`");
+		expect(result.stdout).toContain("Run `x-skills import --help`");
+	});
+
 	it("adds a skill markdown file and returns readable metadata", async () => {
 		const x = X.init();
 		await x.fs.writeFile("/tmp/SKILL.md", skillMarkdown("Demo", "Demo description"));
@@ -26,6 +36,23 @@ describe("x-skills add", () => {
 
 		expect(result.exitCode).toBe(1);
 		expect(result.stderr).toContain("name and description");
+	});
+
+	it("shows the expected SKILL.md structure in help", async () => {
+		const x = X.init();
+
+		const result = await x.exec("x-skills add --help");
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain("The skill file must be a SKILL.md markdown document");
+		expect(result.stdout).toContain("Required frontmatter fields: name, description.");
+		expect(result.stdout).toContain("Minimal SKILL.md structure:");
+		expect(result.stdout).toContain("name: my-skill");
+		expect(result.stdout).toContain(
+			"description: Describe what the skill does and when Codex should use it.",
+		);
+		expect(result.stdout).toContain("For skills with bundled resources");
+		expect(result.stdout).not.toContain("scripts/, references/, or assets/");
 	});
 });
 

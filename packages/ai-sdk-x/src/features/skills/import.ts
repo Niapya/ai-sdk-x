@@ -103,8 +103,18 @@ export function createImportSkillCommand(
 		id: "import",
 		type: "command",
 		summary: "Import a local skill directory.",
-		description:
+		description: [
 			"Copies a local skill directory into SKILLS_HOME and indexes it. Prefer this command over writing directly into SKILLS_HOME so installed skills remain manageable.",
+			"The folder must contain SKILL.md or SKILLS.md with YAML frontmatter and a markdown body.",
+			"Required frontmatter fields: name, description.",
+			"Expected folder structure:",
+			"skill-name/",
+			"  SKILL.md",
+			"  scripts/      optional executable helpers",
+			"  references/   optional docs loaded only when needed",
+			"  assets/       optional templates, images, or other output resources",
+			"Use `x-skills add --help` for the single-file SKILL.md structure.",
+		],
 		usage: "x-skills import <path> [skillName]",
 		args: [
 			{
