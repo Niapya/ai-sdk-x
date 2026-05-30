@@ -74,7 +74,13 @@ export async function installSkill(
 			? toSkillsHomePath(ctx.fs, options.mountPoint, skillPath)
 			: skillPath;
 		return {
-			stdout: `installed\t${target.selector}\ndescription\t${description}\nsource\t${target.repoUrl}\nskillPath\t${outputSkillPath}\nfiles\t${files.length}\n`,
+			stdout: `
+installed\t${target.selector}
+description\t${description}
+source\t${target.repoUrl}
+skillPath\t${outputSkillPath}
+files\t${files.length}
+`,
 			stderr: "",
 			exitCode: 0,
 		};

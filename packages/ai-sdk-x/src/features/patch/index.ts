@@ -15,6 +15,7 @@ import {
 	createCommand,
 	defineCliCommand,
 } from "@/utils/command";
+import { getCommandCwd, resolveCliPath } from "@/utils/path";
 
 const PATCH_ARGS = [
 	{
@@ -285,41 +286,15 @@ function normalizeOptionalString(
 }
 
 function resolveCliPath(path: string, ctx: CommandContext): string {
-	return resolvePathFromBase(path, getCommandCwd(ctx), ctx);
+	return resolveCliPath(path, ctx);
 }
 
 function resolveBasePath(base: string | undefined, ctx: CommandContext): string {
-	return resolvePathFromBase(base ?? getCommandCwd(ctx), getCommandCwd(ctx), ctx);
+	return resolveCliPath(base ?? getCommandCwd(ctx), ctx);
 }
 
 function resolvePatchPath(path: string, basePath: string, ctx: CommandContext): string {
-	return resolvePathFromBase(path, basePath, ctx);
-}
-
-function getCommandCwd(ctx: CommandContext): string {
-	const maybeCwd = (ctx as CommandContext & { cwd?: unknown }).cwd;
-	return typeof maybeCwd === "string" ? maybeCwd : "/home/user";
-}
-
-function resolvePathFromBase(path: string, basePath: string, ctx: CommandContext): string {
-	const expandedPath = expandHomePath(path, ctx);
-	return ctx.fs.resolvePath(basePath, expandedPath);
-}
-
-function expandHomePath(path: string, ctx: CommandContext): string {
-	if (path === "~") {
-		return getHomeDirectory(ctx);
-	}
-
-	if (path.startsWith("~/")) {
-		return `${getHomeDirectory(ctx)}/${path.slice(2)}`;
-	}
-
-	return path;
-}
-
-function getHomeDirectory(ctx: CommandContext): string {
-	return ctx.env.get("HOME") ?? "/home/user";
+	return resolveCliPath(path, ctx, basePath);
 }
 
 function assertHasHunks(hunks: Hunk[], patchText: string): void {

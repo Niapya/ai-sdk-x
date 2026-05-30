@@ -6,6 +6,7 @@ import {
 	upsertMemoryEntry,
 } from "@/features/memory/utils/lockfile";
 import { type CliCommandDefinition, commandError, defineCliCommand } from "@/utils/command";
+import { resolveCliPath } from "@/utils/path";
 
 export interface AddMemoryInput {
 	category?: string;
@@ -192,14 +193,4 @@ export function summarizeMemoryBody(body: string): string {
 	}
 
 	return firstLine.length > 120 ? `${firstLine.slice(0, 117)}...` : firstLine;
-}
-
-function resolveCliPath(path: string, ctx: CommandContext): string {
-	if (path === "~") {
-		return ctx.env.get("HOME") ?? "/home/user";
-	}
-	if (path.startsWith("~/")) {
-		return `${ctx.env.get("HOME") ?? "/home/user"}/${path.slice(2)}`;
-	}
-	return ctx.fs.resolvePath(ctx.cwd ?? "/home/user", path);
 }

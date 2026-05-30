@@ -9,6 +9,7 @@ import {
 	upsertMemoryEntry,
 } from "@/features/memory/utils/lockfile";
 import { commandError, defineCliCommand } from "@/utils/command";
+import { resolveCliPath } from "@/utils/path";
 
 export interface UpdateMemoryInput {
 	description?: string;
@@ -128,14 +129,4 @@ async function readReplacementBody(
 
 	const stdin = decodeBytesToUtf8(ctx.stdin);
 	return { body: stdin.trim() ? stdin : undefined };
-}
-
-function resolveCliPath(path: string, ctx: CommandContext): string {
-	if (path === "~") {
-		return ctx.env.get("HOME") ?? "/home/user";
-	}
-	if (path.startsWith("~/")) {
-		return `${ctx.env.get("HOME") ?? "/home/user"}/${path.slice(2)}`;
-	}
-	return ctx.fs.resolvePath(ctx.cwd ?? "/home/user", path);
 }

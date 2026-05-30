@@ -1,3 +1,6 @@
+import type { CommandContext } from "just-bash";
+import { DEFAULT_CWD } from "@/runtime/constants";
+
 /**
  * Normalize a virtual filesystem path to an absolute, slash-trimmed form.
  */
@@ -67,6 +70,27 @@ export function resolvePath(base: string, path: string): string {
 	}
 
 	return normalizePath(base === "/" ? `/${path}` : `${base}/${path}`);
+}
+
+/**
+ * Return the command cwd used to resolve relative CLI path arguments.
+ */
+export function getCommandCwd(ctx: CommandContext): string {
+	const maybeCwd = (ctx as CommandContext & { cwd?: unknown }).cwd;
+	return typeof maybeCwd === "string" ? maybeCwd : DEFAULT_CWD;
+}
+
+/**
+ * Resolve CLI path input after just-bash shell expansion:
+ * - relative paths resolve from command cwd
+ * - absolute paths remain absolute
+ */
+export function resolveCliPath(
+	path: string,
+	ctx: CommandContext,
+	basePath = getCommandCwd(ctx),
+): string {
+	return ctx.fs.resolvePath(basePath, path);
 }
 
 /**

@@ -14,11 +14,19 @@ export async function listSkills(
 	}
 
 	const index = await readSkillsIndex(fs, options.mountPoint);
-	const lines: string[] = [];
+	const lines: string[] = [
+		"All available skills in the mount point will be listed.",
+		"View specific skills via the skill file path.",
+	];
 
 	for (const [skillName, entry] of Object.entries(index.skills)) {
 		lines.push(
-			`${skillName}\t${entry.description ?? ""}\t${entry.skillPath}\t${entry.source ?? ""}`,
+			`
+Title: ${skillName}
+Description: ${entry.description ?? ""}
+Skills file Path: ${entry.skillPath}
+Source: ${entry.source ?? ""}
+`,
 		);
 	}
 

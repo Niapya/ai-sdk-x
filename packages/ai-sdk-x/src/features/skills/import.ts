@@ -13,6 +13,7 @@ import {
 } from "@/features/skills/utils/metadata";
 import { commandError, defineCliCommand } from "@/utils/command";
 import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
+import { resolveCliPath } from "@/utils/path";
 
 export interface ImportSkillInput {
 	path: string;
@@ -117,14 +118,4 @@ export function createImportSkillCommand(
 
 function sanitizeSkillName(name: string): string {
 	return name.trim().replace(/[\\/]+/g, "-");
-}
-
-function resolveCliPath(path: string, ctx: CommandContext): string {
-	if (path === "~") {
-		return ctx.env.get("HOME") ?? "/home/user";
-	}
-	if (path.startsWith("~/")) {
-		return `${ctx.env.get("HOME") ?? "/home/user"}/${path.slice(2)}`;
-	}
-	return ctx.fs.resolvePath(ctx.cwd ?? "/home/user", path);
 }

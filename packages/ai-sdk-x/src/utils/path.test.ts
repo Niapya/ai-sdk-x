@@ -1,10 +1,13 @@
 import { describe, expect, it } from "bun:test";
+import { type ByteString, type CommandContext, InMemoryFs, unsafeBytesFromLatin1 } from "just-bash";
 import {
 	descendantPrefix,
 	dirname,
+	getCommandCwd,
 	joinPath,
 	normalizePath,
 	parentPaths,
+	resolveCliPath,
 	resolvePath,
 	resolveSymlinkTarget,
 	validatePath,
@@ -89,3 +92,42 @@ describe("path utils – edge cases", () => {
 		expect(resolveSymlinkTarget("/repo/docs/link.md", "../readme.md")).toBe("/repo/readme.md");
 	});
 });
+
+describe("CLI path resolution", () => {
+	it("resolves relative and absolute paths after shell expansion", () => {
+		const ctx = createCommandContext({ cwd: "/work/project", home: "/home/custom" });
+
+		expect(resolveCliPath("src/index.ts", ctx)).toBe("/work/project/src/index.ts");
+		expect(resolveCliPath("../README.md", ctx)).toBe("/work/README.md");
+		expect(resolveCliPath("/tmp/file.txt", ctx)).toBe("/tmp/file.txt");
+		expect(resolveCliPath("/home/custom/notes/todo.md", ctx)).toBe("/home/custom/notes/todo.md");
+	});
+
+	it("resolves relative paths from an explicit base path", () => {
+		const ctx = createCommandContext({ cwd: "/work/project", home: "/home/custom" });
+
+		expect(resolveCliPath("src/index.ts", ctx, "/workspace")).toBe("/workspace/src/index.ts");
+		expect(resolveCliPath("/tmp/file.txt", ctx, "/workspace")).toBe("/tmp/file.txt");
+		expect(resolveCliPath("/home/custom/notes/todo.md", ctx, "/workspace")).toBe(
+			"/home/custom/notes/todo.md",
+		);
+	});
+
+	it("falls back to default cwd when context cwd is missing", () => {
+		const ctx = createCommandContext({});
+
+		expect(getCommandCwd({ ...ctx, cwd: undefined as unknown as string })).toBe("/home/user");
+		expect(resolveCliPath("file.txt", { ...ctx, cwd: undefined as unknown as string })).toBe(
+			"/home/user/file.txt",
+		);
+	});
+});
+
+function createCommandContext(options: { cwd?: string; home?: string }): CommandContext {
+	return {
+		cwd: options.cwd ?? "/home/user",
+		env: new Map([["HOME", options.home ?? "/home/user"]]),
+		fs: new InMemoryFs(),
+		stdin: unsafeBytesFromLatin1("") as ByteString,
+	};
+}
