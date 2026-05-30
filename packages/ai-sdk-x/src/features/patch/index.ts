@@ -171,7 +171,7 @@ async function runPatchCommand(input: PatchCommandInput, ctx: CommandContext): P
 	}
 
 	try {
-		const basePath = resolveBasePath(input.base, ctx);
+		const basePath = resolveCliPath(input.base ?? getCommandCwd(ctx), ctx);
 		const operations = await applyPatchHunks(parsedPatch.hunks, ctx, basePath);
 		return {
 			stdout: operations.length > 0 ? `${operations.join("\n")}\n` : "",
@@ -224,7 +224,7 @@ async function applyPatchHunks(
 	for (const hunk of hunks) {
 		switch (hunk.type) {
 			case "add": {
-				const targetPath = resolvePatchPath(hunk.path, basePath, ctx);
+				const targetPath = resolveCliPath(hunk.path, ctx, basePath);
 				await ctx.fs.mkdir(parentDirectory(targetPath), { recursive: true });
 				await ctx.fs.writeFile(targetPath, hunk.contents);
 				operations.push(`A ${formatOperationPath(targetPath, basePath)}`);
@@ -232,7 +232,7 @@ async function applyPatchHunks(
 			}
 
 			case "delete": {
-				const targetPath = resolvePatchPath(hunk.path, basePath, ctx);
+				const targetPath = resolveCliPath(hunk.path, ctx, basePath);
 				if (!(await ctx.fs.exists(targetPath))) {
 					throw new Error(`x-patch: cannot delete missing file: ${hunk.path}`);
 				}
@@ -242,7 +242,7 @@ async function applyPatchHunks(
 			}
 
 			case "update": {
-				const sourcePath = resolvePatchPath(hunk.path, basePath, ctx);
+				const sourcePath = resolveCliPath(hunk.path, ctx, basePath);
 				if (!(await ctx.fs.exists(sourcePath))) {
 					throw new Error(`x-patch: cannot update missing file: ${hunk.path}`);
 				}
@@ -250,7 +250,7 @@ async function applyPatchHunks(
 				const originalContent = await ctx.fs.readFile(sourcePath);
 				const next = deriveNewContentsFromChunks(hunk.path, hunk.chunks, originalContent);
 				const destinationPath = hunk.movePath
-					? resolvePatchPath(hunk.movePath, basePath, ctx)
+					? resolveCliPath(hunk.movePath, ctx, basePath)
 					: sourcePath;
 				await ctx.fs.mkdir(parentDirectory(destinationPath), { recursive: true });
 				await ctx.fs.writeFile(destinationPath, next.bom ? `\uFEFF${next.content}` : next.content);
@@ -283,18 +283,6 @@ function normalizeOptionalString(
 	}
 
 	return typeof value === "string" ? value : undefined;
-}
-
-function resolveCliPath(path: string, ctx: CommandContext): string {
-	return resolveCliPath(path, ctx);
-}
-
-function resolveBasePath(base: string | undefined, ctx: CommandContext): string {
-	return resolveCliPath(base ?? getCommandCwd(ctx), ctx);
-}
-
-function resolvePatchPath(path: string, basePath: string, ctx: CommandContext): string {
-	return resolveCliPath(path, ctx, basePath);
 }
 
 function assertHasHunks(hunks: Hunk[], patchText: string): void {
