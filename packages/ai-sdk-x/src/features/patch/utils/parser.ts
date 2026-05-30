@@ -1,4 +1,5 @@
 import type { Hunk, UpdateFileChunk } from "@/features/patch/types";
+import { stripHeredoc } from "@/utils/text";
 
 function parsePatchHeader(
 	lines: string[],
@@ -105,16 +106,8 @@ function parseAddFileContent(
 	return { content, nextIdx: i };
 }
 
-function stripPatchHeredoc(input: string): string {
-	const heredocMatch = input.match(/^(?:cat\s+)?<<['"]?(\w+)['"]?\s*\n([\s\S]*?)\n\1\s*$/);
-	if (heredocMatch) {
-		return heredocMatch[2];
-	}
-	return input;
-}
-
 export function parsePatch(patchText: string): { hunks: Hunk[] } {
-	const cleaned = stripPatchHeredoc(patchText.trim());
+	const cleaned = stripHeredoc(patchText.trim());
 	const lines = cleaned.split("\n");
 	const hunks: Hunk[] = [];
 	let i = 0;

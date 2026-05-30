@@ -6,6 +6,8 @@ import {
 	normalizePath,
 	parentPaths,
 	resolvePath,
+	resolveSymlinkTarget,
+	validatePath,
 } from "@/utils/path";
 
 describe("path utils", () => {
@@ -71,5 +73,19 @@ describe("path utils – edge cases", () => {
 
 	it("resolvePath: same directory (.) stays at base dir", () => {
 		expect(resolvePath("/base/dir", ".")).toBe("/base/dir");
+	});
+
+	it("validatePath: rejects null bytes", () => {
+		expect(() => validatePath("/safe/path", "open")).not.toThrow();
+		expect(() => validatePath("/unsafe\0path", "open")).toThrow(
+			"ENOENT: path contains null byte, open '/unsafe",
+		);
+	});
+
+	it("resolveSymlinkTarget: resolves absolute and relative targets", () => {
+		expect(resolveSymlinkTarget("/repo/docs/link.md", "/shared/readme.md")).toBe(
+			"/shared/readme.md",
+		);
+		expect(resolveSymlinkTarget("/repo/docs/link.md", "../readme.md")).toBe("/repo/readme.md");
 	});
 });

@@ -5,6 +5,7 @@ import type {
 	SkillsCommandOptions,
 	SkillsIndex,
 } from "@/features/skills/types";
+import { readLockfile, resolveTokenPath, toTokenPath, writeLockfile } from "@/utils/lockfile";
 
 const SKILL_INDEX_FILE = "skills.json";
 const SKILLS_HOME_TOKEN = "$SKILLS_HOME";
@@ -64,28 +65,11 @@ export async function writeSkillsIndex(
 	skillsMount: string,
 	index: SkillsIndex,
 ): Promise<void> {
-	await fs.mkdir(skillsMount, { recursive: true });
-	await fs.writeFile(
-		fs.resolvePath(skillsMount, SKILL_INDEX_FILE),
-		`${JSON.stringify(index, null, 2)}\n`,
-	);
+	await writeLockfile(skillsIndexLockfileOptions(fs, skillsMount), index);
 }
 
 export async function readSkillsIndex(fs: IFileSystem, skillsMount: string): Promise<SkillsIndex> {
-	const path = fs.resolvePath(skillsMount, SKILL_INDEX_FILE);
-	if (!(await fs.exists(path))) {
-		return { version: 1, skills: {} };
-	}
-
-	try {
-		const parsed = JSON.parse(await fs.readFile(path));
-		if (!isSkillsIndex(parsed)) {
-			return { version: 1, skills: {} };
-		}
-		return parsed;
-	} catch {
-		return { version: 1, skills: {} };
-	}
+	return readLockfile(skillsIndexLockfileOptions(fs, skillsMount));
 }
 
 export async function findSkillMarkdownFile(
@@ -103,28 +87,11 @@ export async function findSkillMarkdownFile(
 }
 
 export function resolveSkillsHomePath(fs: IFileSystem, skillsMount: string, path: string): string {
-	if (path === SKILLS_HOME_TOKEN) {
-		return skillsMount;
-	}
-	if (path.startsWith(`${SKILLS_HOME_TOKEN}/`)) {
-		return fs.resolvePath(skillsMount, path.slice(SKILLS_HOME_TOKEN.length + 1));
-	}
-
-	return path;
+	return resolveTokenPath(fs, skillsMount, SKILLS_HOME_TOKEN, path);
 }
 
 export function toSkillsHomePath(fs: IFileSystem, skillsMount: string, path: string): string {
-	const normalizedMount = fs.resolvePath("/", skillsMount);
-	const normalizedPath = fs.resolvePath("/", path);
-
-	if (normalizedPath === normalizedMount) {
-		return SKILLS_HOME_TOKEN;
-	}
-	if (normalizedPath.startsWith(`${normalizedMount}/`)) {
-		return `${SKILLS_HOME_TOKEN}${normalizedPath.slice(normalizedMount.length)}`;
-	}
-
-	return path;
+	return toTokenPath(fs, skillsMount, SKILLS_HOME_TOKEN, path);
 }
 
 export async function collectSkillFiles(fs: IFileSystem, skillDir: string): Promise<string[]> {
@@ -168,6 +135,20 @@ function isSkillsIndex(value: unknown): value is SkillsIndex {
 	}
 
 	return Object.values(skills).every(isSkillIndexEntry);
+}
+
+function createEmptySkillsIndex(): SkillsIndex {
+	return { version: 1, skills: {} };
+}
+
+function skillsIndexLockfileOptions(fs: IFileSystem, skillsMount: string) {
+	return {
+		createEmpty: createEmptySkillsIndex,
+		filename: SKILL_INDEX_FILE,
+		fs,
+		isValid: isSkillsIndex,
+		mountPoint: skillsMount,
+	};
 }
 
 function isSkillIndexEntry(value: unknown): value is SkillIndexEntry {

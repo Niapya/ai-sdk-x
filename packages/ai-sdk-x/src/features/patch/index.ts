@@ -83,7 +83,7 @@ export const PATCH_COMMAND: CliCommandDefinition<typeof PATCH_ARGS, typeof PATCH
 		id: "x-patch",
 		type: "command",
 		summary: "Apply a structured patch to files.",
-		usage: "x-patch [<content>] [--file <path>] [--base <path>]",
+		usage: "x-patch [<content>] [--file <file-path>] [--base <path>]",
 		description: PATCH_DESCRIPTION_LINES,
 		args: PATCH_ARGS,
 		flags: PATCH_FLAGS,
@@ -125,12 +125,12 @@ export function createPatchFeature(option: boolean | PatchOptions | undefined = 
 	}
 
 	const commandOptions: PatchCommandOptions = {};
-	const mainCli = createPatchCommand(commandOptions);
+	const patchCli = createPatchCommand(commandOptions);
 
 	return {
 		name: "patch",
 		description: () => createPatchFeatureDescription(),
-		command: [mainCli],
+		command: [patchCli],
 	};
 }
 

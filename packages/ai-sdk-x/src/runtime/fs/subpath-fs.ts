@@ -1,4 +1,5 @@
 import type { FileContent, FsStat, IFileSystem } from "just-bash";
+import { normalizePath, resolvePath } from "@/utils/path";
 
 type ReadFileOptions = Parameters<IFileSystem["readFile"]>[1];
 type WriteFileOptions = Parameters<IFileSystem["writeFile"]>[2];
@@ -167,34 +168,6 @@ class SubpathFs implements IFileSystem {
 	}
 }
 
-function normalizePath(path: string): string {
-	if (!path || path === "/") {
-		return "/";
-	}
-
-	let normalized = path;
-	if (!normalized.startsWith("/")) {
-		normalized = `/${normalized}`;
-	}
-	if (normalized.endsWith("/") && normalized !== "/") {
-		normalized = normalized.slice(0, -1);
-	}
-
-	const segments = normalized.split("/").filter((segment) => segment && segment !== ".");
-	const resolvedSegments: string[] = [];
-
-	for (const segment of segments) {
-		if (segment === "..") {
-			resolvedSegments.pop();
-			continue;
-		}
-
-		resolvedSegments.push(segment);
-	}
-
-	return `/${resolvedSegments.join("/")}`;
-}
-
 function assertMountLocalPath(path: string): void {
 	let depth = 0;
 	const segments = path.split("/");
@@ -211,12 +184,4 @@ function assertMountLocalPath(path: string): void {
 		}
 		depth += 1;
 	}
-}
-
-function resolvePath(base: string, path: string): string {
-	if (path.startsWith("/")) {
-		return normalizePath(path);
-	}
-
-	return normalizePath(base === "/" ? `/${path}` : `${base}/${path}`);
 }

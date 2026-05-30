@@ -1,6 +1,7 @@
 import type { CommandContext, ExecResult } from "just-bash";
 import { deriveSkillRepoSlug } from "@/features/skills/utils/parser";
 import { commandError } from "@/utils/command";
+import { quoteForShell } from "@/utils/shell";
 
 const SKILLS_TEMP_ROOT = "/tmp/skills";
 
@@ -25,8 +26,4 @@ export async function execGit(ctx: CommandContext, args: string, cwd = "/"): Pro
 	}
 
 	return ctx.exec(`git ${args}`, { cwd });
-}
-
-export function quoteForShell(value: string): string {
-	return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }

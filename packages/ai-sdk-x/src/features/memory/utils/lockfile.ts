@@ -1,5 +1,12 @@
 import type { IFileSystem } from "just-bash";
 import type { MemoryEntry, MemoryIndex } from "@/features/memory/types";
+import {
+	initLockfile,
+	readLockfile,
+	resolveTokenPath,
+	toTokenPath,
+	writeLockfile,
+} from "@/utils/lockfile";
 
 const MEMORY_INDEX_FILE = "memory.json";
 const MEMORY_HOME_TOKEN = "$MEMORY_HOME";
@@ -18,20 +25,7 @@ export interface MemoryEntryRef {
 }
 
 export async function readMemoryIndex(fs: IFileSystem, memoryMount: string): Promise<MemoryIndex> {
-	const path = fs.resolvePath(memoryMount, MEMORY_INDEX_FILE);
-	if (!(await fs.exists(path))) {
-		return createEmptyMemoryIndex();
-	}
-
-	try {
-		const parsed = JSON.parse(await fs.readFile(path));
-		if (!isMemoryIndex(parsed)) {
-			return createEmptyMemoryIndex();
-		}
-		return parsed;
-	} catch {
-		return createEmptyMemoryIndex();
-	}
+	return readLockfile(memoryIndexLockfileOptions(fs, memoryMount));
 }
 
 export async function writeMemoryIndex(
@@ -39,18 +33,13 @@ export async function writeMemoryIndex(
 	memoryMount: string,
 	index: MemoryIndex,
 ): Promise<void> {
-	await fs.mkdir(memoryMount, { recursive: true });
-	await fs.writeFile(
-		fs.resolvePath(memoryMount, MEMORY_INDEX_FILE),
-		`${JSON.stringify(index, null, 2)}\n`,
-	);
+	await writeLockfile(memoryIndexLockfileOptions(fs, memoryMount), index);
 }
 
 export async function initMemoryIndex(fs: IFileSystem, memoryMount: string): Promise<MemoryIndex> {
-	const index = await readMemoryIndex(fs, memoryMount);
-	await ensureMemoryCoreFiles(fs, memoryMount);
-	await writeMemoryIndex(fs, memoryMount, index);
-	return index;
+	return initLockfile(memoryIndexLockfileOptions(fs, memoryMount), () =>
+		ensureMemoryCoreFiles(fs, memoryMount),
+	);
 }
 
 export async function ensureMemoryCoreFiles(fs: IFileSystem, memoryMount: string): Promise<void> {
@@ -187,25 +176,11 @@ export function normalizeCategory(category: string | undefined): string {
 }
 
 export function resolveMemoryHomePath(fs: IFileSystem, memoryMount: string, path: string): string {
-	if (path === MEMORY_HOME_TOKEN) {
-		return memoryMount;
-	}
-	if (path.startsWith(`${MEMORY_HOME_TOKEN}/`)) {
-		return fs.resolvePath(memoryMount, path.slice(MEMORY_HOME_TOKEN.length + 1));
-	}
-	return path;
+	return resolveTokenPath(fs, memoryMount, MEMORY_HOME_TOKEN, path);
 }
 
 export function toMemoryHomePath(fs: IFileSystem, memoryMount: string, path: string): string {
-	const normalizedMount = fs.resolvePath("/", memoryMount);
-	const normalizedPath = fs.resolvePath("/", path);
-	if (normalizedPath === normalizedMount) {
-		return MEMORY_HOME_TOKEN;
-	}
-	if (normalizedPath.startsWith(`${normalizedMount}/`)) {
-		return `${MEMORY_HOME_TOKEN}${normalizedPath.slice(normalizedMount.length)}`;
-	}
-	return path;
+	return toTokenPath(fs, memoryMount, MEMORY_HOME_TOKEN, path);
 }
 
 export function normalizeKeywords(keywords: string[]): string[] {
@@ -221,6 +196,16 @@ export function normalizeKeywords(keywords: string[]): string[] {
 
 function createEmptyMemoryIndex(): MemoryIndex {
 	return { version: 1, categories: {} };
+}
+
+function memoryIndexLockfileOptions(fs: IFileSystem, memoryMount: string) {
+	return {
+		createEmpty: createEmptyMemoryIndex,
+		filename: MEMORY_INDEX_FILE,
+		fs,
+		isValid: isMemoryIndex,
+		mountPoint: memoryMount,
+	};
 }
 
 function isMemoryIndex(value: unknown): value is MemoryIndex {

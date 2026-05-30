@@ -20,7 +20,7 @@ export function createGitFeature(option: boolean | GitOptions | undefined = true
 		};
 	}
 
-	const gitCommand = resolvedOption ? createGit(resolvedOption) : createGit();
+	const gitCommand = createGit(resolvedOption);
 
 	return {
 		name: "git",
@@ -29,11 +29,11 @@ export function createGitFeature(option: boolean | GitOptions | undefined = true
 	};
 }
 
-function wrapGitCommand(gitCommand: ReturnType<typeof createGit>): Command {
+function wrapGitCommand(git: ReturnType<typeof createGit>): Command {
 	return {
-		name: gitCommand.name,
+		name: git.name,
 		execute: async (args, ctx) => {
-			return (await gitCommand.execute(args, {
+			return (await git.execute(args, {
 				...ctx,
 				stdin: latin1FromBytes(ctx.stdin),
 			})) as ExecResult;

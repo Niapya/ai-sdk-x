@@ -30,6 +30,15 @@ export function normalizePath(path: string): string {
 }
 
 /**
+ * Reject paths that contain null bytes before passing them to a filesystem.
+ */
+export function validatePath(path: string, operation: string): void {
+	if (path.includes("\0")) {
+		throw new Error(`ENOENT: path contains null byte, ${operation} '${path}'`);
+	}
+}
+
+/**
  * Return the parent directory for a virtual path.
  */
 export function dirname(path: string): string {
@@ -58,6 +67,17 @@ export function resolvePath(base: string, path: string): string {
 	}
 
 	return normalizePath(base === "/" ? `/${path}` : `${base}/${path}`);
+}
+
+/**
+ * Resolve a symlink target relative to the symlink's containing directory.
+ */
+export function resolveSymlinkTarget(symlinkPath: string, target: string): string {
+	if (target.startsWith("/")) {
+		return normalizePath(target);
+	}
+
+	return normalizePath(joinPath(dirname(symlinkPath), target));
 }
 
 /**
