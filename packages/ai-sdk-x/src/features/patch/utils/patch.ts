@@ -1,6 +1,6 @@
+import type { Hunk } from "@/features/patch/types";
 import { deriveNewContentsFromChunks } from "@/features/patch/utils/apply";
 import { parsePatch } from "@/features/patch/utils/parser";
-import type { Hunk } from "@/features/patch/utils/types";
 
 export function patch(oldString: string, patchText: string): string {
 	let hunks: Hunk[];
@@ -54,11 +54,11 @@ function splitBom(content: string): { text: string; bom: boolean } {
 	return { text: content, bom: false };
 }
 
-export { deriveNewContentsFromChunks } from "@/features/patch/utils/apply";
-export { parsePatch } from "@/features/patch/utils/parser";
 export type {
 	ApplyPatchArgs,
 	ApplyPatchFileUpdate,
 	Hunk,
 	UpdateFileChunk,
-} from "@/features/patch/utils/types";
+} from "@/features/patch/types";
+export { deriveNewContentsFromChunks } from "@/features/patch/utils/apply";
+export { parsePatch } from "@/features/patch/utils/parser";

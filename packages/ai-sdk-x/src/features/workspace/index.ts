@@ -8,9 +8,9 @@ export const DEFAULT_WORKSPACE_MOUNT = "/home/user/workspace";
 export function createWorkspaceFeatureDescription(mountPoint: string): string {
 	return [
 		`The workspace feature provides the persistent project filesystem at ${mountPoint}.`,
-		"Use WORKSPACE_HOME to locate this mount.",
+		"Use `$WORKSPACE_HOME` env to locate this mount.",
 		"All durable deliverable files must be inspected, created, modified, moved, or deleted inside this workspace mount.",
-		"Do not store files that the user expects as deliverables outside WORKSPACE_HOME; use temporary locations only for scratch work.",
+		"Do not store files that the user expects as deliverables outside `$WORKSPACE_HOME`; use temporary locations only for scratch work.",
 		"For large workspace files, prefer targeted inspection with rg, sed -n, nl -ba, wc -l, file, head, and tail instead of dumping entire files.",
 	].join(" ");
 }

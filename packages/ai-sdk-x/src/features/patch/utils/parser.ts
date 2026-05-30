@@ -1,4 +1,4 @@
-import type { Hunk, UpdateFileChunk } from "@/features/patch/utils/types";
+import type { Hunk, UpdateFileChunk } from "@/features/patch/types";
 
 function parsePatchHeader(
 	lines: string[],
@@ -71,10 +71,10 @@ function parseUpdateFileChunks(
 			}
 
 			chunks.push({
-				old_lines: oldLines,
-				new_lines: newLines,
-				change_context: contextLine || undefined,
-				is_end_of_file: isEndOfFile || undefined,
+				oldLines,
+				newLines,
+				changeContext: contextLine || undefined,
+				isEndOfFile: isEndOfFile || undefined,
 			});
 		} else {
 			i++;
@@ -157,7 +157,7 @@ export function parsePatch(patchText: string): { hunks: Hunk[] } {
 			hunks.push({
 				type: "update",
 				path: header.filePath,
-				move_path: header.movePath,
+				movePath: header.movePath,
 				chunks,
 			});
 			i = nextIdx;

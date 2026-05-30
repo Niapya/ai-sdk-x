@@ -1,4 +1,4 @@
-import type { ApplyPatchFileUpdate, UpdateFileChunk } from "@/features/patch/utils/types";
+import type { ApplyPatchFileUpdate, UpdateFileChunk } from "@/features/patch/types";
 
 export function deriveNewContentsFromChunks(
 	filePath: string,
@@ -24,7 +24,7 @@ export function deriveNewContentsFromChunks(
 	const unifiedDiff = generateUnifiedDiff(originalContent.text, newContent);
 
 	return {
-		unified_diff: unifiedDiff,
+		unifiedDiff,
 		content: newContent,
 		bom: originalContent.bom || next.bom,
 	};
@@ -39,33 +39,33 @@ function computeReplacements(
 	let lineIndex = 0;
 
 	for (const chunk of chunks) {
-		if (chunk.change_context) {
-			const contextIdx = seekSequence(originalLines, [chunk.change_context], lineIndex);
+		if (chunk.changeContext) {
+			const contextIdx = seekSequence(originalLines, [chunk.changeContext], lineIndex);
 			if (contextIdx === -1) {
-				throw new Error(`Failed to find context '${chunk.change_context}' in ${filePath}`);
+				throw new Error(`Failed to find context '${chunk.changeContext}' in ${filePath}`);
 			}
 			lineIndex = contextIdx + 1;
 		}
 
-		if (chunk.old_lines.length === 0) {
+		if (chunk.oldLines.length === 0) {
 			const insertionIdx =
 				originalLines.length > 0 && originalLines[originalLines.length - 1] === ""
 					? originalLines.length - 1
 					: originalLines.length;
-			replacements.push([insertionIdx, 0, chunk.new_lines]);
+			replacements.push([insertionIdx, 0, chunk.newLines]);
 			continue;
 		}
 
-		let pattern = chunk.old_lines;
-		let newSlice = chunk.new_lines;
-		let found = seekSequence(originalLines, pattern, lineIndex, chunk.is_end_of_file);
+		let pattern = chunk.oldLines;
+		let newSlice = chunk.newLines;
+		let found = seekSequence(originalLines, pattern, lineIndex, chunk.isEndOfFile);
 
 		if (found === -1 && pattern.length > 0 && pattern[pattern.length - 1] === "") {
 			pattern = pattern.slice(0, -1);
 			if (newSlice.length > 0 && newSlice[newSlice.length - 1] === "") {
 				newSlice = newSlice.slice(0, -1);
 			}
-			found = seekSequence(originalLines, pattern, lineIndex, chunk.is_end_of_file);
+			found = seekSequence(originalLines, pattern, lineIndex, chunk.isEndOfFile);
 		}
 
 		if (found !== -1) {
@@ -73,7 +73,7 @@ function computeReplacements(
 			lineIndex = found + pattern.length;
 		} else {
 			throw new Error(
-				`Failed to find expected lines in ${filePath}:\n${chunk.old_lines.join("\n")}`,
+				`Failed to find expected lines in ${filePath}:\n${chunk.oldLines.join("\n")}`,
 			);
 		}
 	}
