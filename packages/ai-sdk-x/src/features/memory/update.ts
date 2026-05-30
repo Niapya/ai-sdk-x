@@ -1,23 +1,24 @@
 import { type CommandContext, decodeBytesToUtf8, type ExecResult } from "just-bash";
-import { summarizeMemoryBody } from "@/features/memory/add";
 import type { MemoryCommandOptions } from "@/features/memory/types";
 import {
-	formatMemoryRef,
+	coreFilePath,
 	getMemoryEntry,
-	parseMemoryRef,
+	isMemoryCoreFileName,
 	toMemoryHomePath,
 	upsertMemoryEntry,
 } from "@/features/memory/utils/lockfile";
+import { validateDailyCategory } from "@/features/memory/utils/output";
 import { commandError, defineCliCommand } from "@/utils/command";
 import { resolveCliPath } from "@/utils/path";
 
 export interface UpdateMemoryInput {
+	category?: string;
 	description?: string;
 	file?: string;
 	keywords?: string[];
 	path?: string;
-	ref: string;
 	stdin?: boolean;
+	title: string;
 }
 
 export async function updateMemory(
@@ -25,14 +26,9 @@ export async function updateMemory(
 	ctx: CommandContext,
 	options: MemoryCommandOptions,
 ): Promise<ExecResult> {
-	const parsed = parseMemoryRef(input.ref);
-	if (!parsed) {
-		return commandError("x-memory update: expected <category:title>\n", 1);
-	}
-
-	const current = await getMemoryEntry(ctx.fs, options.mountPoint, parsed.category, parsed.title);
-	if (!current) {
-		return commandError(`x-memory update: memory not found: ${input.ref}\n`, 1);
+	const title = input.title.trim();
+	if (!title) {
+		return commandError("x-memory update: missing <title>\n", 1);
 	}
 	if (input.stdin && input.file) {
 		return commandError("x-memory update: use --stdin or --file, not both\n", 1);
@@ -43,28 +39,46 @@ export async function updateMemory(
 		return source.error;
 	}
 	const body = source.body;
+
+	if (isMemoryCoreFileName(title)) {
+		if (body === undefined) {
+			return commandError("x-memory update: core file update requires --stdin or --file\n", 1);
+		}
+		const path = coreFilePath(ctx.fs, options.mountPoint, title);
+		await ctx.fs.mkdir(options.mountPoint, { recursive: true });
+		await ctx.fs.writeFile(path, body);
+		return {
+			stdout: `Update memory ${title} at ${path} Successfully!\n`,
+			stderr: "",
+			exitCode: 0,
+		};
+	}
+
+	const category = validateDailyCategory(input.category, "x-memory update");
+	if ("error" in category) {
+		return category.error;
+	}
+
+	const current = await getMemoryEntry(ctx.fs, options.mountPoint, category.category, title);
+	if (!current) {
+		return commandError(`x-memory update: memory not found: ${title}\n`, 1);
+	}
+
 	const nextPath = input.path
 		? toMemoryHomePath(ctx.fs, options.mountPoint, resolveCliPath(input.path, ctx))
 		: current.entry.path;
 	const ref = await upsertMemoryEntry(ctx.fs, options.mountPoint, {
 		...(body !== undefined ? { body } : {}),
-		category: parsed.category,
-		description:
-			input.description?.trim() ||
-			(body?.trim() ? summarizeMemoryBody(body) : current.entry.description),
+		category: category.category,
+		description: input.description?.trim() || current.entry.description,
 		keywords: input.keywords ?? current.entry.keywords,
 		now: options.now?.() ?? new Date(),
 		path: nextPath,
-		title: parsed.title,
+		title,
 	});
 
 	return {
-		stdout: `${[
-			`updated\t${formatMemoryRef(ref.category, ref.title)}`,
-			`description\t${ref.entry.description}`,
-			`keywords\t${ref.entry.keywords.join(",")}`,
-			`path\t${ref.entry.path}`,
-		].join("\n")}\n`,
+		stdout: `Update memory ${ref.title} in category ${ref.category} at ${ref.entry.path} Successfully!\n`,
 		stderr: "",
 		exitCode: 0,
 	};
@@ -77,16 +91,24 @@ export function createUpdateMemoryCommand(
 		id: "update",
 		type: "command",
 		summary: "Update a memory entry.",
-		description: "Reads the replacement body from --file when provided, otherwise from stdin.",
-		usage: "x-memory update <category:title> [--stdin|--file <path>] [flags]",
+		description: [
+			"Updates a daily memory entry or a core memory file.",
+			"Use x-memory update AGENT.md, USER.md, or MEMORY.md to update core file bodies.",
+			"Use this CLI instead of writing files directly so the lockfile stays in sync.",
+		],
+		usage: "x-memory update <title|AGENT.md|USER.md|MEMORY.md> [--stdin|--file <path>] [flags]",
 		args: [
 			{
-				name: "ref",
+				name: "title",
 				required: true,
-				summary: "Memory reference formatted as category:title.",
+				summary: "Daily memory title or core file name.",
 			},
 		],
 		flags: {
+			category: {
+				description: "Category for the memory entry. Only daily is supported for now.",
+				type: "string",
+			},
 			description: {
 				description: "Replacement searchable description.",
 				type: "string",
@@ -110,8 +132,12 @@ export function createUpdateMemoryCommand(
 				type: "boolean",
 			},
 		},
-		run: ({ args: { ref }, flags: { description, file, keyword, path, stdin } }, ctx) =>
-			updateMemory({ description, file, keywords: keyword, path, ref, stdin }, ctx, options),
+		run: ({ args: { title }, flags: { category, description, file, keyword, path, stdin } }, ctx) =>
+			updateMemory(
+				{ category, description, file, keywords: keyword, path, stdin, title },
+				ctx,
+				options,
+			),
 	});
 }
 

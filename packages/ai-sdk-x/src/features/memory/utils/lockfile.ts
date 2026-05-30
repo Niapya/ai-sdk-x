@@ -10,6 +10,7 @@ import {
 
 const MEMORY_INDEX_FILE = "memory.json";
 const MEMORY_HOME_TOKEN = "$MEMORY_HOME";
+export const DAILY_MEMORY_CATEGORY = "daily";
 export const MEMORY_CORE_FILES = {
 	agent: "AGENT.md",
 	shared: "MEMORY.md",
@@ -136,6 +137,17 @@ export function listMemoryEntries(index: MemoryIndex): MemoryEntryRef[] {
 		});
 }
 
+export function listDailyMemoryEntries(index: MemoryIndex): MemoryEntryRef[] {
+	const entries = index.categories[DAILY_MEMORY_CATEGORY] ?? {};
+	return Object.entries(entries)
+		.map(([title, entry]) => ({
+			category: DAILY_MEMORY_CATEGORY,
+			entry,
+			title,
+		}))
+		.sort((left, right) => left.title.localeCompare(right.title));
+}
+
 export function formatMemoryEntry(ref: MemoryEntryRef): string {
 	return [
 		formatMemoryRef(ref.category, ref.title),
@@ -164,6 +176,17 @@ export function parseMemoryRef(value: string): { category: string; title: string
 	}
 
 	return undefined;
+}
+
+export function isMemoryCoreFileName(
+	value: string,
+): value is (typeof MEMORY_CORE_FILES)[MemoryCoreName] {
+	const trimmed = value.trim();
+	return Object.values(MEMORY_CORE_FILES).some((filename) => filename === trimmed);
+}
+
+export function coreFilePath(fs: IFileSystem, memoryMount: string, filename: string): string {
+	return fs.resolvePath(memoryMount, filename);
 }
 
 export function normalizeCategory(category: string | undefined): string {
@@ -267,7 +290,7 @@ function createMemoryEntryPath(category: string, title: string, now: Date): stri
 			.toLowerCase()
 			.replace(/[^a-z0-9._-]+/g, "-")
 			.replace(/^-+|-+$/g, "") || "memory";
-	if (category === "daily") {
+	if (category === DAILY_MEMORY_CATEGORY) {
 		return `${MEMORY_HOME_TOKEN}/daily/${now.toISOString().slice(0, 10)}/${slug}.md`;
 	}
 	return `${MEMORY_HOME_TOKEN}/${category}/${slug}.md`;

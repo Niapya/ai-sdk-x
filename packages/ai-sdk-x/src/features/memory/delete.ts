@@ -1,29 +1,48 @@
 import type { CommandContext, ExecResult } from "just-bash";
 import type { MemoryCommandOptions } from "@/features/memory/types";
-import { deleteMemoryEntry, parseMemoryRef } from "@/features/memory/utils/lockfile";
+import {
+	deleteMemoryEntry,
+	getMemoryEntry,
+	isMemoryCoreFileName,
+	resolveMemoryHomePath,
+} from "@/features/memory/utils/lockfile";
+import { validateDailyCategory } from "@/features/memory/utils/output";
 import { commandError, defineCliCommand } from "@/utils/command";
 
 export async function deleteMemory(
-	ref: string,
+	input: { category?: string; title: string },
 	ctx: CommandContext,
 	options: MemoryCommandOptions,
 ): Promise<ExecResult> {
-	const parsed = parseMemoryRef(ref);
-	if (!parsed) {
-		return commandError("x-memory delete: expected <category:title>\n", 1);
+	const title = input.title.trim();
+	if (!title) {
+		return commandError("x-memory delete: missing <title>\n", 1);
+	}
+	if (isMemoryCoreFileName(title)) {
+		return commandError(`x-memory delete: cannot delete core memory file: ${title}\n`, 1);
 	}
 
-	const deleted = await deleteMemoryEntry(
-		ctx.fs,
-		options.mountPoint,
-		parsed.category,
-		parsed.title,
-	);
+	const category = validateDailyCategory(input.category, "x-memory delete");
+	if ("error" in category) {
+		return category.error;
+	}
+
+	const current = await getMemoryEntry(ctx.fs, options.mountPoint, category.category, title);
+	const deleted = await deleteMemoryEntry(ctx.fs, options.mountPoint, category.category, title);
 	if (!deleted) {
-		return commandError(`x-memory delete: memory not found: ${ref}\n`, 1);
+		return commandError(`x-memory delete: memory not found: ${title}\n`, 1);
+	}
+	if (current) {
+		await ctx.fs.rm(resolveMemoryHomePath(ctx.fs, options.mountPoint, current.entry.path), {
+			force: true,
+		});
 	}
 
-	return { stdout: `Deleted ${parsed.category}:${parsed.title}\n`, stderr: "", exitCode: 0 };
+	return {
+		stdout: `Delete memory ${title} from category ${category.category} Successfully!\n`,
+		stderr: "",
+		exitCode: 0,
+	};
 }
 
 export function createDeleteMemoryCommand(
@@ -33,14 +52,22 @@ export function createDeleteMemoryCommand(
 		id: "delete",
 		type: "command",
 		summary: "Delete a memory entry.",
-		usage: "x-memory delete <category:title>",
+		description: "Deletes daily memory metadata and its indexed body file reference.",
+		usage: "x-memory delete <title> [--category daily]",
 		args: [
 			{
-				name: "ref",
+				name: "title",
 				required: true,
-				summary: "Memory reference formatted as category:title.",
+				summary: "Daily memory title to delete.",
 			},
 		],
-		run: ({ args: { ref } }, ctx) => deleteMemory(ref, ctx, options),
+		flags: {
+			category: {
+				description: "Category for the memory entry. Only daily is supported for now.",
+				type: "string",
+			},
+		},
+		run: ({ args: { title }, flags: { category } }, ctx) =>
+			deleteMemory({ category, title }, ctx, options),
 	});
 }

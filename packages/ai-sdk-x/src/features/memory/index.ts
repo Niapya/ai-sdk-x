@@ -1,13 +1,11 @@
 import type { Command, CommandContext, IFileSystem } from "just-bash";
 import { type AddMemoryInput, addMemory, createAddMemoryCommand } from "@/features/memory/add";
 import { createDeleteMemoryCommand, deleteMemory } from "@/features/memory/delete";
-import { createGetMemoryCommand, getMemory } from "@/features/memory/get";
-import { createInitMemoryCommand, initMemory } from "@/features/memory/init";
+import { createFindMemoryCommand, findMemory } from "@/features/memory/find";
 import { createListMemoryCommand, listMemory } from "@/features/memory/list";
-import { createSearchMemoryCommand, searchMemory } from "@/features/memory/search";
-import { createStatusMemoryCommand, statusMemory } from "@/features/memory/status";
 import type { MemoryCommandOptions, MemoryConfig, MemoryOptions } from "@/features/memory/types";
 import { createUpdateMemoryCommand, updateMemory } from "@/features/memory/update";
+import { initMemoryIndex } from "@/features/memory/utils/lockfile";
 import { AsyncOnce } from "@/runtime/async-once";
 import { createSubpathFs } from "@/runtime/fs/subpath-fs";
 import type { ExecHookStartContext, Feature } from "@/types";
@@ -18,11 +16,12 @@ export const DEFAULT_MEMORY_MOUNT = "/home/user/memory";
 export function createMemoryFeatureDescription(mountPoint: string): string {
 	return [
 		`The memory feature provides persistent agent context storage at ${mountPoint}.`,
-		"Memory is where durable context for future agent runs belongs: agent-side notes in AGENT.md, user-side notes in USER.md, shared context in MEMORY.md, plus categorized entries such as daily, project, and topic notes.",
-		'Use `x-memory` through the bash tool, not as a separate callable tool. Put the shell command in command, for example command="x-memory search project", command="x-memory add --category project --stdin note-title" with stdin="note body", command="x-memory add --category project --file ./notes.md note-title", or command="x-memory core get agent".',
-		"Use --category to organize entries. Do not use --layer.",
-		"`x-memory add`, `x-memory update`, and `x-memory core update` accept --stdin or --file. They store body files under MEMORY_HOME and index searchable metadata in memory.json.",
-		"`x-memory search` searches only category, title, description, and keywords. Do not grep MEMORY_HOME for full-text search unless the user explicitly asks; use the CLI to avoid expensive I/O.",
+		"Memory is layered: AGENT.md stores agent-side notes, USER.md stores user-side notes, MEMORY.md stores shared context, and daily entries live under daily/YYYY-MM-DD/title.md.",
+		'Use `x-memory` through the bash tool, not as a separate callable tool. Put the shell command in command, for example command="x-memory list", command="x-memory find project", command="x-memory add note-title --description \'Short summary\' --keyword project --stdin" with stdin="note body", or command="x-memory update AGENT.md --stdin" with stdin="agent notes".',
+		"Only daily categorized memories are supported for now. Future categories should be added through the CLI design, not direct filesystem writes.",
+		"`x-memory add`, `x-memory update`, and `x-memory delete` update memory.json. Do not add, update, or delete memory entries directly with shell file writes because the lockfile would not be maintained.",
+		"`x-memory find` searches only daily metadata: name/title, category, description, and keywords. It does not search memory bodies or core files.",
+		"`x-memory list` and `x-memory find` expose file paths; use shell commands to inspect those files when needed.",
 		"Run x-memory --help or x-memory <subcommand> --help when unsure. Use memory only for information that should survive across future sessions.",
 	].join("\n");
 }
@@ -31,16 +30,21 @@ const MEMORY_COMMAND = {
 	id: "x-memory",
 	type: "topic",
 	summary: "Manage mounted long-term and daily memory.",
-	usage: "x-memory <init|add|note|search|get|update|delete|status|core> [args]",
+	usage: "x-memory <add|delete|list|find|update> [args]",
 	description: [
 		"Stores durable memory body files plus searchable metadata in memory.json.",
-		"Use --category to organize entries. Add or update bodies from stdin or --file.",
+		"Memory layers: AGENT.md for agent-side notes, USER.md for user-side notes, MEMORY.md for shared context, and daily/YYYY-MM-DD/title.md for daily memories.",
+		"Use x-memory CLI to add, update, and delete memory so memory.json stays in sync; do not mutate memory files directly with shell writes except when only reading file paths returned by list/find.",
+		"Only daily categorized memories are supported for now.",
 	],
 	examples: [
-		{ command: "x-memory init" },
-		{ command: "printf 'note' | x-memory add --category daily --stdin note-title" },
-		{ command: "x-memory core get agent" },
-		{ command: "x-memory search important" },
+		{ command: "x-memory list" },
+		{
+			command:
+				"printf 'note' | x-memory add note-title --description 'Short summary' --keyword project --stdin",
+		},
+		{ command: "x-memory find important" },
+		{ command: "printf 'agent note' | x-memory update AGENT.md --stdin" },
 	],
 	hidden: false,
 } satisfies Omit<CliTopicDefinition, "subcommands">;
@@ -50,15 +54,11 @@ export function createMemoryCommand(options: MemoryCommandOptions): Command {
 	return createCommand({
 		...MEMORY_COMMAND,
 		subcommands: [
-			createInitMemoryCommand(options),
 			addCommand,
-			{ ...addCommand, aliases: [], id: "note" },
 			createListMemoryCommand(options),
-			createSearchMemoryCommand(options),
-			createGetMemoryCommand(options),
+			createFindMemoryCommand(options),
 			createUpdateMemoryCommand(options),
 			createDeleteMemoryCommand(options),
-			createStatusMemoryCommand(options),
 		],
 	});
 }
@@ -66,12 +66,15 @@ export function createMemoryCommand(options: MemoryCommandOptions): Command {
 export type MemoryFeature = Feature & {
 	readonly add?: (input: AddMemoryInput, ctx: CommandContext) => ReturnType<typeof addMemory>;
 	readonly createCommand?: () => Command;
-	readonly delete?: (ref: string, ctx: CommandContext) => ReturnType<typeof deleteMemory>;
-	readonly get?: (ref: string, fs: IFileSystem) => ReturnType<typeof getMemory>;
-	readonly init?: (ctx: CommandContext) => ReturnType<typeof initMemory>;
+	readonly delete?: (
+		input: Parameters<typeof deleteMemory>[0],
+		ctx: CommandContext,
+	) => ReturnType<typeof deleteMemory>;
+	readonly find?: (
+		input: Parameters<typeof findMemory>[0],
+		fs: IFileSystem,
+	) => ReturnType<typeof findMemory>;
 	readonly list?: (fs: IFileSystem) => ReturnType<typeof listMemory>;
-	readonly search?: (query: string, fs: IFileSystem) => ReturnType<typeof searchMemory>;
-	readonly status?: (fs: IFileSystem) => ReturnType<typeof statusMemory>;
 	readonly update?: (
 		input: Parameters<typeof updateMemory>[0],
 		ctx: CommandContext,
@@ -110,6 +113,7 @@ export function createMemoryFeature(
 			await context.fs.mkdir(DEFAULT_MEMORY_MOUNT, { recursive: true });
 		}
 
+		await initMemoryIndex(context.fs, config.mountPoint);
 		context.setEnv("MEMORY_HOME", config.mountPoint);
 	});
 
@@ -122,12 +126,9 @@ export function createMemoryFeature(
 		},
 		createCommand: createMainCommand,
 		add: (input, ctx) => addMemory(input, ctx, commandOptions),
-		delete: (ref, ctx) => deleteMemory(ref, ctx, commandOptions),
-		get: (ref, fs) => getMemory(ref, fs, commandOptions),
-		init: (ctx) => initMemory(ctx, commandOptions),
+		delete: (input, ctx) => deleteMemory(input, ctx, commandOptions),
+		find: (input, fs) => findMemory(input, fs, commandOptions),
 		list: (fs) => listMemory(fs, commandOptions),
-		search: (query, fs) => searchMemory(query, fs, commandOptions),
-		status: (fs) => statusMemory(fs, commandOptions),
 		update: (input, ctx) => updateMemory(input, ctx, commandOptions),
 	};
 }
