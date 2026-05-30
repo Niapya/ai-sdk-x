@@ -8,15 +8,30 @@ import {
 	writeSkillIndexEntry,
 } from "@/features/skills/utils/lockfile";
 import { frontmatterDescription, stringifyFrontmatter } from "@/features/skills/utils/metadata";
-import { type CliCommandDefinition, commandError, defineCliCommand } from "@/utils/command";
+import { commandError, defineCliCommand } from "@/utils/command";
 import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
 
 export async function updateSkills(
 	ctx: CommandContext,
 	options: SkillsCommandOptions,
+	skillName?: string,
 ): Promise<ExecResult> {
+	const requestedSkillName = skillName?.trim();
 	const index = await readSkillsIndex(ctx.fs, options.mountPoint);
-	const installedSkills = Object.entries(index.skills).filter(([, entry]) => entry.url);
+	const installedSkills = Object.entries(index.skills).filter(([selector, entry]) => {
+		if (!entry.url) {
+			return false;
+		}
+		return requestedSkillName ? selector === requestedSkillName : true;
+	});
+
+	if (requestedSkillName && installedSkills.length === 0) {
+		return commandError(
+			`x-skills update: skill not found or not installed from git: ${requestedSkillName}\n`,
+			1,
+		);
+	}
+
 	if (installedSkills.length === 0) {
 		return {
 			stdout: "No installed skills to update\n",
@@ -35,12 +50,16 @@ export async function updateSkills(
 
 			const { clonePath, result } = await cloneSkillRepository(entry.url, ctx);
 			if (result.exitCode !== 0) {
-				return result;
+				return commandError(
+					`x-skills update: failed to clone ${entry.url}\n${withTrailingNewline(result.stderr || result.stdout || "git clone failed without output")}`,
+					result.exitCode,
+				);
 			}
 
 			cloneRoots.set(entry.url, clonePath);
 		}
 
+		const updatedSkills: string[] = [];
 		for (const [selector, entry] of installedSkills) {
 			if (!entry.url) {
 				continue;
@@ -55,7 +74,7 @@ export async function updateSkills(
 			const sourceSkillFilePath = await findSkillMarkdownFile(ctx.fs, sourcePath);
 			if (!sourceSkillFilePath) {
 				return commandError(
-					`x-skills update: missing /skills/${selector}/SKILLS.md in ${entry.url}\n`,
+					`x-skills update: missing /skills/${selector}/SKILL.md or /skills/${selector}/SKILLS.md in ${entry.url}\n`,
 					1,
 				);
 			}
@@ -85,10 +104,15 @@ export async function updateSkills(
 					},
 				});
 			}
+
+			updatedSkills.push(selector);
 		}
 
 		return {
-			stdout: `Updated ${installedSkills.length} skill${installedSkills.length === 1 ? "" : "s"}\n`,
+			stdout: `${[
+				...updatedSkills.map((selector) => `Update \`${selector}\` successfully.`),
+				`Total updated skills: ${updatedSkills.length}`,
+			].join("\n")}\n`,
 			stderr: "",
 			exitCode: 0,
 		};
@@ -99,14 +123,24 @@ export async function updateSkills(
 	}
 }
 
+function withTrailingNewline(value: string): string {
+	return value.endsWith("\n") ? value : `${value}\n`;
+}
+
 export function createUpdateSkillsCommand(
 	options: SkillsCommandOptions,
-): CliCommandDefinition<undefined, undefined> {
+): ReturnType<typeof defineCliCommand> {
 	return defineCliCommand({
 		id: "update",
 		type: "command",
 		summary: "Refresh installed skills from their sources.",
-		usage: "x-skills update",
-		run: (_args, ctx) => updateSkills(ctx, options),
+		usage: "x-skills update [skillName]",
+		args: [
+			{
+				name: "skillName",
+				summary: "Optional installed skill directory name.",
+			},
+		],
+		run: ({ args: { skillName } }, ctx) => updateSkills(ctx, options, skillName),
 	});
 }

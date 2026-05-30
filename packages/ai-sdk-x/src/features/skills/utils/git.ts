@@ -16,7 +16,10 @@ export async function cloneSkillRepository(
 
 	return {
 		clonePath,
-		result: await execGit(ctx, `clone ${quoteForShell(repoUrl)} ${quoteForShell(clonePath)}`),
+		result: await execGit(
+			ctx,
+			`clone --depth=1 ${quoteForShell(repoUrl)} ${quoteForShell(clonePath)}`,
+		),
 	};
 }
 

@@ -13,37 +13,34 @@ interface SearchSkill {
 export async function searchSkills(query: string): Promise<ExecResult> {
 	const normalizedQuery = query.trim();
 	if (!normalizedQuery) {
-		return commandError("x-skills search: missing query\n", 1);
+		return commandError("x-skills search: missing skillName\n", 1);
 	}
 
 	const results = await searchSkillsApi(normalizedQuery);
 	if (results.length === 0) {
 		return {
-			stdout: `No skills found for "${normalizedQuery}"\n`,
+			stdout: `No skills found for \`${normalizedQuery}\`\n`,
 			stderr: "",
 			exitCode: 0,
 		};
 	}
 
 	const lines = [
-		`
-Install with x-skills install <git-url@skill>.
-Example:
-	x-skills install https://github.com/intellectronica/agent-skills@context7
-`,
+		`Search results for \`${normalizedQuery}\`. Install a skill with x-skills install <git-url@skill-name>.`,
 	];
 
-	for (const skill of results.slice(0, 6)) {
-		const pkg = skill.source || skill.slug;
+	for (const skill of results.slice(0, 10)) {
+		const source = skill.source || skill.slug;
 		const installs = formatInstalls(skill.installs);
-		lines.push(`${pkg}@${skill.name}${installs ? ` (${installs})` : ""}`);
-		lines.push(`skillPath after install: $SKILLS_HOME/${skill.name}/SKILL.md`);
-		lines.push(`https://skills.sh/${skill.slug}`);
 		lines.push("");
+		lines.push(`Skill: ${skill.name}${installs ? ` (${installs})` : ""}`);
+		lines.push(`Source: ${source}`);
+		lines.push(`Install: x-skills install ${source}@${skill.name}`);
+		lines.push(`URL: https://skills.sh/${skill.slug}`);
 	}
 
 	return {
-		stdout: `${lines.join("\n").trimEnd()}\n`,
+		stdout: `${lines.join("\n")}\n`,
 		stderr: "",
 		exitCode: 0,
 	};
@@ -119,16 +116,16 @@ export function createSearchSkillsCommand(): ReturnType<typeof defineCliCommand>
 	return defineCliCommand({
 		id: "search",
 		type: "command",
-		summary: "Search the remote skill index.",
-		usage: "x-skills search <query>",
+		summary: "Search skills.sh for installable skills.",
+		usage: "x-skills search <skillName>",
 		args: [
 			{
-				name: "query",
+				name: "skillName",
 				multiple: true,
 				required: true,
-				summary: "Search text.",
+				summary: "Skill name to search remotely.",
 			},
 		],
-		run: ({ args: { query } }) => searchSkills(query.join(" ")),
+		run: ({ args: { skillName } }) => searchSkills(skillName.join(" ")),
 	});
 }

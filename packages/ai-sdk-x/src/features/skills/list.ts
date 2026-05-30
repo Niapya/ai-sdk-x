@@ -1,59 +1,40 @@
 import type { ExecResult, IFileSystem } from "just-bash";
 import type { SkillsCommandOptions } from "@/features/skills/types";
-import { findSkillMarkdownFile, readSkillsIndex } from "@/features/skills/utils/lockfile";
-import { frontmatterDescription } from "@/features/skills/utils/metadata";
+import {
+	listSkillCatalog,
+	type PaginationInput,
+	paginate,
+	parsePagination,
+	renderSkillSummary,
+} from "@/features/skills/utils/output";
 import { defineCliCommand } from "@/utils/command";
-import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
+
+export interface ListSkillsInput extends PaginationInput {}
 
 export async function listSkills(
 	fs: IFileSystem,
 	options: SkillsCommandOptions,
+	input: ListSkillsInput = {},
 ): Promise<ExecResult> {
-	if (!(await fs.exists(options.mountPoint))) {
-		return { stdout: "", stderr: "", exitCode: 0 };
+	const pagination = parsePagination(input);
+	if ("error" in pagination) {
+		return pagination.error;
 	}
 
-	const index = await readSkillsIndex(fs, options.mountPoint);
-	const lines: string[] = [
+	const entries = await listSkillCatalog(fs, options);
+	const page = paginate(entries, pagination);
+	const header = [
 		"All available skills in the mount point will be listed.",
 		"View specific skills via the skill file path.",
+		`Page ${pagination.page}/${page.pageCount}, limit ${pagination.limit}, total ${page.total}.`,
 	];
+	const body = page.items.map(renderSkillSummary);
 
-	for (const [skillName, entry] of Object.entries(index.skills)) {
-		lines.push(
-			`
-Title: ${skillName}
-Description: ${entry.description ?? ""}
-Skills file Path: ${entry.skillPath}
-Source: ${entry.source ?? ""}
-`,
-		);
-	}
-
-	if (lines.length > 0) {
-		const output = lines.sort().join("\n");
-		return { stdout: `${output}\n`, stderr: "", exitCode: 0 };
-	}
-
-	for (const entry of await fs.readdir(options.mountPoint)) {
-		if (entry === "skills.json") {
-			continue;
-		}
-
-		const skillPath = fs.resolvePath(options.mountPoint, entry);
-		const skillFilePath = await findSkillMarkdownFile(fs, skillPath);
-		if (!skillFilePath) {
-			continue;
-		}
-
-		const markdown = await fs.readFile(skillFilePath);
-		const { frontmatter } = parseMarkdownFrontmatter(markdown);
-		lines.push(`${entry}\t${frontmatterDescription(frontmatter)}\t${skillFilePath}\t`);
-	}
-
-	const output = lines.sort().join("\n");
-	const stdout = output ? `${output}\n` : "";
-	return { stdout, stderr: "", exitCode: 0 };
+	return {
+		stdout: `${[...header, ...body].join("\n\n")}\n`,
+		stderr: "",
+		exitCode: 0,
+	};
 }
 
 export function createListSkillsCommand(
@@ -63,7 +44,17 @@ export function createListSkillsCommand(
 		id: "list",
 		type: "command",
 		summary: "List installed skills.",
-		usage: "x-skills list",
-		run: (_input, ctx) => listSkills(ctx.fs, options),
+		usage: "x-skills list [--page <page>] [--limit <limit>]",
+		flags: {
+			limit: {
+				description: "Maximum number of skills to show per page.",
+				type: "string",
+			},
+			page: {
+				description: "Page number to show.",
+				type: "string",
+			},
+		},
+		run: ({ flags: { limit, page } }, ctx) => listSkills(ctx.fs, options, { limit, page }),
 	});
 }

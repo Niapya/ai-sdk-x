@@ -8,6 +8,7 @@ import {
 	writeSkillIndexEntry,
 } from "@/features/skills/utils/lockfile";
 import { frontmatterDescription, stringifyFrontmatter } from "@/features/skills/utils/metadata";
+import { renderSkillMetadata } from "@/features/skills/utils/output";
 import { parseSkillInstallTarget } from "@/features/skills/utils/parser";
 import { commandError, defineCliCommand } from "@/utils/command";
 import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
@@ -31,7 +32,10 @@ export async function installSkill(
 
 	const { clonePath, result: clone } = await cloneSkillRepository(target.repoUrl, ctx);
 	if (clone.exitCode !== 0) {
-		return clone;
+		return commandError(
+			`x-skills install: failed to clone ${target.repoUrl}\n${withTrailingNewline(clone.stderr || clone.stdout || "git clone failed without output")}`,
+			clone.exitCode,
+		);
 	}
 
 	const cloneRoot = clonePath;
@@ -42,7 +46,7 @@ export async function installSkill(
 		const sourceSkillFilePath = await findSkillMarkdownFile(ctx.fs, sourcePath);
 		if (!sourceSkillFilePath) {
 			return commandError(
-				`x-skills install: missing /skills/${target.selector}/SKILLS.md in ${target.repoUrl}\n`,
+				`x-skills install: missing /skills/${target.selector}/SKILL.md or /skills/${target.selector}/SKILLS.md in ${target.repoUrl}\n`,
 				1,
 			);
 		}
@@ -73,20 +77,29 @@ export async function installSkill(
 		const outputSkillPath = options.lockfile
 			? toSkillsHomePath(ctx.fs, options.mountPoint, skillPath)
 			: skillPath;
+		const outputFiles = files.map((file) => toSkillsHomePath(ctx.fs, options.mountPoint, file));
 		return {
-			stdout: `
-installed\t${target.selector}
-description\t${description}
-source\t${target.repoUrl}
-skillPath\t${outputSkillPath}
-files\t${files.length}
-`,
+			stdout: `${[
+				"Skill installed successfully.",
+				"",
+				renderSkillMetadata({
+					description,
+					files: outputFiles,
+					skillFile: outputSkillPath,
+					skillsName: target.selector,
+					source: target.repoUrl,
+				}),
+			].join("\n")}\n`,
 			stderr: "",
 			exitCode: 0,
 		};
 	} finally {
 		await ctx.fs.rm(cloneRoot, { force: true, recursive: true });
 	}
+}
+
+function withTrailingNewline(value: string): string {
+	return value.endsWith("\n") ? value : `${value}\n`;
 }
 
 export function createInstallSkillCommand(

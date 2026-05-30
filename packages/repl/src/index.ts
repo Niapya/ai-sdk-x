@@ -18,7 +18,13 @@ class VirtualRepl {
 	private running = true;
 
 	constructor() {
-		this.tool = X.init();
+		this.tool = X.init({
+			bash: {
+				network: {
+					dangerouslyAllowFullInternetAccess: true,
+				},
+			},
+		});
 
 		this.rl = readline.createInterface({
 			input: process.stdin,

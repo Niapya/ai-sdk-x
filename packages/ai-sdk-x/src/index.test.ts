@@ -119,10 +119,10 @@ describe("X feature runtime", () => {
 
 		const installResult = await x.exec("x-skills install /origin@demo");
 		expect(installResult.exitCode).toBe(0);
-		expect(installResult.stdout).toContain("installed\tdemo");
-		expect(installResult.stdout).toContain("source\t/origin");
-		expect(installResult.stdout).toContain("skillPath\t$SKILLS_HOME/demo/SKILL.md");
-		expect(installResult.stdout).toContain("files\t1");
+		expect(installResult.stdout).toContain("Skill installed successfully.");
+		expect(installResult.stdout).toContain("Skills Name: demo");
+		expect(installResult.stdout).toContain("Source: /origin");
+		expect(installResult.stdout).toContain("Skill File: $SKILLS_HOME/demo/SKILL.md");
 		expect(await x.fs.readFile("/home/user/skills/demo/SKILL.md")).toContain("Version 1");
 
 		const lockfile = JSON.parse(await x.fs.readFile("/home/user/skills/skills.json"));
@@ -136,19 +136,18 @@ describe("X feature runtime", () => {
 
 		const updateResult = await x.exec("x-skills update");
 		expect(updateResult.exitCode).toBe(0);
-		expect(updateResult.stdout).toContain("Updated 1 skill");
+		expect(updateResult.stdout).toContain("Update `demo` successfully.");
+		expect(updateResult.stdout).toContain("Total updated skills: 1");
 		expect(await x.fs.readFile("/home/user/skills/demo/SKILL.md")).toContain("Version 2");
 
-		const getResult = await x.exec("x-skills get demo");
-		expect(getResult.stdout).toContain("skillPath\t$SKILLS_HOME/demo/SKILL.md");
-		expect(getResult.stdout).toContain("Version 2");
-
 		const infoResult = await x.exec("x-skills info demo");
-		expect(infoResult.stdout).toContain('"skillName": "demo"');
-		expect(infoResult.stdout).toContain('"url": "/origin"');
+		expect(infoResult.stdout).toContain("Title: demo");
+		expect(infoResult.stdout).toContain("Source: git");
+		expect(infoResult.stdout).toContain("File Path: $SKILLS_HOME/demo/SKILL.md");
 
 		const removeResult = await x.exec("x-skills remove -y demo");
 		expect(removeResult.exitCode).toBe(0);
+		expect(removeResult.stdout).toContain("Remove `demo` successfully.");
 		expect(await x.fs.exists("/home/user/skills/demo")).toBe(false);
 	});
 

@@ -1,6 +1,6 @@
 import type { Command, CommandContext, IFileSystem } from "just-bash";
 import { type AddSkillInput, addSkill, createAddSkillCommand } from "@/features/skills/add";
-import { createGetSkillCommand, getSkill } from "@/features/skills/get";
+import { createFindSkillsCommand, findSkills } from "@/features/skills/find";
 import { createImportSkillCommand, importSkill } from "@/features/skills/import";
 import { createInfoSkillCommand, infoSkill } from "@/features/skills/info";
 import { createInstallSkillCommand, installSkill } from "@/features/skills/install";
@@ -39,7 +39,7 @@ export async function createSkillsFeatureDescription(
 		"Most external skills are installed from Git repositories with `x-skills install <repo>@<skill-name>`. Local skills should be added with `x-skills add --stdin`, `x-skills add --file <path>`, or `x-skills import <directory>`; do not write directly into SKILLS_HOME to add a skill because the index and metadata would be unmanaged.",
 		"Local skills must use the same shape as downloaded skills and include frontmatter metadata with at least name and description.",
 		"Skill files can be read directly from this mount, and JavaScript or TypeScript helper code may import local skill files when appropriate; prefer .mjs or .mts modules for js-exec.",
-		"`x-skills install`, `x-skills add`, `x-skills import`, `x-skills list`, `x-skills search`, and `x-skills get` return or expose skillPath information when available; use skillPath to inspect the installed skill file.",
+		"`x-skills list` and `x-skills find` expose skill file paths; use those paths to inspect installed skill files.",
 		installedText,
 	].join("\n");
 }
@@ -48,7 +48,7 @@ const SKILLS_COMMAND = {
 	id: "x-skills",
 	type: "topic",
 	summary: "Manage mounted AI agent skills.",
-	usage: "x-skills <install|add|import|update|list|remove|search|get|info> [args]",
+	usage: "x-skills <install|add|import|update|list|remove|find|search|info> [args]",
 	description: [
 		"Install, add, import, and list skills stored under the mounted skills directory.",
 		"Use install for Git repositories, add for local stdin/file markdown, and import for local skill directories.",
@@ -73,8 +73,8 @@ export function createSkillsCommand(options: SkillsCommandOptions): Command {
 			createUpdateSkillsCommand(options),
 			createListSkillsCommand(options),
 			createRemoveSkillCommand(options),
+			createFindSkillsCommand(options),
 			createSearchSkillsCommand(),
-			createGetSkillCommand(options),
 			createInfoSkillCommand(options),
 		],
 	});
@@ -83,7 +83,10 @@ export function createSkillsCommand(options: SkillsCommandOptions): Command {
 export type SkillsFeature = Feature & {
 	readonly add?: (input: AddSkillInput, ctx: CommandContext) => ReturnType<typeof addSkill>;
 	readonly createCommand?: () => Command;
-	readonly get?: (skillName: string, fs: IFileSystem) => ReturnType<typeof getSkill>;
+	readonly find?: (
+		input: Parameters<typeof findSkills>[0],
+		fs: IFileSystem,
+	) => ReturnType<typeof findSkills>;
 	readonly import?: (
 		input: Parameters<typeof importSkill>[0],
 		ctx: CommandContext,
@@ -145,7 +148,7 @@ export function createSkillsFeature(
 		},
 		add: (input, ctx) => addSkill(input, ctx, commandOptions),
 		createCommand: createMainCommand,
-		get: (skillName, fs) => getSkill(skillName, fs, commandOptions),
+		find: (input, fs) => findSkills(input, fs, commandOptions),
 		import: (input, ctx) => importSkill(input, ctx, commandOptions),
 		info: (skillName, fs) => infoSkill(skillName, fs, commandOptions),
 		install: (spec, ctx) => installSkill(spec, ctx, commandOptions),

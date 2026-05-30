@@ -33,7 +33,7 @@ export async function removeSkill(
 	}
 
 	return {
-		stdout: `Removed ${skillName}\n`,
+		stdout: `Remove \`${skillName}\` successfully.\n`,
 		stderr: "",
 		exitCode: 0,
 	};

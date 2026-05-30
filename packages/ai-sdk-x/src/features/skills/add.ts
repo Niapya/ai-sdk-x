@@ -10,6 +10,7 @@ import {
 	frontmatterName,
 	stringifyFrontmatter,
 } from "@/features/skills/utils/metadata";
+import { renderSkillMetadata } from "@/features/skills/utils/output";
 import { commandError, defineCliCommand } from "@/utils/command";
 import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
 import { resolveCliPath } from "@/utils/path";
@@ -68,13 +69,18 @@ export async function addSkill(
 	const outputSkillPath = options.lockfile
 		? toSkillsHomePath(ctx.fs, options.mountPoint, skillPath)
 		: skillPath;
+	const outputFiles = files.map((file) => toSkillsHomePath(ctx.fs, options.mountPoint, file));
 	return {
 		stdout: `${[
-			`added\t${name}`,
-			`description\t${description}`,
-			`source\tlocal`,
-			`skillPath\t${outputSkillPath}`,
-			`files\t${files.length}`,
+			"Skills added successfully.",
+			"",
+			renderSkillMetadata({
+				description,
+				files: outputFiles,
+				skillFile: outputSkillPath,
+				skillsName: name,
+				source: "local",
+			}),
 		].join("\n")}\n`,
 		stderr: "",
 		exitCode: 0,
