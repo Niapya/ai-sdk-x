@@ -268,51 +268,66 @@ export class X {
 					const description = await feature.description?.(featureContext);
 					if (!description) return "";
 
-					return [
-						"<feature>",
-						`<title>${feature.name}</title>`,
-						`<description>${description}</description>`,
-						"</feature>",
-					].join("\n");
+					return `<feature>\n<title>${feature.name}</title>\n<description>${description}</description>\n</feature>`;
 				}),
 			)
 		).join("\n\n");
 
 		const sections = [
-			// Environment
+			"<bash_tool>",
+			"<environment>",
 			"Bash tool is a virtual bash shell for running Unix-style commands and scripts inside a sandboxed environment.",
-			`Current cwd: ${featureContext.bash.getCwd()}`,
-			`Network: ${networkEnabled ? "on" : "off"}`,
+			`initial cwd: ${featureContext.bash.getCwd()}`,
+			`network: ${networkEnabled ? "on" : "off"}`,
+			`javascript: ${javascriptEnabled ? "on" : "off"}`,
+			`python: ${pythonEnabled ? "on" : "off"}`,
+			"</environment>",
 
-			// Tool contract
-			'`command` is required and must contain the shell command to run. Example: { command: "echo hello" }.',
-			"`cwd` is optional and sets the working directory for that command. Use it instead of `cd ... && ...`.",
-			'`stdin` is optional raw stdin text for commands that read stdin. Example: { command: "cat", stdin: "hello\\n" }.',
-			"Do not put shell code in `stdin`; put it in `command`.",
+			"<usage>",
+			"This description applies to the Bash tool.",
+			"The feature entries below describe shell commands and mounted paths available inside Bash. They are not separate tools or function calls.",
+			"The displayed initial cwd is where the shell starts. Actual command execution uses the persisted session cwd unless a tool call provides `cwd` explicitly.",
+			"Put shell syntax in the Bash tool's `command` argument. Use `cwd` instead of `cd` when changing directories for a command.",
+			"Use `stdin` only for raw input to commands that read stdin; do not put shell code in `stdin`.",
+			"If unsure, run `help`, `<command> --help`, or `<command> <subcommand> --help`.",
+			"</usage>",
 
-			// Command usage tips
-			"Use targeted commands for large files and large repositories. Prefer `rg --files` to discover files, `rg -n \"pattern\" <path>` to search with line numbers, `sed -n '120,180p' <path>` to read a specific range, and `nl -ba <path> | sed -n '120,180p'` when numbered output is needed.",
-			"Use `wc -l`, `file`, `du`, `head`, and `tail` to understand file size and shape before reading. Avoid dumping very large files with plain `cat`.",
-			"Use structured data tools when appropriate: `jq` for JSON, `yq` for YAML/TOML/XML/CSV, `sqlite3` for SQLite, and pipelines with `awk`, `sort`, `uniq`, `cut`, and `xargs` for text processing.",
-			"If you are unsure how a command works, run `<command> --help` or `help <command>`.",
+			"<large_files>",
+			"Use targeted inspection for large files and large repositories instead of dumping whole files.",
+			"Examples: `rg --files`, `rg -n \"pattern\" <path>`, `grep -n \"pattern\" <file>`, `sed -n '120,180p' <file>`, `nl -ba <file> | sed -n '120,180p'`, `wc -l <file>`.",
+			"Use structured tools when appropriate: `jq` for JSON, `yq` for YAML/TOML/XML/CSV, `sqlite3` for SQLite, and `awk`, `sort`, `uniq`, `cut`, `xargs` for text pipelines.",
+			"</large_files>",
 
 			networkEnabled
-				? "Network is on, you may use `curl` to fetch URLs. `html-to-markdown` is available for converting fetched HTML into Markdown, for example: `curl https://github.blog | html-to-markdown`."
+				? [
+						"<network>",
+						"Network is on. Use `curl` to fetch URLs, and pipe HTML through `html-to-markdown` when Markdown is easier to inspect.",
+						"Example: `curl https://github.blog | html-to-markdown`.",
+						"</network>",
+					].join("\n")
 				: "",
 
 			javascriptEnabled
-				? "You may use `js-exec` for JavaScript or TypeScript processing. When importing local code, prefer `.mjs` or `.mts` modules. Imports may reference files from enabled feature mounts such as workspace or skills."
+				? [
+						"<javascript>",
+						"You may use `js-exec` for JavaScript or TypeScript processing.",
+						"When importing local code, prefer `.mjs` or `.mts` modules. Imports may reference enabled mounts such as workspace or skills.",
+						"</javascript>",
+					].join("\n")
 				: "",
 
 			pythonEnabled
-				? "You may use `python3` or `python` for Python scripts and data processing when that is the most direct tool."
+				? [
+						"<python>",
+						"You may use `python3` or `python` for Python scripts and data processing when that is the most direct tool.",
+						"</python>",
+					].join("\n")
 				: "",
 
-			"Entries under Available features describe shell commands or mounted paths available inside this bash environment. They are NOT callable tools.",
-			"Available features:",
 			`<features>${featureDescriptions}</features>`,
 
 			options.description ?? "",
+			"</bash_tool>",
 		]
 			.filter(Boolean)
 			.join("\n");

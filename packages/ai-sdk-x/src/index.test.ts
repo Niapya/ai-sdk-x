@@ -365,25 +365,35 @@ describe("X getTools integration", () => {
 	it("creates a dynamic tool description from enabled runtime options", async () => {
 		const x = new X({ bash: { javascript: false, network: false, python: false } });
 		const description = await x.createToolDescription();
+		expect(description).toStartWith("<bash_tool>");
+		expect(description).toContain("<environment>");
 		expect(description).toContain("Bash tool is a virtual bash shell");
-		expect(description).toContain("Network: off");
-		expect(description).toContain("Do not put shell code in `stdin`");
+		expect(description).toContain("initial cwd: /home/user");
+		expect(description).toContain("network: off");
+		expect(description).toContain("javascript: off");
+		expect(description).toContain("python: off");
+		expect(description).toContain(
+			"Actual command execution uses the persisted session cwd unless a tool call provides `cwd` explicitly.",
+		);
+		expect(description).toContain("do not put shell code in `stdin`");
+		expect(description).toContain("<large_files>");
 		expect(description).toContain("rg --files");
 		expect(description).not.toContain("curl https://example.com");
 		expect(description).not.toContain("js-exec");
 		expect(description).not.toContain("python3");
 		expect(description).not.toContain("undefined");
+		expect(description).toEndWith("</bash_tool>");
 	});
 
 	it("includes network, JavaScript, Python, feature metadata XML, and custom options when enabled", async () => {
 		const x = X.init({ workspace: { mountPoint: "/project" } });
 		const description = await x.createToolDescription({ description: "Extra policy." });
-		expect(description).toContain("Network: on");
-		expect(description).toContain("`cwd` is optional and sets the working directory");
-		expect(description).toContain("They are NOT callable tools.");
+		expect(description).toContain("network: on");
+		expect(description).toContain("This description applies to the Bash tool.");
+		expect(description).toContain("They are not separate tools or function calls.");
 		expect(description).toContain("curl https://github.blog | html-to-markdown");
-		expect(description).toContain("You may use `js-exec`");
-		expect(description).toContain("You may use `python3` or `python`");
+		expect(description).toContain("<javascript>");
+		expect(description).toContain("<python>");
 		expect(description).toContain("<feature>\n<title>workspace</title>");
 		expect(description).toContain("/project");
 		expect(description).toContain("<title>memory</title>");
@@ -440,6 +450,25 @@ describe("X getTools integration", () => {
 		const second = await execTool.execute({ command: "echo second" });
 		expect(first.stdout.trim()).toBe("first");
 		expect(second.stdout.trim()).toBe("second");
+	});
+
+	it("bash tool description stays static while execution follows persisted cwd", async () => {
+		const x = new X();
+		const tools = await x.getTools();
+		const description = tools.bash.description as string;
+		const execTool = tools.bash as unknown as {
+			execute: (input: { command: string }) => Promise<{
+				stdout: string;
+				exitCode: number;
+			}>;
+		};
+
+		await execTool.execute({ command: "mkdir -p /tmp/demo && cd /tmp/demo" });
+		const result = await execTool.execute({ command: "pwd" });
+
+		expect(description).toContain("initial cwd: /home/user");
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.trim()).toBe("/tmp/demo");
 	});
 
 	it("bash tool execution triggers hooks in registration order", async () => {

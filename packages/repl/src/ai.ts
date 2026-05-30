@@ -45,7 +45,7 @@ const openrouter = createOpenRouter({
 
 const tools = await bash.getTools();
 const agent = new ToolLoopAgent({
-	model: openrouter("z-ai/glm-4.5-air:free"),
+	model: openrouter("deepseek/deepseek-v4-flash"),
 	tools,
 	stopWhen: stepCountIs(20),
 	prepareStep: ({ stepNumber }) => {

@@ -33,8 +33,10 @@ describe("x-memory feature", () => {
 		expect(help.stdout).not.toContain("  init");
 		expect(help.stdout).not.toContain("  search");
 
-		expect(description).toContain("AGENT.md stores agent-side notes");
+		expect(description).toContain("$MEMORY_HOME/AGENT.md");
+		expect(description).toContain("$MEMORY_HOME/USER.md");
+		expect(description).toContain("$MEMORY_HOME/MEMORY.md");
 		expect(description).toContain("Do not add, update, or delete memory entries directly");
-		expect(description).toContain("x-memory find` searches only daily metadata");
+		expect(description).toContain("x-memory find` searches daily metadata only");
 	});
 });

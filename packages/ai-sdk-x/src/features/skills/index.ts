@@ -16,6 +16,16 @@ import type { ExecHookStartContext, Feature, FeatureSetupContext } from "@/types
 import { type CliTopicDefinition, createCommand } from "@/utils/command";
 
 export const DEFAULT_SKILLS_MOUNT = "/home/user/skills";
+const MAX_SKILL_DESCRIPTION_LENGTH = 200;
+
+function truncateSkillDescription(description: string | undefined): string {
+	const text = (description || "No description.").trim().replace(/\s+/g, " ");
+	if (text.length <= MAX_SKILL_DESCRIPTION_LENGTH) {
+		return text;
+	}
+
+	return `${text.slice(0, MAX_SKILL_DESCRIPTION_LENGTH - 3)}...`;
+}
 
 export async function createSkillsFeatureDescription(
 	ctx: FeatureSetupContext,
@@ -24,22 +34,29 @@ export async function createSkillsFeatureDescription(
 	const index = await readSkillsIndex(ctx.fs, mountPoint);
 	const installed = Object.entries(index.skills)
 		.sort(([left], [right]) => left.localeCompare(right))
-		.map(
-			([skillName, entry]) =>
-				`${skillName}: ${entry.description || "No description."} skillPath=${entry.skillPath}`,
+		.map(([skillName, entry]) =>
+			[
+				"<skill>",
+				`<title>${skillName}</title>`,
+				`<description>${truncateSkillDescription(entry.description)}</description>`,
+				`<path>${entry.skillPath}</path>`,
+				"</skill>",
+			].join("\n"),
 		);
 	const installedText =
-		installed.length > 0 ? `Installed skills:\n${installed.join("\n")}` : "Installed skills: none.";
+		installed.length > 0
+			? `<available_skills>\n${installed.join("\n")}\n</available_skills>`
+			: "<available_skills>none</available_skills>";
 
 	return [
-		`The skills feature provides mounted AI agent skills at ${mountPoint}.`,
-		"Skills are managed capability packages for agents: each skill is a directory with a SKILL.md/SKILLS.md entrypoint and metadata that explains when and how to use it.",
-		'Use `x-skills` command through the bash tool. Put the shell command in command, for example command="x-skills list", command="x-skills install https://github.com/vercel-labs/agent-skills@vercel-composition-patterns", command="x-skills add --stdin" with stdin containing SKILL.md, command="x-skills add --file ./SKILL.md", or command="x-skills import ./my-skill".',
-		"Run x-skills --help or x-skills <subcommand> --help when unsure.",
-		"Most external skills are installed from Git repositories with `x-skills install <repo>@<skill-name>`. Local skills should be added with `x-skills add --stdin`, `x-skills add --file <path>`, or `x-skills import <directory>`; do not write directly into SKILLS_HOME to add a skill because the index and metadata would be unmanaged.",
+		`Mounted skills directory: ${mountPoint}.`,
+		"Skills are managed agent capability packages with metadata and a SKILL.md/SKILLS.md entrypoint.",
+		"`x-skills` commands are Bash commands. Use `x-skills find` for installed/local skills and `x-skills search` for internet skill discovery.",
+		"Run `x-skills --help` or `x-skills <subcommand> --help` when unsure.",
+		"Install external skills from Git repositories with `x-skills install`. Add local skills with `x-skills add --stdin`, `x-skills add --file <path>`, or `x-skills import <directory>`.",
+		"Do not write directly into `$SKILLS_HOME` to add skills because the lockfile and metadata would be unmanaged.",
 		"Local skills must use the same shape as downloaded skills and include frontmatter metadata with at least name and description.",
-		"Skill files can be read directly from this mount, and JavaScript or TypeScript helper code may import local skill files when appropriate; prefer .mjs or .mts modules for js-exec.",
-		"`x-skills list` and `x-skills find` expose skill file paths; use those paths to inspect installed skill files.",
+		"`x-skills list` and `x-skills find` expose skill paths; inspect those paths when a skill is relevant.",
 		installedText,
 	].join("\n");
 }

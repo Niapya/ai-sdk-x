@@ -38,12 +38,15 @@ const PATCH_FLAGS = {
 	},
 } as const;
 
-export const PATCH_DESCRIPTION = `Use the "x-patch" command to edit files. Your patch language is a stripped-down, file-oriented diff format designed to be easy to parse and safe to apply.
+export const PATCH_DESCRIPTION = `Use the "x-patch" Bash command to edit files.
+This is the dedicated file editing command in this Bash environment. Use it for adding files, updating files, deleting files, and moving files whenever the change can be expressed as a patch.
 
-Official example:
+IMPORTANT: YOU MUST USE x-patch FOR FILE MODIFICATIONS WHENEVER POSSIBLE.
+Do not create or rewrite deliverable files with ad hoc shell redirection, cat > file, tee, or scripted full-file rewrites when x-patch can express the change.
+
+Your patch language is a stripped-down, file-oriented diff format designed to be easy to parse and safe to apply.
 
 You can think of it as a high-level envelope:
-
 *** Begin Patch
 [ one or more file sections ]
 *** End Patch
@@ -56,7 +59,34 @@ Each operation starts with one of three headers:
 *** Delete File: <path> - remove an existing file. Nothing follows.
 *** Update File: <path> - patch an existing file in place (optionally with a rename).
 
-Example patch:
+Update operations may be immediately followed by *** Move to: <new path> to rename the file.
+Then provide one or more hunks. Each hunk starts with @@, optionally followed by a plain text context header such as a class or function name.
+Do not use unified-diff line headers like @@ -11,6 +11,6 @@.
+
+Within a hunk, each line starts with one of:
+  space: context line kept unchanged
+  -: old line to remove
+  +: new line to add
+
+If three lines of context are not enough to identify the code, use @@ with a nearby class, function, or method name:
+@@ class BaseClass
+@@ functionName
+ old/new/context lines here
+
+Full grammar:
+Patch := Begin { FileOp } End
+Begin := "*** Begin Patch" NEWLINE
+End := "*** End Patch" NEWLINE
+FileOp := AddFile | DeleteFile | UpdateFile
+AddFile := "*** Add File: " path NEWLINE { "+" line NEWLINE }
+DeleteFile := "*** Delete File: " path NEWLINE
+UpdateFile := "*** Update File: " path NEWLINE [ MoveTo ] { Hunk }
+MoveTo := "*** Move to: " newPath NEWLINE
+Hunk := "@@" [ header ] NEWLINE { HunkLine } [ "*** End of File" NEWLINE ]
+HunkLine := (" " | "-" | "+") text NEWLINE
+
+A full patch can combine several operations:
+
 *** Begin Patch
 *** Add File: hello.txt
 +Hello world
@@ -71,12 +101,22 @@ Example patch:
 It is important to remember:
 
 - You must include a header with your intended action (Add/Delete/Update)
-- You must prefix new lines with "+" even when creating a new file`;
+- You must prefix new lines with "+" even when creating a new file
+- Use @@ only for optional plain text context, never for unified-diff line numbers like @@ -11,6 +11,6 @@
+- Prefer relative file paths, and use --base when you need to resolve paths under a project directory`;
 
 export const PATCH_DESCRIPTION_LINES: string[] = PATCH_DESCRIPTION.split("\n");
 
 export function createPatchFeatureDescription(): string {
-	return 'The patch feature provides x-patch, the preferred command for structured file edits. Prefer x-patch over ad hoc shell rewriting commands when modifying files. Use x-patch through the bash tool, not as a separate callable tool. Put x-patch in command and pass the patch body via stdin when convenient, for example command="x-patch" with stdin="*** Begin Patch\\n...". Durable edits should target files inside the enabled workspace mount. Run x-patch --help when unsure about the patch format.';
+	return [
+		"`x-patch` is the Bash command for modifying files with structured patches.",
+		"IMPORTANT: YOU MUST USE `x-patch` TO ADD, UPDATE, DELETE, OR MOVE FILES WHENEVER POSSIBLE.",
+		"Do not use ad hoc shell redirection, `cat > file`, `tee`, or scripted full-file rewrites for deliverable file edits when `x-patch` can express the change.",
+
+		PATCH_DESCRIPTION,
+
+		"Invocation examples: run `x-patch --help`; pass a patch through stdin to `x-patch`; read a patch file with `x-patch --file change.patch`; resolve relative paths with `x-patch --file change.patch --base $WORKSPACE_HOME/project`.",
+	].join("\n");
 }
 
 export const PATCH_COMMAND: CliCommandDefinition<typeof PATCH_ARGS, typeof PATCH_FLAGS> =

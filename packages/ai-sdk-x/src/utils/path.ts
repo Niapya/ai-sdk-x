@@ -88,7 +88,7 @@ export function getCommandCwd(ctx: CommandContext): string {
 export function resolveCliPath(
 	path: string,
 	ctx: CommandContext,
-	basePath = getCommandCwd(ctx),
+	basePath: string = getCommandCwd(ctx),
 ): string {
 	return ctx.fs.resolvePath(basePath, path);
 }

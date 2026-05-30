@@ -15,14 +15,14 @@ export const DEFAULT_MEMORY_MOUNT = "/home/user/memory";
 
 export function createMemoryFeatureDescription(mountPoint: string): string {
 	return [
-		`The memory feature provides persistent agent context storage at ${mountPoint}.`,
-		"Memory is layered: AGENT.md stores agent-side notes, USER.md stores user-side notes, MEMORY.md stores shared context, and daily entries live under daily/YYYY-MM-DD/title.md.",
-		'Use `x-memory` through the bash tool, not as a separate callable tool. Put the shell command in command, for example command="x-memory list", command="x-memory find project", command="x-memory add note-title --description \'Short summary\' --keyword project --stdin" with stdin="note body", or command="x-memory update AGENT.md --stdin" with stdin="agent notes".',
-		"Only daily categorized memories are supported for now. Future categories should be added through the CLI design, not direct filesystem writes.",
+		`Persistent memory mount: ${mountPoint}.`,
+		"Memory stores durable context for future agent runs.",
+		"Check these core files when relevant: `$MEMORY_HOME/AGENT.md` for agent-side notes, `$MEMORY_HOME/USER.md` for user-side notes, and `$MEMORY_HOME/MEMORY.md` for shared context.",
+		"Daily entries live under `daily/YYYY-MM-DD/title.md` and are indexed in `memory.json`.",
+		"`x-memory` commands are Bash commands. Use `x-memory list` and `x-memory find` to discover memory paths.",
 		"`x-memory add`, `x-memory update`, and `x-memory delete` update memory.json. Do not add, update, or delete memory entries directly with shell file writes because the lockfile would not be maintained.",
-		"`x-memory find` searches only daily metadata: name/title, category, description, and keywords. It does not search memory bodies or core files.",
-		"`x-memory list` and `x-memory find` expose file paths; use shell commands to inspect those files when needed.",
-		"Run x-memory --help or x-memory <subcommand> --help when unsure. Use memory only for information that should survive across future sessions.",
+		"`x-memory find` searches daily metadata only: name/title, category, description, and keywords. Avoid grep over the full memory tree unless explicitly needed.",
+		"Run `x-memory --help` or `x-memory <subcommand> --help` when unsure.",
 	].join("\n");
 }
 

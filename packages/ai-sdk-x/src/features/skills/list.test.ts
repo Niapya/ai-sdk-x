@@ -37,6 +37,26 @@ describe("x-skills list", () => {
 		expect(result.exitCode).toBe(1);
 		expect(result.stderr).toContain("--page must be a positive integer");
 	});
+
+	it("includes installed skills in the bash tool description with short descriptions", async () => {
+		const x = X.init();
+		const longDescription = "Long description ".repeat(30);
+		await writeLocalSkill(x, "/tmp/long-source", {
+			description: longDescription,
+			name: "Long Skill",
+		});
+		await x.exec("x-skills import /tmp/long-source long-skill");
+
+		const description = await x.createToolDescription();
+
+		expect(description).toContain("<available_skills>");
+		expect(description).toContain("<skill>");
+		expect(description).toContain("<title>long-skill</title>");
+		expect(description).toContain("<path>$SKILLS_HOME/long-skill/SKILL.md</path>");
+		expect(description).toContain("Long description Long description");
+		expect(description).toContain("...</description>");
+		expect(description).not.toContain(longDescription);
+	});
 });
 
 async function writeLocalSkill(
