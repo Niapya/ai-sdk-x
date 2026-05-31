@@ -14,7 +14,7 @@ const colors = {
 class VirtualRepl {
 	private readonly rl: readline.Interface;
 	private readonly tool: X;
-	private cwd = "/home/user";
+	private cwd = "";
 	private running = true;
 
 	constructor() {

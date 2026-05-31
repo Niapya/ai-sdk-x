@@ -1,3 +1,4 @@
+import { createTwoFilesPatch } from "diff";
 import type { ApplyPatchFileUpdate, UpdateFileChunk } from "@/features/patch/types";
 
 export function deriveNewContentsFromChunks(
@@ -21,10 +22,11 @@ export function deriveNewContentsFromChunks(
 
 	const next = splitBom(newLines.join("\n"));
 	const newContent = next.text;
-	const unifiedDiff = generateUnifiedDiff(originalContent.text, newContent);
+	const unifiedDiff = createTwoFilesPatch(filePath, filePath, originalContent.text, newContent);
 
 	return {
 		unifiedDiff,
+		originalContent: originalContent.text,
 		content: newContent,
 		bom: originalContent.bom || next.bom,
 	};
@@ -68,14 +70,14 @@ function computeReplacements(
 			found = seekSequence(originalLines, pattern, lineIndex, chunk.isEndOfFile);
 		}
 
-		if (found !== -1) {
-			replacements.push([found, pattern.length, newSlice]);
-			lineIndex = found + pattern.length;
-		} else {
+		if (found === -1) {
 			throw new Error(
 				`Failed to find expected lines in ${filePath}:\n${chunk.oldLines.join("\n")}`,
 			);
 		}
+
+		replacements.push([found, pattern.length, newSlice]);
+		lineIndex = found + pattern.length;
 	}
 
 	replacements.sort((a, b) => a[0] - b[0]);
@@ -91,11 +93,7 @@ function applyReplacements(
 
 	for (let i = replacements.length - 1; i >= 0; i--) {
 		const [startIdx, oldLen, newSegment] = replacements[i];
-		result.splice(startIdx, oldLen);
-
-		for (let j = 0; j < newSegment.length; j++) {
-			result.splice(startIdx + j, 0, newSegment[j]);
-		}
+		result.splice(startIdx, oldLen, ...newSegment);
 	}
 
 	return result;
@@ -105,9 +103,9 @@ function normalizeUnicode(str: string): string {
 	return str
 		.replace(/[‘’‚‛]/g, "'")
 		.replace(/[“”„‟]/g, '"')
-		.replace(/[‐‑‒–—―]/g, "-")
+		.replace(/[‐‑‒–—―−]/g, "-")
 		.replace(/…/g, "...")
-		.replace(/ /g, " ");
+		.replace(/[\u00a0\u2002-\u200a\u202f\u205f\u3000]/g, " ");
 }
 
 type Comparator = (a: string, b: string) => boolean;
@@ -119,36 +117,44 @@ function tryMatch(
 	compare: Comparator,
 	eof: boolean,
 ): number {
+	if (pattern.length > lines.length) {
+		return -1;
+	}
+
 	if (eof) {
 		const fromEnd = lines.length - pattern.length;
-		if (fromEnd >= startIndex) {
-			let matches = true;
-			for (let j = 0; j < pattern.length; j++) {
-				if (!compare(lines[fromEnd + j], pattern[j])) {
-					matches = false;
-					break;
-				}
-			}
-			if (matches) return fromEnd;
+		if (fromEnd >= startIndex && matchesAt(lines, pattern, fromEnd, compare)) {
+			return fromEnd;
 		}
 	}
 
 	for (let i = startIndex; i <= lines.length - pattern.length; i++) {
-		let matches = true;
-		for (let j = 0; j < pattern.length; j++) {
-			if (!compare(lines[i + j], pattern[j])) {
-				matches = false;
-				break;
-			}
+		if (matchesAt(lines, pattern, i, compare)) {
+			return i;
 		}
-		if (matches) return i;
 	}
 
 	return -1;
 }
 
+function matchesAt(
+	lines: string[],
+	pattern: string[],
+	startIndex: number,
+	compare: Comparator,
+): boolean {
+	for (let i = 0; i < pattern.length; i++) {
+		if (!compare(lines[startIndex + i], pattern[i])) {
+			return false;
+		}
+	}
+	return true;
+}
+
 function seekSequence(lines: string[], pattern: string[], startIndex: number, eof = false): number {
-	if (pattern.length === 0) return -1;
+	if (pattern.length === 0) {
+		return startIndex;
+	}
 
 	const exact = tryMatch(lines, pattern, startIndex, (a, b) => a === b, eof);
 	if (exact !== -1) return exact;
@@ -166,29 +172,6 @@ function seekSequence(lines: string[], pattern: string[], startIndex: number, eo
 		(a, b) => normalizeUnicode(a.trim()) === normalizeUnicode(b.trim()),
 		eof,
 	);
-}
-
-function generateUnifiedDiff(oldContent: string, newContent: string): string {
-	const oldLines = oldContent.split("\n");
-	const newLines = newContent.split("\n");
-	let diff = "@@ -1 +1 @@\n";
-	const maxLen = Math.max(oldLines.length, newLines.length);
-	let hasChanges = false;
-
-	for (let i = 0; i < maxLen; i++) {
-		const oldLine = oldLines[i] || "";
-		const newLine = newLines[i] || "";
-
-		if (oldLine !== newLine) {
-			if (oldLine) diff += `-${oldLine}\n`;
-			if (newLine) diff += `+${newLine}\n`;
-			hasChanges = true;
-		} else if (oldLine) {
-			diff += ` ${oldLine}\n`;
-		}
-	}
-
-	return hasChanges ? diff : "";
 }
 
 function splitBom(content: string): { text: string; bom: boolean } {

@@ -3,6 +3,7 @@
 		"url": "https://github.com/niapya/ai-sdk-x/issues"
 	},
 	"dependencies": {
+		"diff": "^9.0.0",
 		"just-bash": "^3",
 		"just-git": "^1.7.0",
 		"yaml": "^2",

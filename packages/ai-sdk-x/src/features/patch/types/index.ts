@@ -42,5 +42,6 @@ export interface ApplyPatchArgs {
 export interface ApplyPatchFileUpdate {
 	bom: boolean;
 	content: string;
+	originalContent: string;
 	unifiedDiff: string;
 }

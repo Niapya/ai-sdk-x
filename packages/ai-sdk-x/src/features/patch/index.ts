@@ -1,6 +1,5 @@
 ///
-/// The "x-patch" command is inspired by `patch` in OpenCode.
-/// https://github.com/anomalyco/opencode/
+/// The "x-patch" command is inspired by `apply_patch` in Codex and OpenCode.
 ///
 
 import { type Command, type CommandContext, decodeBytesToUtf8, type ExecResult } from "just-bash";
@@ -20,23 +19,10 @@ import { getCommandCwd, resolveCliPath } from "@/utils/path";
 const PATCH_ARGS = [
 	{
 		name: "content",
-		multiple: false,
+		multiple: true,
 		summary: "Inline patch content. Reads stdin when omitted.",
 	},
 ] as const;
-
-const PATCH_FLAGS = {
-	file: {
-		type: "string",
-		helpValue: "path",
-		summary: "Read the patch from a file path.",
-	},
-	base: {
-		type: "string",
-		helpValue: "path",
-		summary: "Resolve relative patch paths against this base directory.",
-	},
-} as const;
 
 export const PATCH_DESCRIPTION = `
 "x-patch" Command is on. Use the "x-patch" Bash command to edit files.
@@ -44,49 +30,10 @@ This is the dedicated file editing command in this Bash environment. Use it for 
 
 IMPORTANT: YOU MUST USE x-patch FOR FILE MODIFICATIONS.
 
-Your patch language is a stripped-down, file-oriented diff format designed to be easy to parse and safe to apply.
+The command shape is:
+x-patch [content...]
 
-You can think of it as a high-level envelope:
-x-patch <<EOF
-*** Begin Patch
-[ one or more file sections ]
-*** End Patch
-EOF
-
-Within that envelope, you get a sequence of file operations.
-You MUST include a header to specify the action you are taking.
-Each operation starts with one of three headers:
-
-*** Add File: <path> - create a new file. Every following line is a + line (the initial contents).
-*** Delete File: <path> - remove an existing file. Nothing follows.
-*** Update File: <path> - patch an existing file in place (optionally with a rename).
-
-Update operations may be immediately followed by *** Move to: <new path> to rename the file.
-Then provide one or more hunks. Each hunk starts with @@, optionally followed by a plain text context header such as a class or function name.
-
-Within a hunk, each line starts with one of:
-  space: context line kept unchanged
-  -: old line to remove
-  +: new line to add
-
-If three lines of context are not enough to identify the code, use @@ with a nearby class, function, or method name:
-@@ class BaseClass
-@@ functionName
- old/new/context lines here
-
-Full grammar:
-Patch := Begin { FileOp } End
-Begin := "*** Begin Patch" NEWLINE
-End := "*** End Patch" NEWLINE
-FileOp := AddFile | DeleteFile | UpdateFile
-AddFile := "*** Add File: " path NEWLINE { "+" line NEWLINE }
-DeleteFile := "*** Delete File: " path NEWLINE
-UpdateFile := "*** Update File: " path NEWLINE [ MoveTo ] { Hunk }
-MoveTo := "*** Move to: " newPath NEWLINE
-Hunk := "@@" [ header ] NEWLINE { HunkLine } [ "*** End of File" NEWLINE ]
-HunkLine := (" " | "-" | "+") text NEWLINE
-
-A full patch can combine several operations:
+When content is omitted, x-patch reads stdin. Bash heredocs and pipes work naturally:
 
 x-patch <<EOF
 *** Begin Patch
@@ -101,12 +48,42 @@ x-patch <<EOF
 *** End Patch
 EOF
 
+printf '%s\\n' '*** Begin Patch' '*** Add File: note.txt' '+hello' '*** End Patch' | x-patch
+
+x-patch "*** Begin Patch
+*** Update File: README.md
+@@
+-old
++new
+*** End Patch"
+
+Your patch language is a stripped-down, file-oriented diff format designed to be easy to parse and safe to apply.
+
+Each patch has a high-level envelope:
+*** Begin Patch
+[ one or more file sections ]
+*** End Patch
+
+Within that envelope, each operation starts with one of three headers:
+
+*** Add File: <path> - create a new file. Every following line is a + line.
+*** Delete File: <path> - remove an existing file. Nothing follows.
+*** Update File: <path> - patch an existing file in place, optionally followed by *** Move to: <new path>.
+
+Update hunks usually start with @@, optionally followed by plain text context such as a class or function name.
+The parser accepts light indentation around markers and hunks, but marker names and file operation headers should remain recognizable.
+
+Within a hunk, each line starts with one of:
+  space: context line kept unchanged
+  -: old line to remove
+  +: new line to add
+
 It is important to remember:
 
 - You must include a header with your intended action (Add/Delete/Update)
-- You must prefix new lines with "+" even when creating a new file
-- Use @@ only for optional plain text context, NEVER for unified-diff line numbers like @@ -11,6 +11,6
-- Prefer relative file paths, and use --base when you need to resolve paths under a project directory`;
+- You must prefix new lines with "+" even when creating a file
+- Prefer heredoc input for multi-file patches
+- Paths are resolved relative to the current command cwd`;
 
 export function createPatchFeatureDescription(): string {
 	return [
@@ -116,25 +93,39 @@ export function createPatchFeatureDescription(): string {
 	].join("\n");
 }
 
+const PATCH_FLAGS = {} as const;
+
 export const PATCH_COMMAND: CliCommandDefinition<typeof PATCH_ARGS, typeof PATCH_FLAGS> =
 	defineCliCommand({
 		id: "x-patch",
 		type: "command",
 		summary: "Apply a structured patch to files.",
-		usage: "x-patch [<content>] [--file <file-path>] [--base <path>]",
+		usage: "x-patch [content...]",
 		description: PATCH_DESCRIPTION,
+		allowDashPositionals: true,
 		args: PATCH_ARGS,
 		flags: PATCH_FLAGS,
 		examples: [
 			{
 				command: `x-patch <<EOF
 *** Begin Patch
+*** Add File: hello.txt
++hello
 *** End Patch
 EOF`,
 			},
-			{ command: "x-patch --file change.patch" },
-			{ command: "x-patch --file change.patch --base ./packages/app" },
-			{ command: "cat workspace/change.patch | x-patch" },
+			{
+				command:
+					"printf '%s\\n' '*** Begin Patch' '*** Add File: note.txt' '+hello' '*** End Patch' | x-patch",
+			},
+			{
+				command: `x-patch "*** Begin Patch
+*** Update File: README.md
+@@
+-old
++new
+*** End Patch"`,
+			},
 		],
 		run: () => commandError("", 0),
 	});
@@ -144,12 +135,10 @@ const PATCH_COMMAND_HELP = PATCH_COMMAND;
 export function createPatchCommand(_options: PatchCommandOptions = {}): Command {
 	return createCommand({
 		...PATCH_COMMAND,
-		run: ({ args: { content }, flags: { file, base } }, ctx) =>
+		run: ({ args: { content } }, ctx) =>
 			runPatchCommand(
 				{
-					content: Array.isArray(content) ? content[0] : content,
-					file: normalizeOptionalString(file),
-					base: normalizeOptionalString(base),
+					content,
 				},
 				ctx,
 			),
@@ -180,70 +169,63 @@ export function createPatchFeature(option: boolean | PatchOptions | undefined = 
 export type { PatchCommandOptions, PatchConfig, PatchOptions } from "@/features/patch/types";
 
 interface PatchCommandInput {
-	base?: string;
-	content?: string;
-	file?: string;
+	content?: string | string[];
 }
 
 async function runPatchCommand(input: PatchCommandInput, ctx: CommandContext): Promise<ExecResult> {
 	const stdin = decodeBytesToUtf8(ctx.stdin);
 	const stdinProvided = stdin.trim().length > 0;
-	const providedSources = [input.content, input.file, stdinProvided ? stdin : undefined].filter(
-		(value) => value !== undefined,
-	).length;
+	const content = normalizeContent(input.content);
+	const contentProvided = content !== undefined && content.trim().length > 0;
 
-	if (providedSources > 1) {
+	if (contentProvided && stdinProvided) {
 		return patchUsageError(
-			"x-patch: provide the patch via inline content, --file, or stdin, not multiple sources\n",
+			"x-patch: provide patch content either as arguments or stdin, not both.\n",
 		);
 	}
 
-	if (providedSources === 0) {
-		return patchUsageError("x-patch: missing inline content, --file, or stdin\n");
+	if (!contentProvided && !stdinProvided) {
+		return patchUsageError(
+			`x-patch: missing patch content. Use a heredoc, for example:
+x-patch <<EOF
+*** Begin Patch
+*** Add File: hello.txt
++hello
+*** End Patch
+EOF
+`,
+		);
 	}
 
-	const patchSource = await resolvePatchText(input, stdin, ctx);
-	if ("exitCode" in patchSource) {
-		return patchSource;
-	}
-
-	const parsedPatch = parsePatchResult(patchSource.patchText);
+	const patchText = contentProvided ? content : stdin;
+	const parsedPatch = parsePatchResult(patchText ?? "");
 	if ("exitCode" in parsedPatch) {
 		return parsedPatch;
 	}
 
 	try {
-		const basePath = resolveCliPath(input.base ?? getCommandCwd(ctx), ctx);
+		const basePath = resolveCliPath(getCommandCwd(ctx), ctx);
 		const operations = await applyPatchHunks(parsedPatch.hunks, ctx, basePath);
 		return {
-			stdout: operations.length > 0 ? `${operations.join("\n")}\n` : "",
+			stdout: `Success. Updated the following files:\n${operations.join("\n")}\n`,
 			stderr: "",
 			exitCode: 0,
 		};
 	} catch (error) {
-		return commandError(`${formatErrorMessage(error)}\n`, 1);
+		return commandError(`x-patch: ${formatErrorMessage(error)}\n`, 1);
 	}
 }
 
-async function resolvePatchText(
-	input: PatchCommandInput,
-	stdin: string,
-	ctx: CommandContext,
-): Promise<{ patchText: string } | ExecResult> {
-	if (input.content) {
-		return { patchText: input.content };
+function normalizeContent(content: string | string[] | undefined): string | undefined {
+	if (!content || content.length === 0) {
+		return undefined;
 	}
 
-	if (!input.file) {
-		return { patchText: stdin };
+	if (typeof content === "string") {
+		return content;
 	}
 
-	const sourcePath = resolveCliPath(input.file, ctx);
-	if (await ctx.fs.exists(sourcePath)) {
-		return { patchText: await ctx.fs.readFile(sourcePath) };
-	}
-
-	return commandError(`x-patch: patch file not found: ${input.file}\n`, 1);
+	return content.length === 1 ? content[0] : content.join("\n");
 }
 
 function parsePatchResult(patchText: string): { hunks: Hunk[] } | ExecResult {
@@ -261,32 +243,89 @@ async function applyPatchHunks(
 	ctx: CommandContext,
 	basePath: string,
 ): Promise<string[]> {
-	const operations: string[] = [];
+	const plans = await planPatchHunks(hunks, ctx, basePath);
+
+	for (const plan of plans) {
+		switch (plan.type) {
+			case "add":
+				await ctx.fs.mkdir(parentDirectory(plan.targetPath), { recursive: true });
+				await ctx.fs.writeFile(plan.targetPath, plan.content);
+				break;
+
+			case "delete":
+				await ctx.fs.rm(plan.targetPath, { force: false, recursive: false });
+				break;
+
+			case "update":
+				await ctx.fs.mkdir(parentDirectory(plan.destinationPath), { recursive: true });
+				await ctx.fs.writeFile(plan.destinationPath, plan.content);
+				if (plan.shouldRemoveSource) {
+					await ctx.fs.rm(plan.sourcePath, { force: false, recursive: false });
+				}
+				break;
+		}
+	}
+
+	return plans.map((plan) => plan.operation);
+}
+
+type PlannedPatchOperation =
+	| { content: string; operation: string; targetPath: string; type: "add" }
+	| { operation: string; targetPath: string; type: "delete" }
+	| {
+			content: string;
+			destinationPath: string;
+			operation: string;
+			shouldRemoveSource: boolean;
+			sourcePath: string;
+			type: "update";
+	  };
+
+async function planPatchHunks(
+	hunks: Hunk[],
+	ctx: CommandContext,
+	basePath: string,
+): Promise<PlannedPatchOperation[]> {
+	const plans: PlannedPatchOperation[] = [];
 
 	for (const hunk of hunks) {
 		switch (hunk.type) {
 			case "add": {
 				const targetPath = resolveCliPath(hunk.path, ctx, basePath);
-				await ctx.fs.mkdir(parentDirectory(targetPath), { recursive: true });
-				await ctx.fs.writeFile(targetPath, hunk.contents);
-				operations.push(`A ${formatOperationPath(targetPath, basePath)}`);
+				const content =
+					hunk.contents.length === 0 || hunk.contents.endsWith("\n")
+						? hunk.contents
+						: `${hunk.contents}\n`;
+				plans.push({
+					type: "add",
+					targetPath,
+					content,
+					operation: `A ${formatOperationPath(targetPath, basePath)}`,
+				});
 				break;
 			}
 
 			case "delete": {
 				const targetPath = resolveCliPath(hunk.path, ctx, basePath);
 				if (!(await ctx.fs.exists(targetPath))) {
-					throw new Error(`x-patch: cannot delete missing file: ${hunk.path}`);
+					throw new Error(`cannot delete missing file: ${hunk.path}`);
 				}
-				await ctx.fs.rm(targetPath, { force: false, recursive: true });
-				operations.push(`D ${formatOperationPath(targetPath, basePath)}`);
+				const stat = await ctx.fs.stat(targetPath);
+				if (stat.isDirectory) {
+					throw new Error(`cannot delete directory with x-patch: ${hunk.path}`);
+				}
+				plans.push({
+					type: "delete",
+					targetPath,
+					operation: `D ${formatOperationPath(targetPath, basePath)}`,
+				});
 				break;
 			}
 
 			case "update": {
 				const sourcePath = resolveCliPath(hunk.path, ctx, basePath);
 				if (!(await ctx.fs.exists(sourcePath))) {
-					throw new Error(`x-patch: cannot update missing file: ${hunk.path}`);
+					throw new Error(`cannot update missing file: ${hunk.path}`);
 				}
 
 				const originalContent = await ctx.fs.readFile(sourcePath);
@@ -294,37 +333,26 @@ async function applyPatchHunks(
 				const destinationPath = hunk.movePath
 					? resolveCliPath(hunk.movePath, ctx, basePath)
 					: sourcePath;
-				await ctx.fs.mkdir(parentDirectory(destinationPath), { recursive: true });
-				await ctx.fs.writeFile(destinationPath, next.bom ? `\uFEFF${next.content}` : next.content);
 
-				if (destinationPath !== sourcePath) {
-					await ctx.fs.rm(sourcePath, { force: false, recursive: true });
-					operations.push(
-						`M ${formatOperationPath(destinationPath, basePath)} (from ${formatOperationPath(sourcePath, basePath)})`,
-					);
-				} else {
-					operations.push(`M ${formatOperationPath(destinationPath, basePath)}`);
-				}
+				plans.push({
+					type: "update",
+					sourcePath,
+					destinationPath,
+					content: next.bom ? `\uFEFF${next.content}` : next.content,
+					shouldRemoveSource:
+						destinationPath !== sourcePath && resolveCliPath(destinationPath, ctx) !== sourcePath,
+					operation: `M ${formatOperationPath(destinationPath, basePath)}`,
+				});
 				break;
 			}
 		}
 	}
 
-	return operations;
+	return plans;
 }
 
 function patchUsageError(message: string): ExecResult {
 	return commandUsageError(PATCH_COMMAND_HELP, [PATCH_COMMAND.id], message);
-}
-
-function normalizeOptionalString(
-	value: string | string[] | boolean | undefined,
-): string | undefined {
-	if (Array.isArray(value)) {
-		return value[0];
-	}
-
-	return typeof value === "string" ? value : undefined;
 }
 
 function assertHasHunks(hunks: Hunk[], patchText: string): void {

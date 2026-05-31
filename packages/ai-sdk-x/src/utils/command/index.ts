@@ -118,6 +118,7 @@ export type StringFlagDefinition = SingleValueFlagDefinition | MultipleValueFlag
 export type CommandFlagDefinition = BooleanFlagDefinition | StringFlagDefinition;
 
 interface BaseCommandDefinition {
+	allowDashPositionals?: boolean;
 	aliases?: string[];
 	description?: string | string[];
 	examples?: Array<CommandExample | string>;
@@ -404,6 +405,11 @@ function parseCommandInput<
 			break;
 		}
 
+		if (definition.allowDashPositionals && shouldCaptureAsPositional(definition, positionals)) {
+			positionals.push(token);
+			continue;
+		}
+
 		if (token.startsWith("--no-")) {
 			const name = token.slice(5);
 			const flag = flagDefinitions[name];
@@ -566,6 +572,15 @@ function validateArgDefinitions(definitions: CommandArgDefinitions): string | un
 	}
 
 	return undefined;
+}
+
+function shouldCaptureAsPositional(
+	definition: { args?: CommandArgDefinitions },
+	positionals: string[],
+): boolean {
+	const args = definition.args ?? [];
+	const variadicIndex = args.findIndex((arg) => arg.multiple);
+	return variadicIndex >= 0 && positionals.length > variadicIndex;
 }
 
 function looksLikeFlagToken(value: string): boolean {
