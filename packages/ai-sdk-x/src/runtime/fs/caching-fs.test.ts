@@ -152,6 +152,63 @@ describe("CachingFs", () => {
 
 		expect(tracked.calls.readFile).toBeGreaterThanOrEqual(3);
 	});
+
+	it("falls back to stat-based dirents when the base fs has no readdirWithFileTypes", async () => {
+		const tracked = new TrackingFs({
+			"/repo/file.txt": "file",
+			"/repo/nested/child.txt": "child",
+		});
+		Object.defineProperty(tracked, "readdirWithFileTypes", { value: undefined });
+		const fs = new CachingFs({ fs: tracked, ttlMs: 1_000 });
+
+		expect(await fs.readdirWithFileTypes("/repo")).toEqual([
+			{
+				name: "file.txt",
+				isFile: true,
+				isDirectory: false,
+				isSymbolicLink: false,
+			},
+			{
+				name: "nested",
+				isFile: false,
+				isDirectory: true,
+				isSymbolicLink: false,
+			},
+		]);
+		expect(await fs.readdirWithFileTypes("/repo")).toHaveLength(2);
+		expect(tracked.calls.readdir).toBe(1);
+		expect(tracked.calls.lstat).toBe(2);
+	});
+
+	it("forwards metadata and link mutations while invalidating cached entries", async () => {
+		const tracked = new TrackingFs({
+			"/repo/file.txt": "value",
+		});
+		const fs = new CachingFs({ fs: tracked, ttlMs: 1_000 });
+		const mtime = new Date("2026-01-02T03:04:05.000Z");
+
+		expect(await fs.readFile("/repo/file.txt")).toBe("value");
+		await fs.appendFile("/repo/file.txt", "!");
+		expect(await fs.readFile("/repo/file.txt")).toBe("value!");
+
+		await fs.chmod("/repo/file.txt", 0o600);
+		expect((await fs.lstat("/repo/file.txt")).mode).toBe(0o600);
+
+		await fs.utimes("/repo/file.txt", mtime, mtime);
+		expect((await fs.stat("/repo/file.txt")).mtime.toISOString()).toBe(mtime.toISOString());
+
+		await fs.link("/repo/file.txt", "/repo/hard.txt");
+		await fs.symlink("/repo/file.txt", "/repo/link.txt");
+		expect(await fs.readlink("/repo/link.txt")).toBe("/repo/file.txt");
+		expect(await fs.realpath("/repo/link.txt")).toBe("/repo/file.txt");
+		expect(await fs.readFile("/repo/hard.txt")).toBe("value!");
+
+		expect(tracked.calls.appendFile).toBe(1);
+		expect(tracked.calls.chmod).toBe(1);
+		expect(tracked.calls.link).toBe(1);
+		expect(tracked.calls.symlink).toBe(1);
+		expect(tracked.calls.utimes).toBe(1);
+	});
 });
 
 class TrackingFs implements IFileSystem {

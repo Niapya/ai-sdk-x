@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { InMemoryFs } from "just-bash";
+import { InMemoryFs, latin1FromBytes } from "just-bash";
 import { TransactionalFs } from "@/runtime/fs/transactional-fs";
 
 describe("TransactionalFs", () => {
@@ -118,5 +118,51 @@ describe("TransactionalFs", () => {
 		await fs.commit();
 		expect(await base.readFile("/repo/new.txt")).toBe("new");
 		expect(await base.exists("/repo/old.txt")).toBe(false);
+	});
+
+	it("reads overlay content as bytes and requested encodings", async () => {
+		const base = new InMemoryFs();
+		const fs = new TransactionalFs({ fs: base });
+
+		await fs.writeFile("/repo/data.bin", new Uint8Array([0xde, 0xad, 0xbe, 0xef]));
+
+		expect(await fs.readFile("/repo/data.bin", "hex")).toBe("deadbeef");
+		expect(await fs.readFile("/repo/data.bin", "base64")).toBe("3q2+7w==");
+		expect(latin1FromBytes(await fs.readFileBytes("/repo/data.bin"))).toBe("\xDE\xAD\xBE\xEF");
+	});
+
+	it("stages symlinks, hard links, chmod, utimes, lstat, readlink, and realpath", async () => {
+		const base = new InMemoryFs({
+			"/repo/file.txt": "value",
+		});
+		const fs = new TransactionalFs({ fs: base });
+		const mtime = new Date("2026-04-05T06:07:08.000Z");
+
+		await fs.symlink("/repo/file.txt", "/repo/link.txt");
+		await fs.link("/repo/file.txt", "/repo/hard.txt");
+		await fs.chmod("/repo/file.txt", 0o600);
+		await fs.utimes("/repo/file.txt", mtime, mtime);
+
+		expect((await fs.lstat("/repo/link.txt")).isSymbolicLink).toBe(true);
+		expect(await fs.readlink("/repo/link.txt")).toBe("/repo/file.txt");
+		expect(await fs.realpath("/repo/link.txt")).toBe("/repo/link.txt");
+		expect(await fs.readFile("/repo/hard.txt")).toBe("value");
+		expect((await fs.stat("/repo/file.txt")).mode).toBe(0o600);
+		expect((await fs.stat("/repo/file.txt")).mtime.toISOString()).toBe(mtime.toISOString());
+
+		await fs.commit();
+		expect(await base.readlink("/repo/link.txt")).toBe("/repo/file.txt");
+		expect(await base.readFile("/repo/hard.txt")).toBe("value");
+	});
+
+	it("rejects directory reads, non-recursive directory copies, and hard links to directories", async () => {
+		const base = new InMemoryFs({
+			"/repo/dir/file.txt": "value",
+		});
+		const fs = new TransactionalFs({ fs: base });
+
+		await expect(fs.readFile("/repo/dir")).rejects.toThrow("EISDIR");
+		await expect(fs.cp("/repo/dir", "/repo/copy")).rejects.toThrow("ERR_FS_CP_EISDIR");
+		await expect(fs.link("/repo/dir", "/repo/dir-link")).rejects.toThrow("EISDIR");
 	});
 });

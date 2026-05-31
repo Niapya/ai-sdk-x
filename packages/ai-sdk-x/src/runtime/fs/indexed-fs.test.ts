@@ -7,7 +7,7 @@ import type {
 	MkdirOptions,
 	RmOptions,
 } from "just-bash";
-import { InMemoryFs } from "just-bash";
+import { InMemoryFs, latin1FromBytes } from "just-bash";
 import { IndexedFs } from "@/runtime/fs/indexed-fs";
 
 describe("IndexedFs", () => {
@@ -89,6 +89,53 @@ describe("IndexedFs", () => {
 				isSymbolicLink: false,
 			},
 		]);
+	});
+
+	it("falls back to readFileBuffer for readFileBytes when the base fs lacks readFileBytes", async () => {
+		const tracked = new IndexedTrackingFs();
+		Object.defineProperty(tracked, "readFileBytes", { value: undefined });
+		const fs = new IndexedFs({ fs: tracked });
+
+		await fs.writeFile("/repo/data.bin", new Uint8Array([1, 2, 3]));
+		tracked.reset();
+
+		expect(latin1FromBytes(await fs.readFileBytes("/repo/data.bin"))).toBe("\x01\x02\x03");
+		expect(tracked.calls.readFileBytes).toBe(0);
+		expect(tracked.calls.readFileBuffer).toBe(1);
+	});
+
+	it("indexes symlinks, hard links, chmod, utimes, lstat, readlink, and realpath", async () => {
+		const tracked = new IndexedTrackingFs();
+		const fs = new IndexedFs({
+			fs: tracked,
+			now: () => new Date("2026-01-01T00:00:00.000Z"),
+		});
+		const mtime = new Date("2026-02-03T04:05:06.000Z");
+
+		await fs.writeFile("/repo/file.txt", "value");
+		await fs.symlink("/repo/file.txt", "/repo/link.txt");
+		await fs.link("/repo/file.txt", "/repo/hard.txt");
+
+		expect((await fs.lstat("/repo/link.txt")).isSymbolicLink).toBe(true);
+		expect(await fs.readlink("/repo/link.txt")).toBe("/repo/file.txt");
+		expect(await fs.realpath("/repo/link.txt")).toBe("/repo/file.txt");
+		expect(await fs.readFile("/repo/hard.txt")).toBe("value");
+
+		await fs.chmod("/repo/file.txt", 0o600);
+		await fs.utimes("/repo/file.txt", mtime, mtime);
+		const stat = await fs.stat("/repo/file.txt");
+		expect(stat.mode).toBe(0o600);
+		expect(stat.mtime.toISOString()).toBe(mtime.toISOString());
+	});
+
+	it("rejects non-recursive directory removal when indexed children exist", async () => {
+		const tracked = new IndexedTrackingFs();
+		const fs = new IndexedFs({ fs: tracked });
+
+		await fs.writeFile("/repo/file.txt", "value");
+
+		await expect(fs.rm("/repo")).rejects.toThrow("ENOTEMPTY");
+		expect(await fs.readFile("/repo/file.txt")).toBe("value");
 	});
 });
 

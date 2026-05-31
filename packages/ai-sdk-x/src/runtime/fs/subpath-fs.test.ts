@@ -94,4 +94,39 @@ describe("SubpathFs", () => {
 		await expect(fs.writeFile("/../../secret.txt", "x")).rejects.toThrow("EACCES");
 		expect(await fs.readFile("/secret.txt")).toBe("not reachable by ../secret.txt");
 	});
+
+	it("maps metadata, hard links, buffers, and timestamps through the mounted root", async () => {
+		const base = new InMemoryFs({
+			"/workspace/project/file.txt": "abc",
+		});
+		const fs = createSubpathFs(base, "/workspace/project");
+		const mtime = new Date("2026-03-04T05:06:07.000Z");
+
+		expect(Array.from(await fs.readFileBuffer("/file.txt"))).toEqual([97, 98, 99]);
+		expect((await fs.stat("/file.txt")).size).toBe(3);
+		expect(await fs.readdir("/")).toEqual(["file.txt"]);
+
+		await fs.chmod("/file.txt", 0o600);
+		expect((await fs.lstat("/file.txt")).mode).toBe(0o600);
+
+		await fs.utimes("/file.txt", mtime, mtime);
+		expect((await base.stat("/workspace/project/file.txt")).mtime.toISOString()).toBe(
+			mtime.toISOString(),
+		);
+
+		await fs.link("/file.txt", "/copy.txt");
+		expect(await fs.readFile("/copy.txt")).toBe("abc");
+		expect(await base.readFile("/workspace/project/copy.txt")).toBe("abc");
+	});
+
+	it("acts as a transparent view when mounted at filesystem root", async () => {
+		const base = new InMemoryFs({
+			"/file.txt": "root",
+		});
+		const fs = createSubpathFs(base, "/");
+
+		expect(fs.getAllPaths()).toContain("/file.txt");
+		await fs.writeFile("/nested/file.txt", "nested");
+		expect(await base.readFile("/nested/file.txt")).toBe("nested");
+	});
 });
