@@ -1,7 +1,6 @@
 import type { CommandContext, ExecResult } from "just-bash";
 import { deriveSkillRepoSlug } from "@/features/skills/utils/parser";
 import { commandError } from "@/utils/command";
-import { quoteForShell } from "@/utils/shell";
 
 const SKILLS_TEMP_ROOT = "/tmp/skills";
 
@@ -16,10 +15,7 @@ export async function cloneSkillRepository(
 
 	return {
 		clonePath,
-		result: await execGit(
-			ctx,
-			`clone --depth=1 ${quoteForShell(repoUrl)} ${quoteForShell(clonePath)}`,
-		),
+		result: await execGit(ctx, `clone --depth=1 ${repoUrl} ${clonePath}`),
 	};
 }
 

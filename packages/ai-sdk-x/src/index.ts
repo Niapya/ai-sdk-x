@@ -268,7 +268,9 @@ export class X {
 					const description = await feature.description?.(featureContext);
 					if (!description) return "";
 
-					return `<feature>\n<title>${feature.name}</title>\n<description>${description}</description>\n</feature>`;
+					return [`<feature:${feature.name}>`, description, `</feature:${feature.name}>`].join(
+						"\n",
+					);
 				}),
 			)
 		).join("\n\n");
@@ -278,15 +280,11 @@ export class X {
 			"<environment>",
 			"Bash tool is a virtual bash shell for running Unix-style commands and scripts inside a sandboxed environment.",
 			`initial cwd: ${featureContext.bash.getCwd()}`,
-			`network: ${networkEnabled ? "on" : "off"}`,
-			`javascript: ${javascriptEnabled ? "on" : "off"}`,
-			`python: ${pythonEnabled ? "on" : "off"}`,
 			"</environment>",
 
 			"<usage>",
 			"This description applies to the Bash tool.",
-			"The feature entries below describe shell commands and mounted paths available inside Bash. They are not separate tools or function calls.",
-			"The displayed initial cwd is where the shell starts. Actual command execution uses the persisted session cwd unless a tool call provides `cwd` explicitly.",
+			"The feature entries below describe shell commands and mounted paths available inside Bash. They are NOT separate tools or function calls.",
 			"Put shell syntax in the Bash tool's `command` argument. Use `cwd` instead of `cd` when changing directories for a command.",
 			"Use `stdin` only for raw input to commands that read stdin; do not put shell code in `stdin`.",
 			"If unsure, run `help`, `<command> --help`, or `<command> <subcommand> --help`.",
@@ -302,7 +300,7 @@ export class X {
 				? [
 						"<network>",
 						"Network is on. Use `curl` to fetch URLs, and pipe HTML through `html-to-markdown` when Markdown is easier to inspect.",
-						"Example: `curl https://github.blog | html-to-markdown`.",
+						"Example: `curl https://react.dev/reference | html-to-markdown`.",
 						"</network>",
 					].join("\n")
 				: "",
@@ -310,7 +308,7 @@ export class X {
 			javascriptEnabled
 				? [
 						"<javascript>",
-						"You may use `js-exec` for JavaScript or TypeScript processing.",
+						"You may use `js-exec` (Supported By WASM) INSTEAD of `node` for JavaScript or TypeScript processing.",
 						"When importing local code, prefer `.mjs` or `.mts` modules. Imports may reference enabled mounts such as workspace or skills.",
 						"</javascript>",
 					].join("\n")
@@ -319,12 +317,14 @@ export class X {
 			pythonEnabled
 				? [
 						"<python>",
-						"You may use `python3` or `python` for Python scripts and data processing when that is the most direct tool.",
+						"You may use `python3` or `python` (Supported By WASM) for Python scripts and data processing when that is the most direct tool.",
 						"</python>",
 					].join("\n")
 				: "",
 
-			`<features>${featureDescriptions}</features>`,
+			`<features>`,
+			featureDescriptions,
+			`</features>`,
 
 			options.description ?? "",
 			"</bash_tool>",

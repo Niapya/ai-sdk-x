@@ -4,8 +4,9 @@ import { dirname, resolve } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { type ModelMessage, stepCountIs, ToolLoopAgent } from "ai";
+import { type ModelMessage, stepCountIs, ToolLoopAgent, wrapLanguageModel } from "ai";
 import { X } from "ai-sdk-x";
 import { ReadWriteFs } from "just-bash";
 
@@ -43,9 +44,14 @@ const openrouter = createOpenRouter({
 	apiKey: process.env.OPENROUTER_API_KEY,
 });
 
+const model = wrapLanguageModel({
+	model: openrouter("xiaomi/mimo-v2.5"),
+	middleware: [devToolsMiddleware()],
+});
+
 const tools = await bash.getTools();
 const agent = new ToolLoopAgent({
-	model: openrouter("deepseek/deepseek-v4-flash"),
+	model,
 	tools,
 	stopWhen: stepCountIs(20),
 	prepareStep: ({ stepNumber }) => {

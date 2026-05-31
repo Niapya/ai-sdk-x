@@ -4,6 +4,7 @@
 	"type": "module",
 	"private": true,
 	"dependencies": {
+		"@ai-sdk/devtools": "^0.0.18",
 		"@openrouter/ai-sdk-provider": "^2.9.0",
 		"ai": "^6.0.191",
 		"ai-sdk-x": "workspace:*",

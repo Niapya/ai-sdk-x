@@ -49,14 +49,15 @@ export async function createSkillsFeatureDescription(
 			: "<available_skills>none</available_skills>";
 
 	return [
-		`Mounted skills directory: ${mountPoint}.`,
-		"Skills are managed agent capability packages with metadata and a SKILL.md/SKILLS.md entrypoint.",
+		`Mounted skills directory($SKILLS_HOME): ${mountPoint}.`,
+		"Skills are managed agent capability packages with metadata and a SKILL.md entrypoint.",
 		"`x-skills` commands are Bash commands. Use `x-skills find` for installed/local skills and `x-skills search` for internet skill discovery.",
 		"Run `x-skills --help` or `x-skills <subcommand> --help` when unsure.",
 		"Install external skills from Git repositories with `x-skills install`. Add local skills with `x-skills add --stdin`, `x-skills add --file <path>`, or `x-skills import <directory>`.",
 		"Do not write directly into `$SKILLS_HOME` to add skills because the lockfile and metadata would be unmanaged.",
 		"Local skills must use the same shape as downloaded skills and include frontmatter metadata with at least name and description.",
 		"`x-skills list` and `x-skills find` expose skill paths; inspect those paths when a skill is relevant.",
+
 		installedText,
 	].join("\n");
 }

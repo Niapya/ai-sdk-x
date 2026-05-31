@@ -15,12 +15,13 @@ export const DEFAULT_MEMORY_MOUNT = "/home/user/memory";
 
 export function createMemoryFeatureDescription(mountPoint: string): string {
 	return [
-		`Persistent memory mount: ${mountPoint}.`,
+		`Persistent memory mount($MEMORY_HOME): ${mountPoint}.`,
 		"Memory stores durable context for future agent runs.",
 		"Check these core files when relevant: `$MEMORY_HOME/AGENT.md` for agent-side notes, `$MEMORY_HOME/USER.md` for user-side notes, and `$MEMORY_HOME/MEMORY.md` for shared context.",
 		"Daily entries live under `daily/YYYY-MM-DD/title.md` and are indexed in `memory.json`.",
 		"`x-memory` commands are Bash commands. Use `x-memory list` and `x-memory find` to discover memory paths.",
-		"`x-memory add`, `x-memory update`, and `x-memory delete` update memory.json. Do not add, update, or delete memory entries directly with shell file writes because the lockfile would not be maintained.",
+		"`x-memory add`, `x-memory update`, and `x-memory delete` update memory.json.",
+		"DO NOT add, update, or delete memory entries directly with shell file writes because the lockfile would not be maintained.",
 		"`x-memory find` searches daily metadata only: name/title, category, description, and keywords. Avoid grep over the full memory tree unless explicitly needed.",
 		"Run `x-memory --help` or `x-memory <subcommand> --help` when unsure.",
 	].join("\n");

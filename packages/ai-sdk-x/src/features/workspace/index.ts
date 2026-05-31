@@ -1,15 +1,28 @@
 import type { WorkspaceConfig, WorkspaceOptions } from "@/features/workspace/types";
-import { AsyncOnce } from "@/runtime/async-once";
 import { createSubpathFs } from "@/runtime/fs/subpath-fs";
-import type { ExecHookStartContext, Feature } from "@/types";
+import type { Feature, FeatureSetupContext } from "@/types";
 
 export const DEFAULT_WORKSPACE_MOUNT = "/home/user/workspace";
+const WORKSPACE_TREE_MAX_DEPTH = 5;
 
-export function createWorkspaceFeatureDescription(mountPoint: string): string {
+export async function createWorkspaceFeatureDescription(
+	ctx: FeatureSetupContext,
+	mountPoint: string,
+): Promise<string> {
+	const workspaceTree = await describeWorkspaceTree(ctx, mountPoint);
 	return [
-		`Persistent workspace mount: ${mountPoint}.`,
 		"IMPORTANT: ALL DURABLE WORK FILES AND DELIVERABLES MUST BE STORED UNDER `$WORKSPACE_HOME`.",
 		"Inspect, create, modify, move, and delete user-facing work files inside `$WORKSPACE_HOME`; do not place deliverables elsewhere.",
+
+		`Persistent workspace mount: .`,
+		"I am working in a workspace with the following folders:",
+		`- ${mountPoint}`,
+		"I am working in a workspace that has the following structure:",
+
+		"```text",
+		workspaceTree,
+		"```",
+
 		"Use temporary locations only for scratch data that should not be delivered.",
 		"Inspect large files with targeted commands such as `rg`, `grep -n`, `sed -n`, `nl -ba`, `wc -l`, `head`, and `tail`.",
 	].join("\n");
@@ -31,7 +44,7 @@ export function createWorkspaceFeature(
 		};
 	}
 
-	const initialize = new AsyncOnce<[ExecHookStartContext]>(async (context) => {
+	const initialize = async (context: FeatureSetupContext) => {
 		if (config.fs) {
 			context.fs.mount(config.mountPoint, config.fs);
 		} else {
@@ -43,15 +56,31 @@ export function createWorkspaceFeature(
 		}
 
 		context.setEnv("WORKSPACE_HOME", config.mountPoint);
-	});
+	};
 
 	return {
 		name: "workspace",
-		description: () => createWorkspaceFeatureDescription(config.mountPoint),
+		description: async (ctx) => {
+			await initialize(ctx);
+			return createWorkspaceFeatureDescription(ctx, config.mountPoint);
+		},
 		hooks: {
-			onExecStart: (context) => initialize.run(context),
+			onExecStart: initialize,
 		},
 	};
+}
+
+async function describeWorkspaceTree(
+	ctx: FeatureSetupContext,
+	mountPoint: string,
+): Promise<string> {
+	const result = await ctx.bash.exec(`tree -L ${WORKSPACE_TREE_MAX_DEPTH} $WORKSPACE_HOME`);
+	const output = result.stdout.trimEnd();
+	if (result.exitCode === 0 && output) {
+		return output;
+	}
+
+	return `${mountPoint}\n\`-- (empty or tree command not available)`;
 }
 
 export type { WorkspaceConfig, WorkspaceOptions } from "@/features/workspace/types";
