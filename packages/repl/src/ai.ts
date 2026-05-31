@@ -45,7 +45,7 @@ const openrouter = createOpenRouter({
 });
 
 const model = wrapLanguageModel({
-	model: openrouter("xiaomi/mimo-v2.5"),
+	model: openrouter("nvidia/nemotron-3-super-120b-a12b:free"),
 	middleware: [devToolsMiddleware()],
 });
 

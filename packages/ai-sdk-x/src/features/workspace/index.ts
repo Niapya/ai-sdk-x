@@ -74,7 +74,7 @@ async function describeWorkspaceTree(
 	ctx: FeatureSetupContext,
 	mountPoint: string,
 ): Promise<string> {
-	const result = await ctx.bash.exec(`tree -L ${WORKSPACE_TREE_MAX_DEPTH} $WORKSPACE_HOME`);
+	const result = await ctx.bash.exec(`tree -L ${WORKSPACE_TREE_MAX_DEPTH} ${mountPoint}`);
 	const output = result.stdout.trimEnd();
 	if (result.exitCode === 0 && output) {
 		return output;
