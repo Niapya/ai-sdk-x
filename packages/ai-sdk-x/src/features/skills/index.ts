@@ -39,7 +39,7 @@ export async function createSkillsFeatureDescription(
 				"<skill>",
 				`<title>${skillName}</title>`,
 				`<description>${truncateSkillDescription(entry.description)}</description>`,
-				`<path>${entry.skillPath}</path>`,
+				`<file>${entry.skillPath}</file>`,
 				"</skill>",
 			].join("\n"),
 		);
@@ -50,13 +50,18 @@ export async function createSkillsFeatureDescription(
 
 	return [
 		`Mounted skills directory($SKILLS_HOME): ${mountPoint}.`,
-		"Skills are managed agent capability packages with metadata and a SKILL.md entrypoint.",
-		"`x-skills` commands are Bash commands. Use `x-skills find` for installed/local skills and `x-skills search` for internet skill discovery.",
-		"Run `x-skills --help` or `x-skills <subcommand> --help` when unsure.",
-		"Install external skills from Git repositories with `x-skills install`. Add local skills with `x-skills add --stdin`, `x-skills add --file <path>`, or `x-skills import <directory>`.",
+		"Skills provide specialized capabilities, domain knowledge, and refined workflows for producing high-quality outputs. Each skill folder contains tested instructions for specific domains like testing strategies, API design, or performance optimization. Multiple skills can be combined when a task spans different domains.",
+		"When a skill applies to the user's request, you MUST load and read the SKILL.md file IMMEDIATELY as your first action, BEFORE generating any other response or taking action on the task.",
+		"NEVER just mention or reference a skill in your response without actually loading it first. If a skill is relevant, load it before proceeding.",
+
+		"How to determine if a skill applies:",
+		"1. Review the available skills below and match their descriptions against the user's request",
+		"2. If any skill's domain overlaps with the task, load that skill immediately",
+		"3. When multiple skills apply (e.g., a flowchart in documentation), load all relevant skills",
+
+		"`x-skills` commands are Bash commands.",
+		"Use `x-skills find` for installed/local skills and `x-skills search` for internet skill discovery. Install external skills from Git repositories with `x-skills install`. Add local skills with `x-skills add --stdin`, `x-skills add --file <path>`, or `x-skills import <directory>`. `x-skills list` and `x-skills find` expose skill paths; inspect those files when a skill is relevant.",
 		"Do not write directly into `$SKILLS_HOME` to add skills because the lockfile and metadata would be unmanaged.",
-		"Local skills must use the same shape as downloaded skills and include frontmatter metadata with at least name and description.",
-		"`x-skills list` and `x-skills find` expose skill paths; inspect those paths when a skill is relevant.",
 
 		installedText,
 	].join("\n");

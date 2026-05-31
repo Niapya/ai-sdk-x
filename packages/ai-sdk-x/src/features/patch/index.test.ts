@@ -19,10 +19,11 @@ describe("createPatchFeature", () => {
 		expect(description).toContain("IMPORTANT: YOU MUST USE x-patch");
 		expect(description).toContain("x-patch [content...]");
 		expect(description).toContain("x-patch <<EOF");
-		expect(description).toContain("printf '%s\\n'");
 		expect(description).toContain("*** Add File:");
 		expect(description).toContain("*** Update File:");
 		expect(description).toContain("*** Delete File:");
+		expect(description).toContain("*** Move to:");
+		expect(description).toContain("four headers/directives");
 	});
 });
 

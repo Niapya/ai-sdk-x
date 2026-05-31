@@ -14,10 +14,8 @@ export async function createWorkspaceFeatureDescription(
 		"IMPORTANT: ALL DURABLE WORK FILES AND DELIVERABLES MUST BE STORED UNDER `$WORKSPACE_HOME`.",
 		"Inspect, create, modify, move, and delete user-facing work files inside `$WORKSPACE_HOME`; do not place deliverables elsewhere.",
 
-		`Persistent workspace mount: .`,
 		"I am working in a workspace with the following folders:",
-		`- ${mountPoint}`,
-		"I am working in a workspace that has the following structure:",
+		`- The $WORKSPACE_HOME is ${mountPoint}, which has the following structure:`,
 
 		"```text",
 		workspaceTree,

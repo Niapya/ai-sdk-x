@@ -48,8 +48,6 @@ x-patch <<EOF
 *** End Patch
 EOF
 
-printf '%s\\n' '*** Begin Patch' '*** Add File: note.txt' '+hello' '*** End Patch' | x-patch
-
 x-patch "*** Begin Patch
 *** Update File: README.md
 @@
@@ -64,19 +62,20 @@ Each patch has a high-level envelope:
 [ one or more file sections ]
 *** End Patch
 
-Within that envelope, each operation starts with one of three headers:
+Within that envelope, the parser recognizes four headers/directives:
 
 *** Add File: <path> - create a new file. Every following line is a + line.
 *** Delete File: <path> - remove an existing file. Nothing follows.
-*** Update File: <path> - patch an existing file in place, optionally followed by *** Move to: <new path>.
+*** Update File: <path> - patch an existing file in place.
+*** Move to: <new path> - rename the preceding Update File target while applying that update.
 
 Update hunks usually start with @@, optionally followed by plain text context such as a class or function name.
 The parser accepts light indentation around markers and hunks, but marker names and file operation headers should remain recognizable.
 
 Within a hunk, each line starts with one of:
-  space: context line kept unchanged
-  -: old line to remove
-  +: new line to add
+space: context line kept unchanged
+-: old line to remove
++: new line to add
 
 It is important to remember:
 
@@ -113,10 +112,6 @@ export const PATCH_COMMAND: CliCommandDefinition<typeof PATCH_ARGS, typeof PATCH
 +hello
 *** End Patch
 EOF`,
-			},
-			{
-				command:
-					"printf '%s\\n' '*** Begin Patch' '*** Add File: note.txt' '+hello' '*** End Patch' | x-patch",
 			},
 			{
 				command: `x-patch "*** Begin Patch
