@@ -45,7 +45,7 @@ const openrouter = createOpenRouter({
 });
 
 const model = wrapLanguageModel({
-	model: openrouter("nvidia/nemotron-3-super-120b-a12b:free"),
+	model: openrouter("stepfun/step-3.7-flash"),
 	middleware: [devToolsMiddleware()],
 });
 

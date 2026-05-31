@@ -33,7 +33,9 @@ describe("x-memory find", () => {
 		);
 		expect(result.stdout).toContain("Name: [[design]]-note");
 		expect(result.stdout).toContain("Description: Useful [[design]] summary");
-		expect(result.stdout).toContain("File Path: $MEMORY_HOME/daily/2026-05-30/design-note.md");
+		expect(result.stdout).toMatch(
+			/File Path: \$MEMORY_HOME\/daily\/\d{4}-\d{2}-\d{2}\/design-note\.md/,
+		);
 		expect(result.stdout).not.toContain("code-note");
 
 		expect(bodyOnlyResult.stdout).toContain("total 0");

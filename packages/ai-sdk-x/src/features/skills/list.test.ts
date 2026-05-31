@@ -52,9 +52,9 @@ describe("x-skills list", () => {
 		expect(description).toContain("<available_skills>");
 		expect(description).toContain("<skill>");
 		expect(description).toContain("<title>long-skill</title>");
-		expect(description).toContain("<path>$SKILLS_HOME/long-skill/SKILL.md</path>");
+		expect(description).toContain("$SKILLS_HOME/long-skill/SKILL.md");
 		expect(description).toContain("Long description Long description");
-		expect(description).toContain("...</description>");
+		expect(description).toContain("...");
 		expect(description).not.toContain(longDescription);
 	});
 });

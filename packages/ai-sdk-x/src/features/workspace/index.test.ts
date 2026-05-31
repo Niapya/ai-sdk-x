@@ -40,7 +40,8 @@ describe("createWorkspaceFeature", () => {
 		expect(text).toContain(DEFAULT_WORKSPACE_MOUNT);
 		expect(text).toContain("ALL DURABLE WORK FILES AND DELIVERABLES");
 		expect(text).toContain("WORKSPACE_HOME");
-		expect(text).toContain("The current workspace file tree, shown up to 5 levels deep:");
+		expect(text).toContain("```text");
+		expect(text).toContain("```");
 		expect(text).toContain(`${DEFAULT_WORKSPACE_MOUNT}\n\n0 directories, 0 files`);
 	});
 

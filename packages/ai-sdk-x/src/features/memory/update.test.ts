@@ -14,10 +14,17 @@ describe("x-memory update", () => {
 		);
 
 		expect(result.exitCode).toBe(0);
+		const dailyPath = result.stdout.match(
+			/at (\$MEMORY_HOME\/daily\/\d{4}-\d{2}-\d{2}\/release-note\.md) Successfully!/,
+		)?.[1];
+		expect(dailyPath).toBeDefined();
+		if (!dailyPath) {
+			throw new Error(`missing daily path in output: ${result.stdout}`);
+		}
 		expect(result.stdout).toBe(
-			"Update memory release-note in category daily at $MEMORY_HOME/daily/2026-05-30/release-note.md Successfully!\n",
+			`Update memory release-note in category daily at ${dailyPath} Successfully!\n`,
 		);
-		expect(await x.fs.readFile("/home/user/memory/daily/2026-05-30/release-note.md")).toBe(
+		expect(await x.fs.readFile(dailyPath.replace("$MEMORY_HOME", "/home/user/memory"))).toBe(
 			"New body",
 		);
 		const index = JSON.parse(await x.fs.readFile("/home/user/memory/memory.json"));

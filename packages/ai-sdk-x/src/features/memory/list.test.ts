@@ -20,7 +20,7 @@ describe("x-memory list", () => {
 		expect(result.stdout).toContain("- alpha");
 		expect(result.stdout).toContain("Description: Alpha summary");
 		expect(result.stdout).toContain("Keywords: alpha");
-		expect(result.stdout).toContain("File Path: $MEMORY_HOME/daily/2026-05-30/alpha.md");
+		expect(result.stdout).toMatch(/File Path: \$MEMORY_HOME\/daily\/\d{4}-\d{2}-\d{2}\/alpha\.md/);
 	});
 
 	it("rejects non-daily categories", async () => {

@@ -15,10 +15,17 @@ describe("x-memory add", () => {
 		);
 
 		expect(result.exitCode).toBe(0);
+		const dailyPath = result.stdout.match(
+			/at (\$MEMORY_HOME\/daily\/\d{4}-\d{2}-\d{2}\/launch-note\.md) Successfully!/,
+		)?.[1];
+		expect(dailyPath).toBeDefined();
+		if (!dailyPath) {
+			throw new Error(`missing daily path in output: ${result.stdout}`);
+		}
 		expect(result.stdout).toBe(
-			"Add memory launch-note to category daily at $MEMORY_HOME/daily/2026-05-30/launch-note.md Successfully!\n",
+			`Add memory launch-note to category daily at ${dailyPath} Successfully!\n`,
 		);
-		expect(await x.fs.readFile("/memory/daily/2026-05-30/launch-note.md")).toBe("Launch body");
+		expect(await x.fs.readFile(dailyPath.replace("$MEMORY_HOME", "/memory"))).toBe("Launch body");
 		const index = JSON.parse(await x.fs.readFile("/memory/memory.json"));
 		expect(index.categories.daily["launch-note"].description).toBe("Launch summary");
 		expect(index.categories.daily["launch-note"].keywords).toEqual(["launch"]);
