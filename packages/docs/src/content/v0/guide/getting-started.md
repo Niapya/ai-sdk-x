@@ -20,10 +20,10 @@ npm add @ai-sdk-x/execute @ai-sdk-x/memo @ai-sdk-x/memory @ai-sdk-x/skill
 
 | Package | Description |
 | --- | --- |
-| [`@ai-sdk-x/execute`](#/v0/packages/execute) | Execute code across different serverless environments |
-| [`@ai-sdk-x/memo`](#/v0/packages/memo) | Cache tool execution results to improve performance |
-| [`@ai-sdk-x/memory`](#/v0/packages/memory) | Add scoped persistent memory to agents |
-| [`@ai-sdk-x/skill`](#/v0/packages/skill) | Load and manage agent skills from Git repos |
+| [`@ai-sdk-x/execute`](/v0/packages/execute) | Execute code across different serverless environments |
+| [`@ai-sdk-x/memo`](/v0/packages/memo) | Cache tool execution results to improve performance |
+| [`@ai-sdk-x/memory`](/v0/packages/memory) | Add scoped persistent memory to agents |
+| [`@ai-sdk-x/skill`](/v0/packages/skill) | Load and manage agent skills from Git repos |
 
 ## Peer Dependencies
 

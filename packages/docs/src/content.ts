@@ -5,7 +5,6 @@ import v0PackagesMemo from "@/content/v0/packages/memo.md";
 import v0PackagesMemory from "@/content/v0/packages/memory.md";
 import v0PackagesSkill from "@/content/v0/packages/skill.md";
 
-import v1GuideGettingStarted from "@/content/v1/guide/getting-started.md";
 import v1Index from "@/content/v1/index.md";
 
 const pages: Record<string, string> = {
@@ -16,7 +15,6 @@ const pages: Record<string, string> = {
 	"/v0/packages/memory": v0PackagesMemory,
 	"/v0/packages/skill": v0PackagesSkill,
 	"/v1/": v1Index,
-	"/v1/guide/getting-started": v1GuideGettingStarted,
 };
 
 export function getContent(path: string): string | null {
