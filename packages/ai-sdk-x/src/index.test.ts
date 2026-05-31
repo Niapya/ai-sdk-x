@@ -340,11 +340,22 @@ describe("X getTools integration", () => {
 		expect(tools.bash).toBeDefined();
 	});
 
-	it("getTools description includes custom description option", async () => {
+	it("getTools description includes external description option", async () => {
 		const x = new X();
-		const tools = await x.getTools({ description: "read-only sandbox" });
+		const tools = await x.getTools({ externalDescription: "read-only sandbox" });
 		const description = tools.bash.description as string;
 		expect(description).toContain("read-only sandbox");
+	});
+
+	it("getTools can omit the full generated description for system prompt usage", async () => {
+		const x = X.init();
+		const tools = await x.getTools({ enableDescription: false });
+		const description = tools.bash.description as string;
+		expect(description).toBeString();
+		expect(description.length).toBeGreaterThan(0);
+		expect(description).not.toContain("<bash_tool>");
+		expect(description).not.toContain("<features>");
+		expect(description).not.toContain("<feature:workspace>");
 	});
 
 	it("getTools description does not list standalone registered commands", async () => {
@@ -382,7 +393,7 @@ describe("X getTools integration", () => {
 
 	it("includes network, JavaScript, Python, feature metadata XML, and custom options when enabled", async () => {
 		const x = X.init({ workspace: { mountPoint: "/project" } });
-		const description = await x.createToolDescription({ description: "Extra policy." });
+		const description = await x.createToolDescription({ externalDescription: "Extra policy." });
 		expect(description).toContain("<network>");
 		expect(description).toContain("</network>");
 		expect(description).toContain("<javascript>");

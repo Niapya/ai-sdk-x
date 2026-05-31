@@ -247,7 +247,10 @@ export class X {
 	async getTools(
 		options: GetToolsOptions = {},
 	): Promise<{ bash: Awaited<ReturnType<typeof createBashTool>> }> {
-		const description = await this.createToolDescription(options);
+		const description =
+			options.enableDescription === false
+				? "The bash tool in a virtual bash."
+				: await this.createToolDescription(options);
 
 		const bash = await createBashTool(this.exec.bind(this), description, options);
 
@@ -326,7 +329,7 @@ export class X {
 			featureDescriptions,
 			`</features>`,
 
-			options.description ?? "",
+			options.externalDescription ?? "",
 			"</bash_tool>",
 		]
 			.filter(Boolean)

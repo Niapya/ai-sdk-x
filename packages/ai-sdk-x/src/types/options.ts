@@ -14,7 +14,16 @@ export type { SkillsConfig, SkillsOptions } from "@/features/skills/types";
 export type { WorkspaceConfig, WorkspaceOptions } from "@/features/workspace/types";
 
 export interface GetToolsOptions {
-	description?: string;
+	/**
+	 * Additional instructions appended to the generated Bash tool description.
+	 */
+	externalDescription?: string;
+	/**
+	 * Whether `getTools()` should embed the full generated Bash description in the
+	 * tool metadata. Set this to false when you add `await x.createToolDescription()`
+	 * to your model System Prompt instead.
+	 */
+	enableDescription?: boolean;
 	maxLines?: number;
 	maxOutput?: number;
 }
