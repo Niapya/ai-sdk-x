@@ -190,12 +190,7 @@ export function coreFilePath(fs: IFileSystem, memoryMount: string, filename: str
 }
 
 export function normalizeCategory(category: string | undefined): string {
-	return (
-		(category?.trim() || "daily")
-			.toLowerCase()
-			.replace(/[^a-z0-9._-]+/g, "-")
-			.replace(/^-+|-+$/g, "") || "daily"
-	);
+	return normalizeMemorySlug(category || "daily", "daily");
 }
 
 export function resolveMemoryHomePath(fs: IFileSystem, memoryMount: string, path: string): string {
@@ -284,16 +279,21 @@ function isMemoryEntry(value: unknown): value is MemoryEntry {
 }
 
 function createMemoryEntryPath(category: string, title: string, now: Date): string {
-	const slug =
-		title
-			.trim()
-			.toLowerCase()
-			.replace(/[^a-z0-9._-]+/g, "-")
-			.replace(/^-+|-+$/g, "") || "memory";
+	const slug = normalizeMemorySlug(title, "memory");
 	if (category === DAILY_MEMORY_CATEGORY) {
 		return `${MEMORY_HOME_TOKEN}/daily/${now.toISOString().slice(0, 10)}/${slug}.md`;
 	}
 	return `${MEMORY_HOME_TOKEN}/${category}/${slug}.md`;
+}
+
+export function normalizeMemorySlug(value: string, fallback: string): string {
+	const slug = value
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9._-]+/g, "-")
+		.replace(/^-+/, "")
+		.replace(/-+$/, "");
+	return slug || fallback;
 }
 
 function parentPath(path: string): string {

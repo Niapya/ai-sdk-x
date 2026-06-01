@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { normalizeMemorySlug } from "@/features/memory/utils/lockfile";
 import X from "@/index";
 
 describe("x-memory add", () => {
@@ -50,6 +51,11 @@ describe("x-memory add", () => {
 		expect(missingDescription.stderr).toContain("missing --description");
 		expect(missingKeyword.exitCode).toBe(1);
 		expect(missingKeyword.stderr).toContain("missing --keyword");
+	});
+
+	it("normalizes long dash runs without using a backtracking trim regex", () => {
+		expect(normalizeMemorySlug(`${"-".repeat(5000)}!${"-".repeat(5000)}`, "memory")).toBe("memory");
+		expect(normalizeMemorySlug("  Launch Note!  ", "memory")).toBe("launch-note");
 	});
 
 	it("rejects non-daily categories", async () => {
