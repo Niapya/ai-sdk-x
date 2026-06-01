@@ -1,6 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+
+import { Logo } from "@/components/Logo";
 
 export function Layout({ children }: { children: ReactNode }) {
 	return (
@@ -11,7 +12,7 @@ export function Layout({ children }: { children: ReactNode }) {
 						href="/"
 						className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-white"
 					>
-						<Image src="/logo.svg" alt="Logo" width={24} height={24} />
+						<Logo className="h-6 w-6 shrink-0" />
 						<span>AI SDK X</span>
 					</Link>
 					<nav className="ml-auto flex items-center gap-2 text-sm">

@@ -5,6 +5,7 @@ import Head from "next/head";
 import { DocsLayout } from "@/components/DocsLayout";
 import { Toc } from "@/components/Toc";
 import { getDocMeta, getDocRoutes } from "@/lib/docs";
+import { buildDocDescription, buildPageMetadata } from "@/lib/metadata";
 import { DOCS_VERSIONS, type DocsVersion, toDocPath } from "@/lib/docs-data";
 
 type Params = {
@@ -44,15 +45,26 @@ export async function getStaticProps(context: GetStaticPropsContext<Params>) {
 export default function DocPage({ meta }: InferGetStaticPropsType<typeof getStaticProps>) {
 	const slugPath = meta.slug.length === 0 ? "index" : meta.slug.join("/");
 	const Markdown = dynamic(() => import(`../../../content/${meta.version}/${slugPath}.md`));
+	const metadata = buildPageMetadata({
+		title: meta.title,
+		description: buildDocDescription(meta.title, meta.version),
+		path: meta.path,
+	});
 
 	return (
 		<>
 			<Head>
-				<title>{`${meta.title} - AI SDK X`}</title>
-				<meta
-					name="description"
-					content={`${meta.title} documentation for AI SDK X ${meta.version}.`}
-				/>
+				<title>{metadata.title}</title>
+				<meta name="description" content={metadata.description} />
+				<link rel="canonical" href={metadata.canonical} />
+				<meta property="og:title" content={metadata.openGraph.title} />
+				<meta property="og:description" content={metadata.openGraph.description} />
+				<meta property="og:url" content={metadata.openGraph.url} />
+				<meta property="og:site_name" content={metadata.openGraph.siteName} />
+				<meta property="og:type" content={metadata.openGraph.type} />
+				<meta name="twitter:card" content={metadata.twitter.card} />
+				<meta name="twitter:title" content={metadata.twitter.title} />
+				<meta name="twitter:description" content={metadata.twitter.description} />
 			</Head>
 			<DocsLayout currentPath={toDocPath(meta.version, meta.slug)} toc={meta.toc}>
 				<div>

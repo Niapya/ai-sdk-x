@@ -35,3 +35,4 @@ docs/.vitepress/cache
 
 # Finder (MacOS) folder config
 .DS_Store
+packages/docs/next-env.d.ts

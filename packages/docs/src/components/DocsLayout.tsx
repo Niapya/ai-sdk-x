@@ -24,12 +24,8 @@ export function DocsLayout({
 					</div>
 				</aside>
 				<div className="min-w-0">
-					<div className="fixed bottom-5 left-5 z-40 lg:hidden">
-						<NavigationSidebarMenu currentPath={currentPath} />
-					</div>
-					<div className="fixed bottom-5 right-5 z-40 lg:hidden">
-						<TocMenu toc={toc} />
-					</div>
+					<NavigationSidebarMenu currentPath={currentPath} />
+					<TocMenu toc={toc} />
 					<article className="docs-article markdown-body">{children}</article>
 				</div>
 			</div>
