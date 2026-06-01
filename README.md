@@ -28,8 +28,6 @@
   <br/>
 </div>
 
-![AI-SDK-X Demo](./image.jpg)
-
 ---
 
 AI-SDK-X creates a **virtual Bash** for the [AI SDK](https://ai-sdk.dev), making it
