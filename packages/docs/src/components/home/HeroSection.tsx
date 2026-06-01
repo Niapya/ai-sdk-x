@@ -1,6 +1,10 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+
+import { withBasePath } from "@/lib/base-path";
 import { useEffect, useRef, useState } from "react";
-import logoUrl from "@/logo.svg";
-import { navigate } from "@/router";
 
 const PROMPT = `First, search and install "frontend-design" Skills. Then, read it and implement a "Snake game" in the Workspace. Finally, summarise into Memory.`;
 
@@ -101,10 +105,12 @@ function ReplAnimation() {
 	return (
 		<div className="mx-auto mt-14 max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950 text-left shadow-2xl dark:border-zinc-800">
 			{/* Traffic-light title bar */}
-			<div className="flex items-center gap-1.5 border-b border-zinc-800 px-4 py-3">
-				<span className="h-3 w-3 rounded-full bg-red-500/80" />
-				<span className="h-3 w-3 rounded-full bg-yellow-500/80" />
-				<span className="h-3 w-3 rounded-full bg-green-500/80" />
+			<div className="flex items-center border-b border-zinc-800 px-4 py-3">
+				<div className="flex items-center">
+					<span className="h-3 w-3 rounded-full bg-red-500/80" />
+					<span className="ml-1.5 h-3 w-3 rounded-full bg-yellow-500/80" />
+					<span className="ml-1.5 h-3 w-3 rounded-full bg-green-500/80" />
+				</div>
 				<span className="ml-3 text-xs text-zinc-500">Agent REPL</span>
 			</div>
 
@@ -155,7 +161,7 @@ export function HeroSection() {
 	return (
 		<section className="relative py-28 text-center">
 			<div className="relative mx-auto max-w-3xl px-6">
-				<img src={logoUrl} alt="AI SDK X" className="mx-auto mb-6 h-16 w-16" />
+				<Image src="/logo.svg" alt="AI SDK X" width={64} height={64} className="mx-auto mb-6" />
 				<h1 className="text-5xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-7xl">
 					AI SDK X
 				</h1>
@@ -163,13 +169,12 @@ export function HeroSection() {
 					Your AI SDK may only need this tool.
 				</p>
 				<div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
-					<button
-						type="button"
+					<Link
+						href={withBasePath("/v1/")}
 						className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-zinc-950/10 transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-						onClick={() => navigate("/v1/")}
 					>
 						Get Started
-					</button>
+					</Link>
 					<a
 						href="https://github.com/niapya/ai-sdk-x"
 						target="_blank"

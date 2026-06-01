@@ -1,5 +1,7 @@
 import clsx from "clsx";
-import { navigate } from "@/router";
+import Link from "next/link";
+
+import { withBasePath } from "@/lib/base-path";
 
 // Illustration: true horizontal left-to-right layout (matches hand-drawn sketch)
 //
@@ -116,13 +118,12 @@ export function MountSection() {
 						disks, Amazon S3, or any unified interface.
 					</p>
 					<div className="mt-7 flex flex-col gap-3 sm:flex-row">
-						<button
-							type="button"
+						<Link
+							href={withBasePath("/v1/guide/quick-start")}
 							className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-							onClick={() => navigate("/v1/guide/getting-started")}
 						>
 							Read the guide
-						</button>
+						</Link>
 					</div>
 				</div>
 				{/* illustration */}

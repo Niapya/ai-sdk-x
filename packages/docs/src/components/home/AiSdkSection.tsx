@@ -25,17 +25,19 @@ const highlightedCode = hljs.highlight(CODE, { language: "typescript" }).value;
 
 function CodeBlock() {
 	return (
-		<div className="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950 shadow-2xl dark:border-zinc-800">
-			<div className="flex items-center gap-1.5 border-b border-zinc-800 px-5 py-3">
-				<span className="h-3 w-3 rounded-full bg-red-500/80" />
-				<span className="h-3 w-3 rounded-full bg-yellow-500/80" />
-				<span className="h-3 w-3 rounded-full bg-green-500/80" />
+		<div className="markdown-code-block shadow-2xl">
+			<div className="markdown-code-toolbar">
+				<div className="flex items-center">
+					<span className="h-3 w-3 rounded-full bg-red-500/80" />
+					<span className="ml-1.5 h-3 w-3 rounded-full bg-yellow-500/80" />
+					<span className="ml-1.5 h-3 w-3 rounded-full bg-green-500/80" />
+				</div>
 				<span className="ml-3 text-xs text-zinc-500">agent.ts</span>
 			</div>
-			<pre className="overflow-x-hidden whitespace-pre-wrap wrap-break-word p-5 font-mono text-xs leading-relaxed">
+			<pre className="overflow-x-hidden whitespace-pre-wrap break-words p-5 font-mono text-xs leading-relaxed">
 				<code
 					className="hljs language-typescript"
-					style={{ backgroundColor: "transparent", padding: 0 }}
+					style={{ backgroundColor: "transparent", padding: 0, color: "#f8fafc" }}
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted static code sample
 					dangerouslySetInnerHTML={{ __html: highlightedCode }}
 				/>

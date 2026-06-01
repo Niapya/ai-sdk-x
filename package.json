@@ -25,7 +25,7 @@
 		"check": "bun run check:type && bun run lint && bun run test",
 		"format": "bunx biome format --write .",
 		"docs:build": "cd packages/docs && bun run build",
-		"docs:dev": "cd packages/docs && bun --hot src/index.ts",
+		"docs:dev": "cd packages/docs && bun run dev",
 		"docs:preview": "cd packages/docs && bun run start",
 		"release:patch": "bun run --cwd packages/ai-sdk-x release:patch",
 		"release:minor": "bun run --cwd packages/ai-sdk-x release:minor",

@@ -1,12 +1,22 @@
 {
 	"extends": "../../tsconfig.json",
 	"compilerOptions": {
-		"jsx": "react-jsx",
+		"jsx": "preserve",
 		"types": ["bun", "react"],
 		"noEmit": true,
 		"paths": {
 			"@/*": ["./src/*"]
-		}
+		},
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"allowJs": true,
+		"incremental": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"plugins": [
+			{
+				"name": "next"
+			}
+		]
 	},
-	"include": ["src"]
+	"include": ["mdx-components.tsx", "next-env.d.ts", "src", ".next/types/**/*.ts"]
 }

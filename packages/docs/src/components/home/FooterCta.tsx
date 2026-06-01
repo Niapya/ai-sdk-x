@@ -1,4 +1,6 @@
-import { navigate } from "@/router";
+import Link from "next/link";
+
+import { withBasePath } from "@/lib/base-path";
 
 export function FooterCta() {
 	return (
@@ -15,13 +17,12 @@ export function FooterCta() {
 					into your project and hand the AI a virtual Bash in three lines of code.
 				</p>
 				<div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
-					<button
-						type="button"
+					<Link
+						href={withBasePath("/v1/")}
 						className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-zinc-950/10 transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-						onClick={() => navigate("/v1/")}
 					>
 						Get Started
-					</button>
+					</Link>
 					<a
 						href="https://github.com/niapya/ai-sdk-x"
 						target="_blank"
