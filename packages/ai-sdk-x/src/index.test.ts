@@ -1,9 +1,67 @@
 import { describe, expect, it } from "bun:test";
-import { InMemoryFs } from "just-bash";
-import X from "@/index";
+import X, {
+	BootstrappableMountableFs,
+	type CliCommandDefinition,
+	createCommand,
+	createGitFeature,
+	createMemoryFeature,
+	createPatchFeature,
+	createSkillsFeature,
+	createWorkspaceFeature,
+	defineCliCommand,
+	type EnvBackend,
+	type Feature,
+	type FeatureSetupContext,
+	type IFileSystem,
+	InMemoryFs,
+	InMemoryKVStore,
+	type KVStorage,
+	MemoryEnvBackend,
+	MountableFs,
+	ReadWriteFs,
+	type XOptions,
+} from "@/index";
 import { AsyncOnce } from "@/runtime/async-once";
-import { MemoryEnvBackend } from "@/runtime/env";
-import type { ExecHookStartContext, Feature } from "@/types";
+import type { ExecHookStartContext } from "@/types";
+
+describe("public exports", () => {
+	it("exports runtime, fs, storage, feature, and CLI building APIs", () => {
+		const fs: IFileSystem = new InMemoryFs();
+		const storage: KVStorage = new InMemoryKVStore();
+		const envBackend: EnvBackend = new MemoryEnvBackend();
+		const options: XOptions = { envBackend, fs };
+		const feature: Feature = {
+			name: "typed",
+			hooks: {
+				onExecStart(ctx: FeatureSetupContext) {
+					ctx.setEnv("TYPED_FEATURE", "1");
+				},
+			},
+		};
+		const cliDefinition: CliCommandDefinition = defineCliCommand({
+			id: "x-public",
+			type: "command",
+			run: () => ({ stdout: "ok", stderr: "", exitCode: 0 }),
+		});
+
+		expect(new X(options)).toBeInstanceOf(X);
+		expect(fs).toBeInstanceOf(InMemoryFs);
+		expect(storage).toBeInstanceOf(InMemoryKVStore);
+		expect(envBackend).toBeInstanceOf(MemoryEnvBackend);
+		expect(feature.name).toBe("typed");
+		expect(createCommand(cliDefinition).name).toBe("x-public");
+		expect(createGitFeature().name).toBe("git");
+		expect(createMemoryFeature().name).toBe("memory");
+		expect(createPatchFeature().name).toBe("patch");
+		expect(createSkillsFeature().name).toBe("skills");
+		expect(createWorkspaceFeature().name).toBe("workspace");
+		expect(new MountableFs({ base: new InMemoryFs() })).toBeInstanceOf(MountableFs);
+		expect(new BootstrappableMountableFs({ base: new InMemoryFs() })).toBeInstanceOf(
+			BootstrappableMountableFs,
+		);
+		expect(typeof ReadWriteFs).toBe("function");
+	});
+});
 
 describe("X feature runtime", () => {
 	it("starts with no default features in constructor", async () => {

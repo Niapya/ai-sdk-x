@@ -6,86 +6,29 @@ import {
 	type ExecOptions,
 	InMemoryFs,
 } from "just-bash";
-import { createGitFeature } from "@/features/git";
-import { createMemoryFeature } from "@/features/memory";
-import { createPatchFeature } from "@/features/patch";
-import { createSkillsFeature, parseSkillInstallTarget } from "@/features/skills";
-import { createWorkspaceFeature } from "@/features/workspace";
+import { createGitFeature, createGitFeatureDescription } from "@/features/git";
+import {
+	createMemoryCommand,
+	createMemoryFeature,
+	createMemoryFeatureDescription,
+} from "@/features/memory";
+import {
+	createPatchCommand,
+	createPatchFeature,
+	createPatchFeatureDescription,
+} from "@/features/patch";
+import {
+	createSkillsCommand,
+	createSkillsFeature,
+	createSkillsFeatureDescription,
+	parseSkillInstallTarget,
+} from "@/features/skills";
+import { createWorkspaceFeature, createWorkspaceFeatureDescription } from "@/features/workspace";
 import { resolveBashConfig } from "@/runtime/config";
 import { type EnvBackend, type EnvSnapshot, MemoryEnvBackend, mergeEnv } from "@/runtime/env";
 import { BootstrappableMountableFs } from "@/runtime/fs";
 import { MAX_OUTPUT } from "@/runtime/output";
 import { createBashTool } from "@/runtime/tools";
-
-export {
-	createGitFeature,
-	createMemoryFeature,
-	createPatchFeature,
-	createSkillsFeature,
-	createWorkspaceFeature,
-	parseSkillInstallTarget,
-};
-export type { MemoryFeature } from "@/features/memory";
-export type { SkillsFeature } from "@/features/skills";
-export type {
-	CliCommandDefinition,
-	CliDefinition,
-	CliTopicDefinition,
-	CommandArgDefinition,
-	CommandFlagDefinition,
-	CommandInput,
-	HelpInfo,
-} from "@/utils";
-export { createCommand, defineCliCommand, defineCliTopic } from "@/utils";
-
-import type {
-	BashConfig,
-	DefaultFeatureOptions,
-	ExecHook,
-	Feature,
-	FeatureSetupContext,
-	GetToolsOptions,
-	XOptions,
-} from "@/types";
-
-export type {
-	BashConfig,
-	DefaultFeatureOptions,
-	ExecHook,
-	Feature,
-	FeatureSetupContext,
-	GetToolsOptions,
-	GitConfig,
-	GitOptions,
-	KVStorage,
-	MemoryConfig,
-	MemoryOptions,
-	PatchConfig,
-	PatchOptions,
-	SkillsConfig,
-	SkillsOptions,
-	WorkspaceConfig,
-	WorkspaceOptions,
-	XOptions,
-} from "@/types";
-export { MAX_OUTPUT };
-export type { EnvBackend, EnvSnapshot } from "@/runtime/env";
-export { KvEnvBackend, MemoryEnvBackend } from "@/runtime/env";
-export type {
-	CachingFsOptions,
-	IndexedFsOptions,
-	TransactionalFsOptions,
-	TransactionalFsStatus,
-} from "@/runtime/fs";
-export {
-	BootstrappableMountableFs,
-	CachingFs,
-	IndexedFs,
-	TransactionalFs,
-} from "@/runtime/fs";
-export type { InMemoryKVStoreOptions } from "@/runtime/storage";
-export { InMemoryKVStore } from "@/runtime/storage";
-export type { FsDirent } from "@/utils";
 
 export class X {
 	readonly bash: Bash;
@@ -350,3 +293,147 @@ export class X {
 }
 
 export default X;
+
+export type { MemoryFeature } from "@/features/memory";
+export type { SkillsFeature } from "@/features/skills";
+export type {
+	BooleanFlagDefinition,
+	CliCommandDefinition,
+	CliDefinition,
+	CliTopicDefinition,
+	CommandArgDefinition,
+	CommandExample,
+	CommandFlagDefinition,
+	CommandInput,
+	HelpInfo,
+	MultipleValueArgDefinition,
+	MultipleValueFlagDefinition,
+	SingleValueArgDefinition,
+	SingleValueFlagDefinition,
+	StringFlagDefinition,
+} from "@/utils";
+export {
+	commandError,
+	commandUsageError,
+	createCommand,
+	defineCliCommand,
+	defineCliTopic,
+	hasHelpFlag,
+	showHelp,
+} from "@/utils";
+export {
+	createGitFeature,
+	createGitFeatureDescription,
+	createMemoryCommand,
+	createMemoryFeature,
+	createMemoryFeatureDescription,
+	createPatchCommand,
+	createPatchFeature,
+	createPatchFeatureDescription,
+	createSkillsCommand,
+	createSkillsFeature,
+	createSkillsFeatureDescription,
+	createWorkspaceFeature,
+	createWorkspaceFeatureDescription,
+	parseSkillInstallTarget,
+};
+
+import type {
+	BashConfig,
+	DefaultFeatureOptions,
+	ExecHook,
+	Feature,
+	FeatureSetupContext,
+	GetToolsOptions,
+	XOptions,
+} from "@/types";
+
+export type {
+	BashExecResult,
+	BashOptions,
+	BufferEncoding,
+	Command,
+	CommandContext,
+	CpOptions,
+	DirectoryEntry,
+	ExecOptions,
+	ExecResult,
+	FileContent,
+	FileEntry,
+	FileInit,
+	FileSystemFactory,
+	FsEntry,
+	FsStat,
+	IFileSystem,
+	InitialFiles,
+	LazyFileEntry,
+	LazyFileProvider,
+	MkdirOptions,
+	MountableFsOptions,
+	MountConfig,
+	OutputKind,
+	ReadWriteFsOptions,
+	RmOptions,
+	SymlinkEntry,
+} from "just-bash";
+export {
+	Bash,
+	bytesOutput,
+	decodeBytesToUtf8,
+	EMPTY_BYTES,
+	encodeUtf8ToBytes,
+	InMemoryFs,
+	latin1FromBytes,
+	MountableFs,
+	OverlayFs,
+	ReadWriteFs,
+	stdoutAsBytes,
+	stdoutKind,
+	textOutput,
+	unsafeBytesFromLatin1,
+} from "just-bash";
+export type { EnvBackend, EnvSnapshot } from "@/runtime/env";
+export {
+	cloneEnv,
+	createNullProtoEnv,
+	KvEnvBackend,
+	MemoryEnvBackend,
+	mergeEnv,
+} from "@/runtime/env";
+export type {
+	CachingFsOptions,
+	IndexedFsOptions,
+	TransactionalFsOptions,
+	TransactionalFsStatus,
+} from "@/runtime/fs";
+export {
+	BootstrappableMountableFs,
+	CachingFs,
+	createSubpathFs,
+	IndexedFs,
+	TransactionalFs,
+} from "@/runtime/fs";
+export type { InMemoryKVStoreOptions } from "@/runtime/storage";
+export { InMemoryKVStore } from "@/runtime/storage";
+export type {
+	BashConfig,
+	DefaultFeatureOptions,
+	ExecHook,
+	Feature,
+	FeatureSetupContext,
+	GetToolsOptions,
+	GitConfig,
+	GitOptions,
+	KVStorage,
+	MemoryConfig,
+	MemoryOptions,
+	PatchConfig,
+	PatchOptions,
+	SkillsConfig,
+	SkillsOptions,
+	WorkspaceConfig,
+	WorkspaceOptions,
+	XOptions,
+} from "@/types";
+export type { FsDirent } from "@/utils";
+export { MAX_OUTPUT };

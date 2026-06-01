@@ -2,9 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-
-import { withBasePath } from "@/lib/base-path";
 import { useEffect, useRef, useState } from "react";
+import { withBasePath } from "@/lib/base-path";
 
 const PROMPT = `First, search and install "frontend-design" Skills. Then, read it and implement a "Snake game" in the Workspace. Finally, summarise into Memory.`;
 
