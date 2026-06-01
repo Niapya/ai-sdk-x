@@ -29,21 +29,7 @@ x.registerFeature(gitFeature);
 
 ## Construction parameters
 
-`GitOptions` is based on `just-git` options, excluding:
-
-- `cwd`
-- `fs`
-- `gitDir`
-- `objectStore`
-- `refStore`
-
-The feature config resolves to:
-
-```ts
-interface GitConfig extends GitOptions {
-  readonly enabled: boolean;
-}
-```
+`GitOptions` is based on `just-git` options.
 
 ## Commands
 

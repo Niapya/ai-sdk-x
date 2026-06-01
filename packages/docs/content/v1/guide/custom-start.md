@@ -34,7 +34,7 @@ new X(options?: XOptions)
 
 `XOptions` supports:
 
-- `bash`: virtual Bash options, excluding `customCommands`, `fs`, and `network` from direct just-bash wiring. `network` can be `false`.
+- `bash`: virtual Bash options.
 - `envBackend`: an `EnvBackend` used to persist cwd and environment state.
 - `execHooks`: hooks called before and after each command.
 - `fs`: the base filesystem wrapped by `BootstrappableMountableFs`.
