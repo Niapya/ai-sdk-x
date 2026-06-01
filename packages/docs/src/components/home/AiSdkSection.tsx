@@ -34,7 +34,7 @@ function CodeBlock() {
 				</div>
 				<span className="ml-3 text-xs text-zinc-500">agent.ts</span>
 			</div>
-			<pre className="overflow-x-hidden whitespace-pre-wrap break-words p-5 font-mono text-xs leading-relaxed">
+			<pre className="overflow-x-hidden whitespace-pre-wrap wrap-break-word p-5 font-mono text-xs leading-relaxed">
 				<code
 					className="hljs language-typescript"
 					style={{ backgroundColor: "transparent", padding: 0, color: "#f8fafc" }}
