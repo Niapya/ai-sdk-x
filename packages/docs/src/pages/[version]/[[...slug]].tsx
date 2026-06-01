@@ -5,8 +5,8 @@ import Head from "next/head";
 import { DocsLayout } from "@/components/DocsLayout";
 import { Toc } from "@/components/Toc";
 import { getDocMeta, getDocRoutes } from "@/lib/docs";
-import { buildDocDescription, buildPageMetadata } from "@/lib/metadata";
 import { DOCS_VERSIONS, type DocsVersion, toDocPath } from "@/lib/docs-data";
+import { buildDocDescription, buildPageMetadata } from "@/lib/metadata";
 
 type Params = {
 	version: DocsVersion;

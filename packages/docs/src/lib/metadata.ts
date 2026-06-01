@@ -11,7 +11,11 @@ type MetaInput = {
 	path?: string;
 };
 
-export function buildPageMetadata({ title, description = SITE_DESCRIPTION, path = "/" }: MetaInput) {
+export function buildPageMetadata({
+	title,
+	description = SITE_DESCRIPTION,
+	path = "/",
+}: MetaInput) {
 	const canonical = `${BASE_URL}${path}`;
 	const fullTitle = title === SITE_NAME ? SITE_NAME : `${title} - ${SITE_NAME}`;
 
