@@ -1,8 +1,6 @@
 import clsx from "clsx";
 import Link from "next/link";
 
-import { withBasePath } from "@/lib/base-path";
-
 // Illustration: true horizontal left-to-right layout (matches hand-drawn sketch)
 //
 // Layout:
@@ -119,7 +117,7 @@ export function MountSection() {
 					</p>
 					<div className="mt-7 flex flex-col gap-3 sm:flex-row">
 						<Link
-							href={withBasePath("/v1/guide/quick-start")}
+							href="/v1/guide/quick-start"
 							className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
 						>
 							Read the guide

@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { withBasePath } from "@/lib/base-path";
-
 export function FooterCta() {
 	return (
 		<section className="mx-auto max-w-6xl px-6 py-20">
@@ -18,7 +16,7 @@ export function FooterCta() {
 				</p>
 				<div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
 					<Link
-						href={withBasePath("/v1/")}
+						href="/v1/"
 						className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-zinc-950/10 transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
 					>
 						Get Started

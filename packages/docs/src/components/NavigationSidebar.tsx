@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { getVersion, versionInfo } from "@/docs-nav";
-import { withBasePath } from "@/lib/base-path";
 
 function NavigationSidebarContent({
 	currentPath,
@@ -28,7 +27,7 @@ function NavigationSidebarContent({
 					<ul className="space-y-1">
 						<li>
 							<Link
-								href={withBasePath(`/${version}/`)}
+								href={`/${version}/`}
 								aria-current={currentPath === `/${version}/` ? "page" : undefined}
 								onClick={onNavigate}
 								className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
@@ -55,7 +54,7 @@ function NavigationSidebarContent({
 									return (
 										<li key={item.path}>
 											<Link
-												href={withBasePath(item.path)}
+												href={item.path}
 												aria-current={active ? "page" : undefined}
 												onClick={onNavigate}
 												className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
