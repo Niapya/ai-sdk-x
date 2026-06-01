@@ -160,7 +160,7 @@ export function HeroSection() {
 	return (
 		<section className="relative py-28 text-center">
 			<div className="relative mx-auto max-w-3xl px-6">
-				<Image src="/logo.svg" alt="AI SDK X" width={64} height={64} className="mx-auto mb-6" />
+				<Image src="./logo.svg" alt="AI SDK X" width={64} height={64} className="mx-auto mb-6" />
 				<h1 className="text-5xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-7xl">
 					AI SDK X
 				</h1>
