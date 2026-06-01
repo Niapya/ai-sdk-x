@@ -23,7 +23,7 @@
     AI agents.
   </p>
 
-  <a href="#-documentation">Docs</a> · <a href="https://github.com/Niapya/ai-sdk-x/issues">Issues</a>
+  <a href="https://niapya.github.io/ai-sdk-x">Docs</a> · <a href="https://github.com/Niapya/ai-sdk-x/issues">Issues</a>
 
   <br/>
 </div>
