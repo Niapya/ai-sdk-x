@@ -1,0 +1,140 @@
+@import "tailwindcss";
+@import "highlight.js/styles/atom-one-dark.css";
+@plugin "@tailwindcss/typography";
+
+@source "../components/**/*.{ts,tsx}";
+@source "../pages/**/*.{ts,tsx}";
+@source "../../content/**/*.{md,mdx}";
+
+@layer base {
+	:root {
+		color-scheme: light dark;
+	}
+
+	body {
+		@apply m-0 bg-white text-zinc-950 antialiased dark:bg-zinc-900 dark:text-white;
+	}
+
+	.markdown-body {
+		@apply prose prose-zinc max-w-none dark:prose-invert;
+	}
+
+	.docs-article {
+		@apply grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_14rem] xl:gap-8;
+	}
+
+	.docs-article > :not(.docs-toc) {
+		@apply min-w-0 max-w-3xl;
+		grid-column: 1;
+	}
+
+	.docs-toc {
+		@apply sticky top-20 hidden rounded-[24px] border border-zinc-200 bg-white p-5 shadow-xs dark:border-zinc-800 dark:bg-zinc-950 lg:block;
+		grid-column: 2;
+		grid-row: 1;
+	}
+
+	.docs-toc-title {
+		@apply mb-3 text-sm font-semibold text-zinc-900 dark:text-white;
+	}
+
+	.docs-toc-list {
+		@apply m-0 list-none space-y-1.5 p-0;
+	}
+
+	.docs-toc-link {
+		@apply block rounded-lg px-2.5 py-1.5 text-sm text-zinc-600 no-underline transition-colors hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-white;
+	}
+
+	.markdown-body :where(h1) {
+		@apply mt-8 text-5xl font-semibold text-zinc-950 dark:text-white;
+	}
+
+	.markdown-body :where(h2) {
+		@apply mt-12 text-3xl font-semibold text-zinc-950 dark:text-white;
+	}
+
+	.markdown-body :where(h3) {
+		@apply mt-8 text-xl font-semibold text-zinc-900 dark:text-zinc-100;
+	}
+
+	.markdown-body :where(p, li) {
+		@apply text-zinc-700 dark:text-zinc-300;
+	}
+
+	.markdown-body :where(p, ul, ol, table, blockquote, pre, hr, figure) {
+		@apply my-4;
+	}
+
+	.markdown-body :where(h1, h2, h3, h4, h5, h6) {
+		@apply scroll-mt-24;
+	}
+
+	.markdown-body :where(a) {
+		@apply font-medium text-sky-700 underline decoration-sky-300 decoration-2 underline-offset-4 transition-colors hover:text-sky-900 dark:text-sky-400 dark:decoration-sky-700 dark:hover:text-sky-300;
+	}
+
+	.markdown-body :where(code):not(:where(pre code)) {
+		@apply rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono text-[0.875em] font-medium text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100;
+	}
+
+	.markdown-body :where(pre) {
+		@apply overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950 p-0 shadow-lg dark:border-zinc-800;
+	}
+
+	.markdown-body :where(pre code) {
+		@apply block overflow-x-auto bg-transparent p-5 font-mono text-[0.85rem] leading-7 text-zinc-100;
+	}
+
+	.markdown-code-block {
+		@apply my-6 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950 shadow-lg dark:border-zinc-800;
+	}
+
+	.markdown-code-toolbar {
+		@apply flex items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-900/95 px-4 py-3 text-xs text-zinc-400;
+	}
+
+	.markdown-code-language {
+		@apply font-mono text-[11px] text-zinc-300;
+	}
+
+	.markdown-code-copy {
+		@apply inline-flex items-center rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-white;
+	}
+
+	.markdown-code-copy[data-copied="true"] {
+		@apply border-emerald-500/40 bg-emerald-500/10 text-emerald-300;
+	}
+
+	.markdown-code-block pre {
+		@apply m-0 rounded-none border-0 bg-transparent p-0 shadow-none;
+	}
+
+	.markdown-code-block code {
+		@apply block overflow-x-auto bg-transparent px-5 py-4 font-mono text-[0.85rem] leading-7 text-zinc-100;
+	}
+
+	.markdown-body :where(blockquote) {
+		@apply border-l-4 border-zinc-200 pl-4 text-zinc-600 dark:border-zinc-800 dark:text-zinc-400;
+	}
+
+	.markdown-body :where(table) {
+		@apply mx-auto block w-full max-w-full overflow-x-auto rounded-2xl border border-zinc-200 dark:border-zinc-800;
+	}
+
+	.markdown-body :where(th, td) {
+		@apply border-b border-zinc-200 px-6 py-4 dark:border-zinc-800;
+	}
+
+	.markdown-body :where(th) {
+		@apply bg-zinc-50 text-left font-semibold dark:bg-zinc-900;
+	}
+
+	.scrollbar-none {
+		scrollbar-width: none;
+	}
+
+	.scrollbar-none::-webkit-scrollbar {
+		display: none;
+	}
+}
