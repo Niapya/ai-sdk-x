@@ -83,6 +83,10 @@ export const versionInfo: Record<DocsVersion, { label: string; sections: NavSect
 					navItem("File System", "v1", ["runtime", "file-system"]),
 				],
 			},
+			{
+				title: "Examples",
+				items: [navItem("Example", "v1", ["example"])],
+			},
 		],
 	},
 };
