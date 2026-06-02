@@ -33,7 +33,7 @@ import { ToolLoopAgent } from "ai";
 const bash = X.init();
 const tools = await bash.getTools();
 
-const agent = ToolLoopAgent({
+const agent = new ToolLoopAgent({
   model: "gpt-5.5",
   tools,
   stopWhen: stepCountIs(20),

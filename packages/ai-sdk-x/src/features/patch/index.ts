@@ -26,6 +26,7 @@ const PATCH_ARGS = [
 
 export const PATCH_DESCRIPTION = `
 "x-patch" Command is on. Use the "x-patch" Bash command to edit files.
+"x-patch" is a SHELL COMMAND, NOT a function or tool calling.
 This is the dedicated file editing command in this Bash environment. Use it for adding files, updating files, deleting files, and moving files whenever the change can be expressed as a patch.
 
 IMPORTANT: YOU MUST USE x-patch FOR FILE MODIFICATIONS.
