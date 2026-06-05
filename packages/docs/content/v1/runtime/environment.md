@@ -1,15 +1,15 @@
 # Environment
 
-The environment layer is responsible for persisting process-like state across command executions.
+The environment layer persists process-like state across Bash executions.
 
-In AI SDK X, that state is intentionally small:
+AI SDK X stores only:
 
 - `cwd`
 - `env`
 
-## Runtime state
+That state is loaded before each command and saved after each command.
 
-The persisted snapshot is represented by `EnvSnapshot`:
+## Snapshot
 
 ```ts
 interface EnvSnapshot {
@@ -18,11 +18,9 @@ interface EnvSnapshot {
 }
 ```
 
-`cwd` defaults to `/home/user` when a snapshot is missing or invalid.
+The snapshot represents user/session state. Feature-owned env values are merged into command execution, but they are removed before the next user env snapshot is saved.
 
-## Backend contract
-
-`EnvBackend` is the adapter interface used by `X`:
+## Backend
 
 ```ts
 interface EnvBackend {
@@ -31,40 +29,38 @@ interface EnvBackend {
 }
 ```
 
-This keeps environment persistence separate from the rest of the runtime.
+`MemoryEnvBackend` is the default. It is useful for local demos, tests, and single-process runtimes.
 
-## Built-in backends
-
-`MemoryEnvBackend` is useful for tests and single-process usage.
-
-`KvEnvBackend` persists the snapshot as JSON in a `KVStorage`.
+`KvEnvBackend` stores the snapshot in a `KVStorage` backend.
 
 ```ts
-import { KvEnvBackend, InMemoryKVStore, X } from "ai-sdk-x";
+import { InMemoryKVStore, KvEnvBackend, X } from "ai-sdk-x";
 
 const x = new X({
   envBackend: new KvEnvBackend({
     kv: new InMemoryKVStore(),
-    key: "project:env",
+    key: "session:env",
   }),
 });
 ```
 
-## Feature-owned env
+## Execution merge order
 
-Feature hooks can set env values with `ctx.setEnv()`.
+For each command, AI SDK X merges:
 
-Those values are merged into command execution, but they are not persisted as the user's long-lived environment after the command finishes.
+- Bash baseline env
+- persisted session env
+- feature env from hooks
+- per-call `exec()` env
 
-That distinction matters:
-
-- use the env backend for session state,
-- use feature hooks for transient execution-time values.
+`replaceEnv` skips the persisted user env, but runtime and feature env can still be present so Bash remains usable.
 
 ## When to customize
 
-Create your own env backend when you need to:
+Create your own `EnvBackend` when:
 
-- resume sessions after a restart,
-- keep project state in a remote store,
-- or implement your own snapshot policy.
+- serverless invocations need to resume the same cwd
+- env changes should be stored in platform storage
+- sessions are keyed by user, project, or conversation id
+- your product needs custom snapshot retention
+

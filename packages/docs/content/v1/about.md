@@ -1,29 +1,18 @@
 # About
 
-AI SDK X is a Bash tool runtime for AI agents.
+AI SDK X is a virtual Bash designed for agents.
 
-In long-running practice, we found that Bash is a critical interface for agents. It is the fastest way to compose Unix-style operations, inspect files, run utilities, and connect model reasoning to a real execution environment.
+In long-running practice, we found that agents are strong at this style of work: inspecting text, composing commands, and using Bash as a bridge to a real execution environment. AI SDK X turns that interface into one runtime that can be used locally, in a serverless worker, or inside an embedded application.
 
-AI SDK X turns that into a unified virtual Bash:
+Inside this Bash, an agent can use:
 
-- It supports the common Unix and Bash operations agents need.
-- It lets you add custom features on top of the same runtime.
-- It exposes a clean filesystem interface so features can mount virtual paths.
-- It keeps storage and environment state persistent through runtime backends.
+- Most Unix commands needed for file inspection, text processing, archives, process-like workflows, and project navigation.
+- Shell pipes, redirects, heredocs, and command composition.
+- Network commands such as `curl`, plus helpers like `html-to-markdown` for turning web pages into inspectable Markdown.
+- WASM-backed JavaScript or TypeScript, Python, and SQLite runtimes.
 
-On top of that virtual Bash, we build higher-level capabilities like:
+The core idea is simple: give the model one Bash tool, then mount the capabilities it needs into that Bash. Features can add commands, filesystems, environment variables, model-facing descriptions, and lifecycle hooks. Your application keeps control of what is enabled and where state is stored.
 
-- `Memory` for persistent context and project knowledge
-- `Skills` for reusable domain instructions and workflows
-- `Workspace` for durable deliverables and project files
-- `Patch` for structured, model-friendly file edits
+The default `X.init()` runtime is the convenient path. It gives you Bash, networking, JS, Python, SQLite, and the built-in Patch, Git, Workspace, Skills, and Memory features.
 
-AI SDK X also includes JS and Python runtime support through WASM, so the same design works in local, serverless, and embedded environments without depending on a traditional host runtime. Those environments can stay safe by default while still supporting real execution.
-
-For model integration, AI SDK X works directly with the Vercel AI SDK and can generate an Agent-friendly Bash tool description automatically.
-
-If a task needs an even more isolated execution model, AI SDK X also lets you define custom features and custom commands so the agent can run inside your own sandbox, container, or hosted runtime.
-
-The v1 docs are organized so you can either learn the runtime model first, jump directly to a built-in feature, or follow the guide path from quick start to custom integration.
-
-If you only want to build something quickly, start with [Quick start](/v1/guide/quick-start).
+When you need a narrower runtime, use `new X()` and register only the features, commands, hooks, and storage adapters your application wants.

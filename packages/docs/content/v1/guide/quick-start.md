@@ -1,23 +1,40 @@
-# Quick start
+# Quick Start
 
-AI SDK X is a Bash runtime for AI agents. It gives the model a unified virtual Bash with built-in features like `Memory`, `Skills`, `Workspace`, `Patch`, and `Git`, plus WASM-backed JavaScript and Python support.
+`X.init()` is the convenient static constructor for AI SDK X.
 
-## Quick start
+It creates a Bash runtime with the default features already registered. Networking is on by default, JavaScript and Python are available through WASM-backed commands, and SQLite is available inside the Bash environment.
 
-Install the packages:
+## Install
 
 ```bash
-npm install ai-sdk-x ai zod
+$ bun add ai-sdk-x ai zod
 ```
 
-Then, try your agent:
+## Create the runtime
 
 ```ts
 import { X } from "ai-sdk-x";
-import { ToolLoopAgent, stepCountIs } from "ai";
 
-const bash = X.init();
-const tools = await bash.getTools();
+const x = X.init();
+```
+
+This one line gives the agent:
+
+- A virtual Bash with common Unix commands and shell pipes.
+- Network access with commands such as `curl` and helpers such as `html-to-markdown`.
+- JavaScript and TypeScript execution through `js-exec`.
+- Python execution through `python` or `python3`.
+- SQLite usage through the Bash runtime.
+- Built-in Patch, Git, Workspace, Skills, and Memory features.
+
+## Run a minimal agent
+
+```ts
+import { ToolLoopAgent, stepCountIs } from "ai";
+import { X } from "ai-sdk-x";
+
+const x = X.init();
+const tools = await x.getTools();
 
 const agent = new ToolLoopAgent({
   model: "gpt-5.5",
@@ -31,49 +48,79 @@ await agent.generate({
 
     Then, read it and implement a "Snake game" in the Workspace.
 
-    Finally, summarise into Memory.`,
+    Finally, summarise into Memory.
+  `,
 });
 ```
 
-## What you get
+## Configure network
 
-- A standard AI SDK X runtime with these built-in features:
-  - Patch
-  - Git
-  - Workspace
-  - Skills
-  - Memory
-- Default runtime support for:
-  - JavaScript through `js-exec` powered by WASM
-  - Python through `python` powered by WASM
-  - SQLite inside the Bash runtime
+Network access is enabled unless you disable it.
 
-## What happens inside
+```ts
+const online = X.init();
 
-`X.init()` creates the virtual Bash runtime and registers the built-in features. `getTools()` then produces the Bash tool description and exposes a Bash tool that the model can call.
+const offline = X.init({
+  bash: {
+    network: false,
+  },
+});
+```
 
-The example agent can then:
+Use `network: false` when the agent should only inspect local or mounted state.
 
-- install or inspect Skills
-- read or write files in the Workspace
-- store durable notes in Memory
-- use Patch for structured file edits
+## Configure the base filesystem
 
-## What you can configure
+By default, AI SDK X uses an in-memory base filesystem. Pass `fs` when your application wants to own the storage.
 
-The quickest way to start is `X.init()`, but you can still pass the most common runtime options:
+```ts
+import { InMemoryFs, X } from "ai-sdk-x";
 
-- `bash.cwd` to set the initial working directory
-- `bash.network` to disable network access
-- `workspace`, `memory`, `skills`, `git`, and `patch` to disable or customize built-in features
-- `fs` to provide your own runtime filesystem
-- `envBackend` to persist cwd and environment state
+const fs = new InMemoryFs();
+
+const x = X.init({
+  fs,
+  bash: {
+    cwd: "/home/user/workspace",
+  },
+});
+```
+
+`X` wraps that base filesystem in `BootstrappableMountableFs`, so Bash gets the expected runtime layout and features can mount additional filesystems.
 
 ## Run commands directly
 
+You can use AI SDK X without a model loop.
+
 ```ts
-const result = await bash.exec("pwd && ls -la");
+const result = await x.exec("pwd && ls -la");
+
 console.log(result.stdout);
+console.error(result.stderr);
 ```
 
-Use direct commands when you want to inspect the runtime without involving a model loop.
+Direct execution uses the same runtime state as tool calls. The persisted cwd and environment snapshot are loaded before each command and saved after it finishes.
+
+## Export AI SDK tools
+
+Use `getTools()` when the model should call Bash.
+
+```ts
+import { generateText, stepCountIs } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { X } from "ai-sdk-x";
+
+const x = X.init();
+const tools = await x.getTools();
+
+const result = await generateText({
+  model: openai("gpt-5.1"),
+  tools,
+  stopWhen: stepCountIs(20),
+  prompt: "Inspect the workspace and create a short README.",
+});
+
+console.log(result.text);
+```
+
+`getTools()` returns one Bash tool. Its generated description explains the active runtime, enabled feature commands, mounted paths, network support, and JS/Python availability.

@@ -59,9 +59,11 @@ export const versionInfo: Record<DocsVersion, { label: string; sections: NavSect
 					navItem("Quick Start", "v1", ["guide", "quick-start"]),
 					navItem("Custom Start", "v1", ["guide", "custom-start"]),
 					navItem("Mount Custom Storage", "v1", ["guide", "mount-custom-storage"]),
+					navItem("Create Your Command", "v1", ["guide", "create-your-command"]),
+					navItem("Create Your Hooks", "v1", ["guide", "create-your-hooks"]),
 					navItem("Create Your Feature", "v1", ["guide", "create-your-feature"]),
 					navItem("Use With AI SDK", "v1", ["guide", "use-with-ai-sdk"]),
-					navItem("Serverless and Embedded Runtimes", "v1", ["guide", "serverless-and-embedded"]),
+					navItem("Serverless and Embedded", "v1", ["guide", "serverless-and-embedded"]),
 				],
 			},
 			{

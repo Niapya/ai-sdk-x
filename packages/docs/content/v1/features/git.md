@@ -1,48 +1,61 @@
-# Git feature
+# Git Feature
 
-The Git feature adds a `git` command to the virtual Bash runtime.
+Git adds a `git` command to the virtual Bash runtime.
 
-Use it when you want the model to inspect repository state, stage changes, and create commits inside the same runtime filesystem that Bash sees.
+Use it when the agent should inspect repository state, stage changes, view diffs, and create commits against the same filesystem Bash sees.
 
-## Factory
+## Design
+
+The feature wraps `just-git` as a Bash command. AI SDK X owns runtime filesystem and cwd wiring, so `GitOptions` omits options such as `fs`, `cwd`, `gitDir`, `objectStore`, and `refStore`.
+
+## Initialize with X.init
+
+Git is enabled by default in `X.init()`.
 
 ```ts
-createGitFeature(option?: boolean | GitOptions): Feature
+const x = X.init();
 ```
 
-Pass `false` to disable it:
+Customize or disable it through the `git` option:
 
 ```ts
-x.registerFeature(createGitFeature(false));
-```
-
-Pass `GitOptions` to configure the underlying `just-git` command. AI SDK X omits options that are owned by the runtime filesystem and cwd.
-
-```ts
-const gitFeature = createGitFeature({
-  userName: "Docs Bot",
-  userEmail: "docs@example.com",
+const x = X.init({
+  git: {
+    userName: "Docs Bot",
+    userEmail: "docs@example.com",
+  },
 });
 
-x.registerFeature(gitFeature);
+const withoutGit = X.init({
+  git: false,
+});
 ```
 
-## Construction parameters
-
-`GitOptions` is based on `just-git` options.
-
-## Commands
-
-The feature registers the `git` Bash command.
+## Register manually
 
 ```ts
-await x.exec("git status --short");
-await x.exec("git add README.md");
-await x.exec("git commit -m 'docs: update readme'");
+import { X, createGitFeature } from "ai-sdk-x";
+
+const x = new X()
+  .registerFeature(
+    createGitFeature({
+      userName: "Docs Bot",
+      userEmail: "docs@example.com",
+    }),
+  );
 ```
 
-The command runs against the runtime filesystem, so mounted workspace files are the files Git sees.
+## Use in Bash
+
+```sh
+$ git status --short
+$ git diff
+$ git add README.md
+$ git commit -m "docs: update readme"
+```
+
+The command runs inside the runtime filesystem. Mounted workspace files are the files Git sees.
 
 ## Actions
 
-`createGitFeature()` returns a plain `Feature`. It does not expose extra application actions.
+`createGitFeature()` returns a plain `Feature`. It does not expose app-side actions.

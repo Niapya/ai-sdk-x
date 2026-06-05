@@ -1,14 +1,14 @@
-# Create your feature
+# Create Your Feature
 
-A feature is a small object that extends the Bash runtime.
+A feature is a small object that extends the virtual Bash runtime.
 
-```ts
-import type { Feature } from "ai-sdk-x";
-```
+Features are the right abstraction when one capability needs a model-facing description, Bash commands, filesystem setup, env variables, and application-side actions.
 
 ## Feature shape
 
 ```ts
+import type { Feature } from "ai-sdk-x";
+
 interface Feature {
   readonly name: string;
   readonly description?: (ctx: FeatureSetupContext) => string | Promise<string>;
@@ -17,43 +17,65 @@ interface Feature {
 }
 ```
 
-Use each field for one purpose:
+Each field has one job:
 
-- `name`: stable feature identifier used in registration, diagnostics, and model-facing description blocks.
-- `description`: text appended to the generated Bash tool description.
-- `command`: Bash commands made available when the feature is registered.
-- `hooks`: lifecycle hooks for setup, env injection, mounts, and observation.
+- `name` is the stable feature id.
+- `description` is injected into the generated Bash tool description.
+- `command` registers Bash commands while the feature is enabled.
+- `hooks` run around command execution and can initialize mounts or env.
 
-## Create a command
+## Description is part of the prompt
 
-```ts
-import { createCommand, defineCliCommand } from "ai-sdk-x";
-
-const commandDefinition = defineCliCommand({
-  id: "project-info",
-  type: "command",
-  summary: "Print project information.",
-  usage: "project-info",
-  run: () => ({
-    stdout: "AI SDK X project\n",
-    stderr: "",
-    exitCode: 0,
-  }),
-});
-
-const projectInfoCommand = createCommand(commandDefinition);
-```
-
-`defineCliCommand()` gives the command a consistent help surface. `createCommand()` converts that definition into a just-bash command.
-
-## Add setup logic
+When you call `x.getTools()` or `x.createToolDescription()`, AI SDK X calls each enabled feature's `description()` and wraps the result in a feature block.
 
 ```ts
 const projectFeature: Feature = {
   name: "project",
   description: () =>
-    "The `project-info` command prints information about the current project.",
+    "Project files are mounted at $PROJECT_HOME. Use `project-info` for metadata.",
+};
+```
+
+Use the description for model-facing behavior: available commands, mounted paths, important rules, and inspection hints.
+
+## Add a command
+
+```ts
+import { createCommand, defineCliCommand } from "ai-sdk-x";
+
+const projectInfoCommand = createCommand(
+  defineCliCommand({
+    id: "project-info",
+    type: "command",
+    summary: "Print project information.",
+    run: () => ({
+      stdout: "AI SDK X project\n",
+      stderr: "",
+      exitCode: 0,
+    }),
+  }),
+);
+```
+
+Attach it to the feature:
+
+```ts
+const projectFeature: Feature = {
+  name: "project",
+  description: () => "`project-info` prints information about the current project.",
   command: [projectInfoCommand],
+};
+
+x.registerFeature(projectFeature);
+```
+
+## Add setup logic
+
+Use hooks to initialize feature state before Bash executes commands.
+
+```ts
+const projectFeature: Feature = {
+  name: "project",
   hooks: {
     async onExecStart(ctx) {
       await ctx.fs.mkdir("/home/user/project", { recursive: true });
@@ -61,21 +83,18 @@ const projectFeature: Feature = {
     },
   },
 };
-
-x.registerFeature(projectFeature);
 ```
 
-`onExecStart()` runs before each command. Use it to ensure mounted paths and env variables exist before Bash evaluates the command.
+The hook receives the main runtime filesystem. Mounts and files created there are visible to Bash and other features.
 
 ## Expose actions
 
-Built-in Memory and Skills features return `Feature & Action`: they are regular features, but they also expose methods that your application can call without going through Bash.
+Some capabilities should be available without asking the model to run a Bash command. Use a `Feature & Action` union type for that.
 
-You can use the same pattern:
+Built-in Memory and Skills features follow this pattern: they are regular features, but they also expose methods such as `list`, `find`, `add`, or `install`.
 
 ```ts
-import type { CommandContext } from "just-bash";
-import type { Feature } from "ai-sdk-x";
+import type { CommandContext, Feature } from "ai-sdk-x";
 
 type ProjectFeature = Feature & {
   writeNote?: (title: string, body: string, ctx: CommandContext) => Promise<void>;
@@ -84,9 +103,11 @@ type ProjectFeature = Feature & {
 function createProjectFeature(): ProjectFeature {
   return {
     name: "project",
+    description: () => "Project notes are stored under $PROJECT_HOME.",
     hooks: {
       async onExecStart(ctx) {
         await ctx.fs.mkdir("/home/user/project", { recursive: true });
+        ctx.setEnv("PROJECT_HOME", "/home/user/project");
       },
     },
     writeNote: async (title, body, ctx) => {
@@ -96,4 +117,5 @@ function createProjectFeature(): ProjectFeature {
 }
 ```
 
-Use actions for application-level operations that share the same implementation as the Bash command.
+Use actions for application-owned workflows. Use Bash commands for model-driven workflows that should be discoverable through shell help and tool descriptions.
+

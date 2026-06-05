@@ -392,6 +392,7 @@ export {
 	textOutput,
 	unsafeBytesFromLatin1,
 } from "just-bash";
+export { AsyncOnce } from "@/runtime/async-once";
 export type { EnvBackend, EnvSnapshot } from "@/runtime/env";
 export {
 	cloneEnv,
