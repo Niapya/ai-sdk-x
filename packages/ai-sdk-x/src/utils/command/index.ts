@@ -413,7 +413,7 @@ function parseCommandInput<
 		if (token.startsWith("--no-")) {
 			const name = token.slice(5);
 			const flag = flagDefinitions[name];
-			if (!flag || flag.type !== "boolean" || !flag.allowNo) {
+			if (flag?.type !== "boolean" || !flag.allowNo) {
 				return { error: `Nonexistent flag: --no-${name}\n` };
 			}
 

@@ -14,9 +14,6 @@
 		"@types/node": "latest",
 		"tsx": "^4.22.3"
 	},
-	"peerDependencies": {
-		"typescript": "^5"
-	},
 	"scripts": {
 		"shell": "npx tsx src/index.ts",
 		"shell:ai": "npx tsx src/ai.ts"

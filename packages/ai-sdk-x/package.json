@@ -4,13 +4,9 @@
 	},
 	"dependencies": {
 		"diff": "^9.0.0",
-		"just-bash": "^3",
-		"just-git": "^1.7.0",
+		"just-bash": "^3.0.1",
+		"just-git": "^1.7.1",
 		"yaml": "^2"
-	},
-	"devDependencies": {
-		"@types/bun": "^1.3.14",
-		"typescript": "^5.7.0"
 	},
 	"scripts": {
 		"build": "bunup src/index.ts --format esm,cjs --out-dir dist --dts --exports",

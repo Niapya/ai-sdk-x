@@ -1,4 +1,3 @@
-import { type Command, type ExecResult, latin1FromBytes } from "just-bash";
 import { createGit } from "just-git";
 import type { GitConfig, GitOptions } from "@/features/git/types";
 import type { Feature } from "@/types";
@@ -28,20 +27,6 @@ export function createGitFeature(option: boolean | GitOptions | undefined = true
 	return {
 		name: "git",
 		description: createGitFeatureDescription,
-		command: [wrapGitCommand(gitCommand)],
+		command: [gitCommand],
 	};
 }
-
-function wrapGitCommand(git: ReturnType<typeof createGit>): Command {
-	return {
-		name: git.name,
-		execute: async (args, ctx) => {
-			return (await git.execute(args, {
-				...ctx,
-				stdin: latin1FromBytes(ctx.stdin),
-			})) as ExecResult;
-		},
-	};
-}
-
-export type { GitConfig, GitOptions } from "@/features/git/types";
