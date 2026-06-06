@@ -1,85 +1,107 @@
-# Mount custom storage in Bash
+# Mount Custom Storage
 
-Use a feature hook to mount custom storage into the main runtime filesystem. The same filesystem is used by feature setup and by commands executed inside Bash.
+AI SDK X uses filesystem interfaces instead of assuming a local disk. That makes the same Bash runtime work with memory, mounted project files, object storage adapters, and wrapper filesystems.
 
-## Mount a custom filesystem
+## Pass the base filesystem
+
+By default, AI SDK X uses an in-memory filesystem as the base filesystem. Pass the top-level `fs` option when your application wants to own the runtime storage.
 
 ```ts
-import { X, createWorkspaceFeature } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
+import { InMemoryFs, X } from "ai-sdk-x";
 
-const projectFs = new InMemoryFs();
-await projectFs.mkdir("/", { recursive: true });
-await projectFs.writeFile("/README.md", "# Project\n");
+const baseFs = new InMemoryFs();
 
-const x = new X();
+const x = new X({
+  fs: baseFs,
+});
+```
 
-x.registerFeature(
-  createWorkspaceFeature({
-    fs: projectFs,
-    mountPoint: "/home/user/workspace",
-  }),
-);
+AI SDK X wraps this base filesystem with `BootstrappableMountableFs`. Bash sees the mounted runtime root, and features receive that same main filesystem through `ctx.fs`.
+
+For local development or desktop integrations, use `ReadWriteFs` when a mounted path should point at a real local directory.
+
+```ts
+import { ReadWriteFs, X, createWorkspaceFeature } from "ai-sdk-x";
+
+const localWorkspaceFs = new ReadWriteFs({
+  root: "/Users/alice/project",
+});
+
+const x = new X()
+  .registerFeature(
+    createWorkspaceFeature({
+      fs: localWorkspaceFs,
+      mountPoint: "/home/user/workspace",
+    }),
+  );
+
+const result = await x.exec("ls $WORKSPACE_HOME");
+console.log(result.stdout);
+```
+
+The agent sees `/home/user/workspace` inside Bash. Your application decides that the mounted filesystem is backed by `/Users/alice/project` on the host machine.
+
+## Mount a custom feature filesystem
+
+Feature factories that own storage usually accept `fs` and `mountPoint`.
+
+```ts
+import { InMemoryFs, X, createWorkspaceFeature } from "ai-sdk-x";
+
+const workspaceFs = new InMemoryFs();
+await workspaceFs.mkdir("/", { recursive: true });
+await workspaceFs.writeFile("/README.md", "# Project\n");
+
+const x = new X()
+  .registerFeature(
+    createWorkspaceFeature({
+      fs: workspaceFs,
+      mountPoint: "/home/user/workspace",
+    }),
+  );
 
 const result = await x.exec("cat $WORKSPACE_HOME/README.md");
 console.log(result.stdout);
 ```
 
-`createWorkspaceFeature()` mounts the provided filesystem at `mountPoint` and sets `WORKSPACE_HOME`.
+The mounted filesystem is visible to Bash at the mount point, while your application can keep a handle to the original filesystem.
 
-## Mount storage from a custom feature
+## Mount from your own feature
+
+Use `onExecStart` when a custom feature needs to mount storage or set a feature-owned env variable.
 
 ```ts
 import type { Feature } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
+import { InMemoryFs } from "ai-sdk-x";
 
 const docsFs = new InMemoryFs();
-await docsFs.mkdir("/", { recursive: true });
-await docsFs.writeFile("/index.md", "# Internal docs\n");
 
 const docsFeature: Feature = {
   name: "docs",
   description: () => "Internal docs are mounted at $DOCS_HOME.",
   hooks: {
-    onExecStart(ctx) {
+    async onExecStart(ctx) {
       ctx.fs.mount("/home/user/docs", docsFs);
+      await ctx.fs.mkdir("/home/user/docs", { recursive: true });
       ctx.setEnv("DOCS_HOME", "/home/user/docs");
     },
   },
 };
-
-x.registerFeature(docsFeature);
 ```
 
-The hook receives `ctx.fs`, which is the main `BootstrappableMountableFs`. Mounts added there are visible to all Bash commands.
+`ctx.fs` is the main runtime filesystem. Mounts added there are visible to later Bash commands and to other features.
 
-## Connect to runtime FS wrappers
+## Built-in feature storage
+
+Workspace, Memory, and Skills can each mount their own filesystem:
 
 ```ts
-import {
-  CachingFs,
-  IndexedFs,
-  TransactionalFs,
-  InMemoryKVStore,
-} from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
-
-const source = new InMemoryFs();
-const cache = new InMemoryKVStore();
-
-const indexed = new IndexedFs({ fs: source, cache });
-const cached = new CachingFs({ fs: indexed, cache, ttlMs: 60_000 });
-const transactional = new TransactionalFs({ fs: cached, cache });
-
-x.registerFeature({
-  name: "storage",
-  hooks: {
-    onExecStart(ctx) {
-      ctx.fs.mount("/home/user/storage", transactional);
-      ctx.setEnv("STORAGE_HOME", "/home/user/storage");
-    },
-  },
-});
+const x = new X()
+  .registerFeature(createWorkspaceFeature({ fs: workspaceFs }))
+  .registerFeature(createMemoryFeature({ fs: memoryFs }))
+  .registerFeature(createSkillsFeature({ fs: skillsFs }));
 ```
 
-This pattern lets Bash work with one mounted path while your application chooses indexing, caching, and transaction semantics behind it.
+## Filesystem wrappers
+
+FS wrappers adapt the same filesystem interface for different storage behavior: mounting, scoping, indexing, caching, and transactional writes. Keep this guide focused on mounting. For the wrapper catalog and custom wrapper pattern, see [File System](/v1/runtime/file-system).

@@ -1,13 +1,11 @@
-# Custom start
+# Custom Start
 
-Use `new X()` when you want to choose the runtime options and register features yourself.
+Use `new X()` when you want an empty runtime and full control over what gets registered.
+
+Unlike `X.init()`, the constructor does not add Patch, Git, Workspace, Skills, or Memory. It only creates the Bash runtime, base filesystem, environment backend, and hook list.
 
 ```ts
-import {
-  X,
-  createPatchFeature,
-  createWorkspaceFeature,
-} from "ai-sdk-x";
+import { X, createPatchFeature, createWorkspaceFeature } from "ai-sdk-x";
 
 const x = new X({
   bash: {
@@ -15,16 +13,11 @@ const x = new X({
     network: false,
   },
 })
-  .registerFeature(createPatchFeature())
-  .registerFeature(
-    createWorkspaceFeature({
-      mountPoint: "/work",
-    }),
-  );
-
-const result = await x.exec("echo $WORKSPACE_HOME");
-console.log(result.stdout);
+  .registerFeature(createWorkspaceFeature())
+  .registerFeature(createPatchFeature());
 ```
+
+This pattern is useful when your product needs a narrower command surface, a custom storage layout, or a feature set selected per user or per task.
 
 ## Constructor
 
@@ -34,15 +27,17 @@ new X(options?: XOptions)
 
 `XOptions` supports:
 
-- `bash`: virtual Bash options.
-- `envBackend`: an `EnvBackend` used to persist cwd and environment state.
-- `execHooks`: hooks called before and after each command.
-- `fs`: the base filesystem wrapped by `BootstrappableMountableFs`.
+- `bash`: Bash runtime options such as `cwd`, `env`, `network`, `javascript`, and `python`.
+- `fs`: the base filesystem before AI SDK X wraps it in `BootstrappableMountableFs`.
+- `envBackend`: the backend that persists `cwd` and `env` across commands.
+- `execHooks`: hooks registered before later `registerHook()` calls.
 
 ## Register commands
 
+Commands are shell commands available inside Bash.
+
 ```ts
-import type { Command } from "just-bash";
+import type { Command } from "ai-sdk-x";
 
 const helloCommand: Command = {
   name: "hello",
@@ -56,9 +51,11 @@ const helloCommand: Command = {
 x.registerCommand(helloCommand);
 ```
 
-Commands registered through `registerCommand()` are trusted by default.
+Commands registered through `registerCommand()` are trusted by default. If you need a command to be untrusted, set `trusted: false` on the command object.
 
 ## Register hooks
+
+Hooks run around each command execution.
 
 ```ts
 x.registerHook({
@@ -71,14 +68,16 @@ x.registerHook({
 });
 ```
 
-Hooks receive the command, selected exec options, and a sanitized runtime snapshot. `onExecStart` also receives the main `fs`, the `bash` instance, and `setEnv()`.
+`onExecStart` receives the command, exec options, current snapshot, Bash instance, main runtime filesystem, and `setEnv()`. `onExecEnd` receives the command, options, next snapshot, and command result.
 
 ## Register features
+
+A feature groups description, commands, and hooks.
 
 ```ts
 x.registerFeature({
   name: "project",
-  description: () => "Project commands are available.",
+  description: () => "Project commands are available in Bash.",
   command: [helloCommand],
   hooks: {
     onExecStart(ctx) {
@@ -88,4 +87,21 @@ x.registerFeature({
 });
 ```
 
-A feature can contribute a model-facing description, Bash commands, and lifecycle hooks.
+Built-in features are regular features created by factory functions. You can register all of them manually:
+
+```ts
+import {
+  createGitFeature,
+  createMemoryFeature,
+  createPatchFeature,
+  createSkillsFeature,
+  createWorkspaceFeature,
+} from "ai-sdk-x";
+
+const x = new X()
+  .registerFeature(createPatchFeature())
+  .registerFeature(createGitFeature())
+  .registerFeature(createWorkspaceFeature())
+  .registerFeature(createSkillsFeature())
+  .registerFeature(createMemoryFeature());
+```

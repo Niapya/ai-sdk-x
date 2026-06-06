@@ -2,224 +2,205 @@
 
 AI SDK X puts Bash and features on top of a shared filesystem model.
 
-That filesystem layer is not just storage. It is the place where the runtime mounts workspaces, isolates paths, stages edits, caches reads, and adapts to backends that do not look like a local disk.
+Every filesystem implements the `IFileSystem` interface from `just-bash`. AI SDK X then composes those implementations with mounts and wrappers.
 
-## The core idea
+## Base filesystem
 
-All of the wrappers below implement the same filesystem interface. That lets you compose them:
-
-- mount one filesystem into another
-- expose only a subdirectory to a feature
-- stage changes before commit
-- add a cache in front of a remote backend
-- keep directory metadata in KV when listing is expensive
-
-## Bootstrappable mountable FS
-
-`BootstrappableMountableFs` is the runtime filesystem used by `X`.
-
-It preserves the bootstrap behavior that `just-bash` expects for `/bin`, `/dev`, `/proc`, `/tmp`, and the default home directory, while still letting you mount custom filesystems.
-
-### What it is for
-
-Use it when you want:
-
-- one shared runtime filesystem for Bash and features
-- mounted workspaces or mounted feature storage
-- the default shell bootstrap layout to exist at startup
-
-### How to construct it
-
-`X` creates it for you, but you can also instantiate it directly:
+The top-level `fs` option is the base filesystem.
 
 ```ts
-import { BootstrappableMountableFs } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
+import { InMemoryFs, X } from "ai-sdk-x";
+
+const x = new X({
+  fs: new InMemoryFs(),
+});
+```
+
+If you do not pass one, AI SDK X uses `InMemoryFs`.
+
+## Built-in filesystems
+
+AI SDK X re-exports the filesystem implementations from Just Bash. Use these as the base filesystem, feature filesystem, or inner filesystem for AI SDK X wrappers.
+
+### InMemoryFs
+
+`InMemoryFs` stores files in process memory. It is the default base filesystem and is useful for tests, demos, isolated agent sessions, and serverless invocations where persistence is handled elsewhere.
+
+```ts
+import { InMemoryFs, X } from "ai-sdk-x";
+
+const x = new X({
+  fs: new InMemoryFs(),
+});
+```
+
+### ReadWriteFs
+
+`ReadWriteFs` maps the virtual filesystem to a real local directory. Use it for local development, desktop apps, CLIs, or examples where Bash should read and write host files.
+
+```ts
+import { ReadWriteFs, X } from "ai-sdk-x";
+
+const x = new X({
+  fs: new ReadWriteFs({
+    root: "/Users/alice/project",
+  }),
+});
+```
+
+### OverlayFs
+
+`OverlayFs` is a copy-on-write filesystem backed by a real local directory. Reads come from disk, while writes stay in memory and do not persist to the host directory.
+
+```ts
+import { OverlayFs, X } from "ai-sdk-x";
+
+const overlay = new OverlayFs({
+  root: "/Users/alice/project",
+  mountPoint: "/home/user/project",
+});
+
+const x = new X({
+  fs: overlay,
+});
+```
+
+### MountableFs
+
+`MountableFs` mounts filesystems at absolute paths. AI SDK X uses `BootstrappableMountableFs`, a runtime-aware extension of this idea, but `MountableFs` is still useful when you want a general mountable filesystem outside `X`.
+
+```ts
+import { InMemoryFs, MountableFs } from "ai-sdk-x";
+
+const fs = new MountableFs({
+  base: new InMemoryFs(),
+});
+
+fs.mount("/workspace", workspaceFs);
+```
+
+## Runtime filesystem
+
+`X` wraps the base filesystem in `BootstrappableMountableFs`.
+
+```ts
+import { BootstrappableMountableFs, InMemoryFs } from "ai-sdk-x";
 
 const fs = new BootstrappableMountableFs({
   base: new InMemoryFs(),
 });
 ```
 
-### Example
+This wrapper preserves Bash bootstrap paths and supports feature mounts.
+
+## Feature filesystems
+
+Features mount storage into the runtime root.
 
 ```ts
-import { BootstrappableMountableFs } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
-
-const base = new InMemoryFs();
-const fs = new BootstrappableMountableFs({ base });
-
-await fs.mkdir("/workspace", { recursive: true });
-await fs.writeFile("/workspace/README.md", "# Demo\n");
+ctx.fs.mount("/home/user/workspace", workspaceFs);
+ctx.setEnv("WORKSPACE_HOME", "/home/user/workspace");
 ```
 
-## Transactional FS
+Built-in Workspace, Memory, and Skills features accept `fs` and `mountPoint` options for this pattern.
 
-`TransactionalFs` stages file changes in memory until you commit them to the backing filesystem.
+## FS wrappers
 
-### What it is for
+Use wrappers to adapt the same filesystem interface to platform storage.
 
-Use it when you want to:
+### BootstrappableMountableFs
 
-- prepare edits without immediately persisting them
-- inspect staged changes before applying them
-- rollback if validation fails
-- keep write-heavy agent workflows controlled
-
-### How to construct it
+`BootstrappableMountableFs` is the runtime root used by `X`. It preserves the Bash bootstrap layout and supports mounting feature filesystems.
 
 ```ts
-import { TransactionalFs } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
+import { BootstrappableMountableFs, InMemoryFs } from "ai-sdk-x";
 
-const tx = new TransactionalFs({
-  fs: new InMemoryFs(),
+const runtimeFs = new BootstrappableMountableFs({
+  base: new InMemoryFs(),
 });
+
+runtimeFs.mount("/home/user/workspace", workspaceFs);
 ```
 
-### Example
+You usually do not need to construct it yourself because `new X({ fs })` creates it for you.
 
-```ts
-import { TransactionalFs } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
+### createSubpathFs
 
-const tx = new TransactionalFs({ fs: new InMemoryFs() });
-
-await tx.writeFile("/draft.md", "draft");
-console.log(await tx.stat("/draft.md"));
-
-await tx.commit();
-```
-
-If you decide not to keep the changes, use `rollback()` instead of `commit()`.
-
-## Subpath FS
-
-`createSubpathFs()` exposes a directory as if it were its own filesystem.
-
-### What it is for
-
-Use it when you want:
-
-- a feature to see only a project root
-- mounted content to stay inside a scoped directory
-- path resolution to stay inside a known subtree
-
-### How to construct it
+`createSubpathFs()` exposes one directory as a scoped filesystem. Use it when a feature should see a subtree as its own root.
 
 ```ts
 import { createSubpathFs } from "ai-sdk-x";
 
-const scopedFs = createSubpathFs(baseFs, "/home/user/workspace");
+const projectFs = createSubpathFs(runtimeFs, "/home/user/projects/demo");
 ```
 
-### Example
+Mount that scoped filesystem into a feature when you want all paths to resolve inside the selected directory.
 
-```ts
-import { createSubpathFs } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
+### IndexedFs
 
-const base = new InMemoryFs();
-await base.mkdir("/projects/demo", { recursive: true });
-await base.writeFile("/projects/demo/README.md", "hello");
-
-const demoFs = createSubpathFs(base, "/projects/demo");
-
-console.log(await demoFs.readFile("/README.md"));
-```
-
-## Indexed FS
-
-`IndexedFs` keeps directory listings and stat data in `KVStorage` instead of discovering them by walking the backing filesystem.
-
-### What it is for
-
-Use it when your storage backend behaves more like object storage than a local disk:
-
-- directory walking is expensive
-- listings need to come from an index
-- you still want file contents to stream from the wrapped filesystem
-
-### How to construct it
+`IndexedFs` keeps directory listings and stat metadata in `KVStorage`. It is useful when the backing filesystem behaves like object storage, where listing directories is expensive or not native.
 
 ```ts
 import { IndexedFs, InMemoryKVStore } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
 
-const fs = new IndexedFs({
-  fs: new InMemoryFs(),
+const indexed = new IndexedFs({
+  fs: objectStoreFs,
   cache: new InMemoryKVStore(),
-  manifestPrefix: "runtime-storage:index",
+  manifestPrefix: "workspace:index",
 });
 ```
 
-### Example
+File contents still come from the wrapped filesystem. Directory metadata comes from the index.
 
-```ts
-import { IndexedFs, InMemoryKVStore } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
+### CachingFs
 
-const source = new InMemoryFs();
-const cache = new InMemoryKVStore();
-const fs = new IndexedFs({
-  fs: source,
-  cache,
-});
-
-await fs.mkdir("/docs", { recursive: true });
-await fs.writeFile("/docs/index.md", "# Docs\n");
-
-console.log(await fs.readdir("/docs"));
-```
-
-## Caching FS
-
-`CachingFs` is a read-through cache for file contents and directory metadata.
-
-### What it is for
-
-Use it when you want to:
-
-- reduce repeated remote reads
-- cache file, stat, and directory lookups
-- invalidate read data when writes happen
-
-### How to construct it
+`CachingFs` caches file reads, stat results, and directory listings in `KVStorage`. Use it in front of remote or high-latency filesystems.
 
 ```ts
 import { CachingFs, InMemoryKVStore } from "ai-sdk-x";
-
-const cachedFs = new CachingFs({
-  fs: baseFs,
-  cache: new InMemoryKVStore(),
-  ttlMs: 30_000,
-});
-```
-
-### Example
-
-```ts
-import { CachingFs, InMemoryKVStore } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
 
 const cached = new CachingFs({
-  fs: new InMemoryFs(),
+  fs: indexed,
   cache: new InMemoryKVStore(),
   ttlMs: 60_000,
 });
-
-console.log(await cached.readFile("/README.md"));
 ```
 
-## Choosing a wrapper
+Writes invalidate affected cache entries so later reads do not keep stale metadata.
 
-Pick the wrapper that matches the problem:
+### TransactionalFs
 
-- `BootstrappableMountableFs` for the shared runtime root
-- `TransactionalFs` for staged changes
-- `createSubpathFs()` for path isolation
-- `IndexedFs` for manifest-backed storage
-- `CachingFs` for read-heavy backends
+`TransactionalFs` stages mutations before they are committed to the wrapped filesystem. Use it when an agent should prepare edits, inspect them, then either commit or rollback.
 
-They are all composable, so you can layer them when one wrapper is not enough.
+```ts
+import { TransactionalFs } from "ai-sdk-x";
+
+const tx = new TransactionalFs({
+  fs: cached,
+});
+
+await tx.writeFile("/draft.md", "draft");
+await tx.commit();
+```
+
+Call `rollback()` instead of `commit()` when validation fails.
+
+### Compose wrappers
+
+Wrappers can be composed before mounting them into a feature.
+
+```ts
+const fs = new TransactionalFs({
+  fs: new CachingFs({
+    fs: new IndexedFs({ fs: objectStoreFs, cache: kv }),
+    cache: kv,
+    ttlMs: 60_000,
+  }),
+});
+```
+
+## Custom filesystem
+
+To build your own filesystem or wrapper, implement `IFileSystem`. If you are adapting a new backend such as S3, R2, Blob storage, or a database, map absolute Unix paths to that backend. If you are wrapping an existing filesystem, delegate to the inner filesystem and add behavior such as access control, audit logging, path policy, encryption, validation, caching, or metadata synchronization.
+
+After that, pass it as the top-level `fs`, a feature `fs`, or the inner filesystem of one of the built-in wrappers.

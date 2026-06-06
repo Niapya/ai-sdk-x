@@ -1,80 +1,65 @@
-# Workspace feature
+# Workspace Feature
 
-The Workspace feature mounts durable work files into Bash and sets `WORKSPACE_HOME`.
+Workspace mounts durable work files into Bash and sets `WORKSPACE_HOME`.
 
-Use it when you want the model to work inside a dedicated project directory that survives across commands and can be mounted from a custom filesystem.
+Use it when the agent should create, inspect, and edit deliverables inside a dedicated project directory instead of scattering files through temporary runtime paths.
 
-## What it is
+## Design
 
-Workspace is the durable working area for user-facing files.
+Workspace is intentionally simple:
 
-It is where the model should create and edit deliverables, source files, notes, and any other output that belongs to the project rather than to temporary scratch space.
+- It exposes one mounted root through `WORKSPACE_HOME`.
+- Its description tells the model to keep durable deliverables there.
+- It can use a custom filesystem or the main runtime filesystem.
+- It does not add extra Bash commands.
 
-## How it is designed
+If no custom filesystem is passed, the feature ensures `/home/user/workspace` exists in the main runtime filesystem. If you pass a custom `mountPoint` without a custom filesystem, it exposes the default workspace through a scoped subpath.
 
-The feature is built around one root path:
+## Initialize with X.init
 
-- `WORKSPACE_HOME` tells Bash where the workspace lives
-- the mounted filesystem makes that root durable or platform-backed
-- the feature description tells the model to keep all deliverables under that path
-
-If no custom filesystem is passed, the feature uses the main runtime filesystem and ensures the default workspace directory exists.
-
-If a custom mount point is used without a custom filesystem, it maps the workspace through a subpath filesystem so the model still sees a clean workspace root.
-
-## Factory
+Workspace is enabled by default in `X.init()`.
 
 ```ts
-createWorkspaceFeature(option?: boolean | WorkspaceOptions): Feature
+const x = X.init();
 ```
 
+Customize or disable it through the `workspace` option:
+
 ```ts
-import { createWorkspaceFeature } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
-
-const workspaceFs = new InMemoryFs();
-
-x.registerFeature(
-  createWorkspaceFeature({
+const x = X.init({
+  workspace: {
     fs: workspaceFs,
-    mountPoint: "/home/user/workspace",
-  }),
-);
+    mountPoint: "/project",
+  },
+});
+
+const withoutWorkspace = X.init({
+  workspace: false,
+});
 ```
 
-## Construction parameters
+## Register manually
 
 ```ts
-interface WorkspaceOptions {
-  fs?: IFileSystem;
-  mountPoint?: string;
-}
+import { X, createWorkspaceFeature } from "ai-sdk-x";
+
+const x = new X()
+  .registerFeature(
+    createWorkspaceFeature({
+      fs: workspaceFs,
+      mountPoint: "/home/user/workspace",
+    }),
+  );
 ```
 
-- `fs`: optional filesystem mounted as the workspace.
-- `mountPoint`: path exposed inside Bash. The default is `/home/user/workspace`.
-
-The resolved config is:
-
-```ts
-interface WorkspaceConfig {
-  readonly enabled: boolean;
-  readonly fs?: IFileSystem;
-  readonly mountPoint: string;
-}
-```
-
-## Commands and env
-
-The Workspace feature does not add a command. It mounts storage and sets env:
+## Use in Bash
 
 ```sh
-echo "$WORKSPACE_HOME"
-find "$WORKSPACE_HOME" -maxdepth 2 -type f
+$ echo "$WORKSPACE_HOME"
+$ find "$WORKSPACE_HOME" -maxdepth 2 -type f
+$ cat "$WORKSPACE_HOME/README.md"
 ```
-
-If no filesystem is provided, the feature creates the default workspace directory in the main runtime FS. If a custom mount point is used without a custom filesystem, it maps that path to the default workspace path through a subpath FS.
 
 ## Actions
 
-`createWorkspaceFeature()` returns a plain `Feature`. It does not expose extra application actions.
+`createWorkspaceFeature()` returns a plain `Feature`. It does not expose app-side actions. Use the mounted filesystem directly when your application needs to read or write workspace files outside Bash.

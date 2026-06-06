@@ -7,8 +7,7 @@ import { fileURLToPath } from "node:url";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { type ModelMessage, stepCountIs, ToolLoopAgent, wrapLanguageModel } from "ai";
-import { X } from "ai-sdk-x";
-import { ReadWriteFs } from "just-bash";
+import { ReadWriteFs, X } from "ai-sdk-x";
 
 const ANSI = {
 	reset: "\u001B[0m",

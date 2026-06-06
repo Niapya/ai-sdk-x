@@ -1,96 +1,18 @@
-# Serverless and embedded runtimes
+# Serverless and Embedded
 
-AI SDK X can run in environments where you do not have a long-lived local disk, process memory is disposable, or the runtime is embedded inside another app.
+AI SDK X is designed for environments where there may be no durable local disk, no long-lived process memory, and no host runtime you want the model to depend on.
 
-The default runtime already includes:
+The default Bash runtime can still run useful work because JavaScript, Python, and SQLite are backed by WASM-capable runtime commands. That makes it practical to embed agent execution inside Cloudflare Workers, serverless functions, browser-adjacent runtimes, or product sandboxes.
 
-- JavaScript support through `js-exec` powered by WASM
-- Python support through `python` powered by WASM
-- SQLite support through the same Bash environment
+Configure three layers explicitly in serverless code:
 
-That makes the runtime usable in serverless and embedded setups without depending on Node.js or a host filesystem layout.
+- `EnvBackend` for cwd and env persistence.
+- `BaseFS` for the runtime's default filesystem.
+- Feature filesystems and wrappers for durable mounted storage.
 
-By default, `X` uses an in-memory filesystem. In serverless or embedded deployments, that is usually the right starting point, but you should still pass `fs` explicitly when you construct the runtime so the storage choice is obvious in your integration code.
+## EnvBackend
 
-## What to configure
-
-For serverless or embedded environments, configure three pieces explicitly:
-
-1. Your own in-memory filesystem
-2. Your own storage backend
-3. Your own env backend
-
-That keeps the runtime state inside the platform primitives you control.
-
-## Use an in-memory filesystem
-
-Start with `InMemoryFs` when the platform does not give you a persistent local disk.
-
-```ts
-import { InMemoryFs } from "just-bash";
-import { X } from "ai-sdk-x";
-
-const fs = new InMemoryFs();
-
-const x = new X({
-  fs,
-});
-```
-
-If you use `X.init()`, pass the same `fs` at the top level:
-
-```ts
-import { InMemoryFs } from "just-bash";
-import { X } from "ai-sdk-x";
-
-const x = X.init({
-  fs: new InMemoryFs(),
-  bash: {
-    cwd: "/home/user/workspace",
-    network: false,
-  },
-});
-```
-
-When you use the static constructor style, keep `fs` explicit for the same reason: it makes the runtime shape clear in serverless code.
-
-If you need a mounted workspace or a dedicated feature filesystem, mount that filesystem into the runtime through your feature hooks.
-
-## Use your own storage backend
-
-Pass a custom `KVStorage` when you want cache and index data to survive across invocations.
-
-```ts
-import type { KVStorage } from "ai-sdk-x";
-
-const storage: KVStorage = {
-  async list(prefix = "") {
-    return [];
-  },
-  async get(key) {
-    return null;
-  },
-  async set(key, value, ttl) {
-    void key;
-    void value;
-    void ttl;
-  },
-  async delete(key) {},
-};
-```
-
-Use that storage with runtime wrappers such as:
-
-- `KvEnvBackend`
-- `IndexedFs`
-- `CachingFs`
-- `TransactionalFs`
-
-This is the right place to connect Redis, Cloudflare KV, D1-adjacent storage, or any platform cache.
-
-## Use your own env backend
-
-If your runtime should remember cwd and environment state across executions, provide a custom `EnvBackend`.
+`EnvBackend` persists the process-like session state.
 
 ```ts
 import type { EnvBackend, EnvSnapshot } from "ai-sdk-x";
@@ -99,49 +21,98 @@ const envBackend: EnvBackend = {
   async load(): Promise<EnvSnapshot | null> {
     return null;
   },
-  async save(snapshot: EnvSnapshot): Promise<void> {
+  async save(snapshot) {
     void snapshot;
   },
 };
 ```
 
-That lets you persist session state in platform storage instead of relying on process memory.
-
-For env persistence details, see the [Environment](/v1/runtime/environment) guide.
-
-## Build the runtime
+Use `MemoryEnvBackend` for local demos. Use `KvEnvBackend` or your own backend when cwd and env should survive across invocations.
 
 ```ts
-import { InMemoryFs } from "just-bash";
 import { InMemoryKVStore, KvEnvBackend, X } from "ai-sdk-x";
 
 const x = new X({
-  fs: new InMemoryFs(),
   envBackend: new KvEnvBackend({
     kv: new InMemoryKVStore(),
-    key: "project:env",
+    key: "session:env",
   }),
 });
 ```
 
-If you are embedding AI SDK X inside a serverless function, this is the basic shape to start from.
+## BaseFS
 
-## Add features on top
-
-Mount feature-specific filesystems with hooks when you need durable workspace, memory, or skill storage.
+The default base filesystem is in-memory.
 
 ```ts
-import { createWorkspaceFeature } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
+import { InMemoryFs, X } from "ai-sdk-x";
+
+const x = new X({
+  fs: new InMemoryFs(),
+});
+```
+
+In serverless environments, passing `fs` explicitly makes the storage boundary clear. `X` wraps it in `BootstrappableMountableFs` so Bash gets a usable runtime layout and features can mount storage.
+
+## FeaturedFS
+
+Features can mount their own filesystems on top of the runtime root.
+
+```ts
+import { InMemoryFs, X, createWorkspaceFeature } from "ai-sdk-x";
 
 const workspaceFs = new InMemoryFs();
 
-x.registerFeature(
-  createWorkspaceFeature({
-    fs: workspaceFs,
-    mountPoint: "/home/user/workspace",
-  }),
-);
+const x = new X()
+  .registerFeature(
+    createWorkspaceFeature({
+      fs: workspaceFs,
+      mountPoint: "/home/user/workspace",
+    }),
+  );
 ```
 
-In serverless environments, keep each mount backed by an explicit in-memory or platform-backed store so the runtime stays deterministic.
+Use this pattern for Workspace, Memory, Skills, or your own feature storage.
+
+## Use FS wrappers
+
+Prefer wrappers when your real backend is remote or persistent:
+
+- `IndexedFs` keeps directory metadata in `KVStorage`.
+- `CachingFs` reduces repeated remote reads.
+- `TransactionalFs` stages writes before commit.
+- `createSubpathFs()` scopes a feature to one path.
+
+```ts
+import { CachingFs, IndexedFs, InMemoryKVStore } from "ai-sdk-x";
+
+const kv = new InMemoryKVStore();
+const fs = new CachingFs({
+  fs: new IndexedFs({ fs: objectStoreFs, cache: kv }),
+  cache: kv,
+  ttlMs: 30_000,
+});
+```
+
+The inner `objectStoreFs` can be your own adapter for S3, R2, Blob storage, a database, or another service that can satisfy the filesystem interface.
+
+## Create an FS adapter
+
+To build an adapter, implement the `IFileSystem` interface from `just-bash` and make paths behave like absolute Unix paths.
+
+```ts
+import type { IFileSystem } from "ai-sdk-x";
+
+class ObjectStoreFs implements IFileSystem {
+  // Implement readFile, writeFile, stat, readdir, mkdir, rm, and the other
+  // filesystem operations required by the storage behavior you expose.
+}
+```
+
+Then pass it as:
+
+- the top-level `fs`
+- a feature `fs`
+- the inner filesystem wrapped by `IndexedFs`, `CachingFs`, or `TransactionalFs`
+
+Keep the adapter small and let AI SDK X wrappers provide indexing, caching, mounting, and transaction behavior.

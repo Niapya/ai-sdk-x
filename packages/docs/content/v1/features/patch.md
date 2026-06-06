@@ -1,51 +1,49 @@
-# Patch feature
+# Patch Feature
 
-The Patch feature adds `x-patch`, a structured file editing command for Bash.
+Patch adds `x-patch`, a structured file editing command.
 
-Use it when a model needs to create, update, delete, or move files with a patch format instead of raw shell redirection.
+Use it when the model should create, update, delete, or move files through a predictable patch format instead of ad hoc shell redirection.
 
-## What it is
+## Design
 
-Patch is the controlled file-editing path in AI SDK X.
+Patch is a narrow feature:
 
-Instead of letting the model compose arbitrary shell redirections, the feature funnels edits through a structured patch language. That gives you:
+- One command: `x-patch`.
+- One patch envelope: `*** Begin Patch` to `*** End Patch`.
+- File operations for add, update, delete, and move.
+- Paths resolved relative to the command cwd.
 
-- explicit file operations
-- predictable parsing
-- safer multi-file edits
-- a clear place to validate changes before they land
+The feature description strongly tells the model to use `x-patch` for file modifications when the change can be expressed as a patch.
 
-## How it is designed
+## Initialize with X.init
 
-The patch feature is intentionally narrow:
-
-- it has one command, `x-patch`
-- it is driven by a custom patch grammar
-- it resolves paths relative to the command cwd
-- it does not expose extra application actions
-
-That makes it a good fit for model-driven code edits where the system should control the edit shape.
-
-## Factory
+Patch is enabled by default in `X.init()`.
 
 ```ts
-createPatchFeature(option?: boolean): Feature
+const x = X.init();
 ```
+
+Disable it when the agent should not have the structured edit command:
 
 ```ts
-import { createPatchFeature } from "ai-sdk-x";
-
-x.registerFeature(createPatchFeature());
+const x = X.init({
+  patch: false,
+});
 ```
 
-Pass `false` to disable the feature.
+## Register manually
 
-## Command
+```ts
+import { X, createPatchFeature } from "ai-sdk-x";
 
-`x-patch` applies a stripped-down, file-oriented patch format.
+const x = new X()
+  .registerFeature(createPatchFeature());
+```
+
+## Use in Bash
 
 ```sh
-x-patch <<'EOF'
+$ x-patch <<'EOF'
 *** Begin Patch
 *** Add File: README.md
 +# Example
@@ -53,10 +51,10 @@ x-patch <<'EOF'
 EOF
 ```
 
-Use it to add, update, delete, and move files:
+Update a file:
 
 ```sh
-x-patch <<'EOF'
+$ x-patch <<'EOF'
 *** Begin Patch
 *** Update File: src/index.ts
 @@
@@ -66,8 +64,20 @@ x-patch <<'EOF'
 EOF
 ```
 
-Paths resolve relative to the command cwd.
+Move while updating:
+
+```sh
+$ x-patch <<'EOF'
+*** Begin Patch
+*** Update File: old.md
+*** Move to: new.md
+@@
+-old
++new
+*** End Patch
+EOF
+```
 
 ## Actions
 
-`createPatchFeature()` returns a plain `Feature`. It does not expose extra application actions.
+`createPatchFeature()` returns a plain `Feature`. It does not expose app-side actions.

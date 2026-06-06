@@ -1,104 +1,101 @@
-# Skills feature
+# Skills Feature
 
-The Skills feature mounts AI agent skills, sets `SKILLS_HOME`, and adds the `x-skills` command.
+Skills mounts reusable agent skill folders, sets `SKILLS_HOME`, and adds the `x-skills` command.
 
-Use it when you want the model to install, inspect, search, and update agent skills from git repositories or a local skills store.
+Use it when the agent should discover, install, inspect, and apply specialized workflows or domain instructions.
 
-## What it is
+## What a skill is
 
-Skills are reusable, domain-specific instruction bundles for the model.
+In AI SDK X, a skill is a directory. The directory contains a `SKILL.md` file and can contain additional resources such as scripts, templates, examples, references, or assets.
 
-In AI SDK X, a skill is not just a prompt file. It is a mounted directory with a stable home, a lockfile-backed index, and a command surface for discovering and managing installed skills.
-
-That design makes skills useful for tasks that need:
-
-- reusable workflows
-- project-specific conventions
-- tested instructions for a narrow domain
-- remote discovery and local installation
-
-## How it is designed
-
-The feature keeps the model-facing part and the filesystem part together:
-
-- `SKILLS_HOME` points to the mounted skills root
-- `x-skills` discovers installed skills and manages remote or local skill sources
-- the feature description lists available skills and tells the model to read `SKILL.md` when a skill applies
-
-This is why skills behave like an operable knowledge layer rather than a static prompt appendix.
-
-## Factory
-
-```ts
-createSkillsFeature(option?: boolean | SkillsOptions): SkillsFeature
+```text
+my-skill/
+  SKILL.md
+  scripts/
+    analyze.mjs
+  templates/
+    report.md
 ```
 
-```ts
-import { createSkillsFeature } from "ai-sdk-x";
-import { InMemoryFs } from "just-bash";
+This follows the same broad pattern used by agent instruction systems such as `AGENTS.md`: keep instructions close to the resources and scripts they need, then load the relevant instructions when the task calls for them.
 
-const skillsFs = new InMemoryFs();
+The Skills feature mounts those folders into Bash and maintains metadata so the model can find the right skill before acting.
+
+## Design
+
+Skills combines:
+
+- A mounted skills root exposed through `SKILLS_HOME`.
+- A lockfile-backed index of installed skills.
+- The `x-skills` CLI for install, add, import, update, list, remove, find, search, and info.
+- A model-facing description that lists available skills and tells the agent to read `SKILL.md` when a skill applies.
+
+The feature description is generated from the current installed skills index, so `x.createToolDescription()` reflects what is available at that moment.
+
+## Initialize with X.init
+
+Skills is enabled by default in `X.init()`.
+
+```ts
+const x = X.init();
+```
+
+Customize or disable it through the `skills` option:
+
+```ts
+const x = X.init({
+  skills: {
+    fs: skillsFs,
+    lockfile: true,
+    mountPoint: "/home/user/skills",
+  },
+});
+
+const withoutSkills = X.init({
+  skills: false,
+});
+```
+
+## Register manually
+
+```ts
+import { X, createSkillsFeature } from "ai-sdk-x";
 
 const skills = createSkillsFeature({
   fs: skillsFs,
-  lockfile: true,
   mountPoint: "/home/user/skills",
 });
 
-x.registerFeature(skills);
+const x = new X()
+  .registerFeature(skills);
 ```
 
-## Construction parameters
+If no custom filesystem is passed, the feature initializes the default skills directory inside the main runtime filesystem.
 
-```ts
-interface SkillsOptions {
-  fs?: IFileSystem;
-  lockfile?: boolean;
-  mountPoint?: string;
-}
-```
-
-- `fs`: optional skills filesystem.
-- `lockfile`: whether commands maintain the skills index. The default is `true`.
-- `mountPoint`: path exposed inside Bash. The default is `/home/user/skills`.
-
-The resolved config is:
-
-```ts
-interface SkillsConfig {
-  readonly enabled: boolean;
-  readonly fs?: IFileSystem;
-  readonly lockfile: boolean;
-  readonly mountPoint: string;
-}
-```
-
-## Command
-
-The feature registers `x-skills` with these subcommands:
-
-- `install`
-- `add`
-- `import`
-- `update`
-- `list`
-- `remove`
-- `find`
-- `search`
-- `info`
+## Use in Bash
 
 ```sh
-x-skills list
-x-skills find testing
-x-skills info testing-strategy
-x-skills install https://github.com/example/agent-skills@testing-strategy
+$ x-skills list
+$ x-skills find testing
+$ x-skills info testing-strategy
+$ x-skills install https://github.com/example/agent-skills@testing-strategy
 ```
 
-Use `x-skills find` for installed skills. Use `x-skills search` for remote discovery.
+Use `x-skills find` for installed skills. Use `x-skills search` for internet skill discovery.
+
+## Run skill scripts with JS runtime
+
+Because skills are mounted into Bash, scripts inside a skill can be executed or imported by the JS runtime when JavaScript support is enabled.
+
+```sh
+$ js-exec "$SKILLS_HOME/my-skill/scripts/analyze.mjs"
+```
+
+For reusable modules, prefer `.mjs` or `.mts` files and import paths under `$SKILLS_HOME`.
 
 ## Actions
 
-`createSkillsFeature()` returns `SkillsFeature`, which is `Feature & Action`.
+`createSkillsFeature()` returns `SkillsFeature`, which is a feature with optional app-side methods.
 
 ```ts
 type SkillsFeature = Feature & {
@@ -115,14 +112,4 @@ type SkillsFeature = Feature & {
 };
 ```
 
-Use actions when your application wants to manage skills directly.
-
-```ts
-const skills = createSkillsFeature();
-x.registerFeature(skills);
-
-const result = await skills.list?.(x.fs);
-console.log(result?.stdout);
-```
-
-Install, add, import, remove, and update actions need a command context because they modify mounted files and emit command-style results.
+Use actions when your application wants to manage skills directly. Use the Bash CLI when the model should discover and operate skills itself.

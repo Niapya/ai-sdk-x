@@ -12,8 +12,8 @@ import {
 } from "@/lib/docs-data";
 import { slugifyHeading } from "@/lib/markdown-heading";
 
-export { DOCS_VERSIONS, toDocPath, versionInfo };
 export type { DocsVersion, NavSection, TocItem };
+export { DOCS_VERSIONS, toDocPath, versionInfo };
 
 const contentRoot = path.join(process.cwd(), "content");
 

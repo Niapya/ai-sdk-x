@@ -1,10 +1,10 @@
 # Backend Storage
 
-AI SDK X uses `KVStorage` as the smallest persistence primitive for runtime wrappers.
+`KVStorage` is the smallest persistence primitive in AI SDK X.
 
-That makes storage easy to swap without changing the rest of the runtime design.
+It is used by env backends and filesystem wrappers when state should live outside process memory.
 
-## KV interface
+## Interface
 
 ```ts
 interface KVStorage {
@@ -15,59 +15,54 @@ interface KVStorage {
 }
 ```
 
-The contract is intentionally minimal:
+The interface intentionally stores strings. Wrappers decide how to serialize their own metadata.
 
-- `get` and `set` store string values.
-- `list` supports prefix scans and optional caps.
-- `ttl` is available when the backend supports expiration.
-
-## Default implementation
-
-`InMemoryKVStore` is the default backend used by runtime wrappers.
+## Default backend
 
 ```ts
 import { InMemoryKVStore } from "ai-sdk-x";
 
-const kv = new InMemoryKVStore({
-  now: () => Date.now(),
-});
+const kv = new InMemoryKVStore();
 
-await kv.set("answer", "42", 10_000);
+await kv.set("answer", "42");
 console.log(await kv.get("answer"));
 ```
 
-It is a good fit for:
+`InMemoryKVStore` is useful for tests, local demos, and ephemeral runtimes.
 
-- tests,
-- local demos,
-- and ephemeral runtimes.
+## What uses KVStorage
 
-## What runtime layers store here
+Built-in runtime layers use KV for:
 
-Storage is used by several runtime wrappers:
+- `KvEnvBackend` env snapshots
+- `IndexedFs` directory manifests
+- `CachingFs` read-through cache entries
+- `TransactionalFs` status/cache metadata
 
-- env snapshots
-- filesystem indexes
-- filesystem caches
+Use separate prefixes or keys when multiple runtime layers share one persistent backend.
 
-That means one backend can serve multiple runtime concerns as long as the key space is separated.
+## Custom backend
 
-## Cache and index linkage
+Implement `KVStorage` for Redis, Cloudflare KV, D1-adjacent metadata, object-store sidecars, or any platform store that can read and write string values.
 
-If you want your KV cache to survive process restarts, pass the same persistent `KVStorage` implementation into the wrappers that support it.
+```ts
+const kv: KVStorage = {
+  async list(prefix = "") {
+    return [];
+  },
+  async get(key) {
+    return null;
+  },
+  async set(key, value, ttl) {
+    void key;
+    void value;
+    void ttl;
+  },
+  async delete(key) {
+    void key;
+  },
+};
+```
 
-Examples:
+After that, pass it to env backends or FS wrappers.
 
-- `KvEnvBackend` stores env snapshots as JSON.
-- `IndexedFs` stores directory manifests and child indexes.
-- `CachingFs` stores read-through file, stat, and directory cache entries.
-
-This is the main place to plug in Redis, cloud KV, or a custom object store adapter.
-
-## When to customize
-
-Write your own `KVStorage` when you need:
-
-- stronger durability guarantees,
-- shared cache state across workers,
-- or a backend that maps to an existing platform store.
