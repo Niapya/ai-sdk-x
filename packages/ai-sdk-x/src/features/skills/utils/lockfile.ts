@@ -17,6 +17,7 @@ export interface WriteSkillIndexEntryInput {
 	frontmatter?: Record<string, string>;
 	skillPath: string;
 	source?: "git" | "local";
+	sourcePath?: string;
 	target: SkillInstallTarget;
 }
 
@@ -38,6 +39,9 @@ export async function writeSkillIndexEntry(
 			? { frontmatter: input.frontmatter }
 			: {}),
 		source: input.source ?? (input.target.repoUrl ? "git" : "local"),
+		...(input.sourcePath || input.target.sourcePath
+			? { sourcePath: input.sourcePath ?? input.target.sourcePath }
+			: {}),
 		...(input.target.repoUrl ? { url: input.target.repoUrl } : {}),
 	};
 
@@ -162,6 +166,7 @@ function isSkillIndexEntry(value: unknown): value is SkillIndexEntry {
 	const skillPath = Object.getOwnPropertyDescriptor(value, "skillPath")?.value;
 	const createAt = Object.getOwnPropertyDescriptor(value, "createAt")?.value;
 	const source = Object.getOwnPropertyDescriptor(value, "source")?.value;
+	const sourcePath = Object.getOwnPropertyDescriptor(value, "sourcePath")?.value;
 	const updateAt = Object.getOwnPropertyDescriptor(value, "updateAt")?.value;
 	const url = Object.getOwnPropertyDescriptor(value, "url")?.value;
 
@@ -181,6 +186,7 @@ function isSkillIndexEntry(value: unknown): value is SkillIndexEntry {
 		Array.isArray(files) &&
 		files.every((file) => typeof file === "string") &&
 		(source === undefined || source === "git" || source === "local") &&
+		(sourcePath === undefined || typeof sourcePath === "string") &&
 		(url === undefined || typeof url === "string")
 	);
 }

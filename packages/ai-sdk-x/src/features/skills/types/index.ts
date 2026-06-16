@@ -21,6 +21,7 @@ export interface SkillsCommandOptions {
 export interface SkillInstallTarget {
 	repoUrl: string;
 	selector: string;
+	sourcePath?: string;
 }
 
 export interface SkillIndexEntry {
@@ -30,6 +31,7 @@ export interface SkillIndexEntry {
 	frontmatter?: Record<string, string>;
 	skillPath: string;
 	source?: "git" | "local";
+	sourcePath?: string;
 	updateAt: number;
 	url?: string;
 }
