@@ -12,9 +12,9 @@
 		"build": "bunup src/index.ts --format esm,cjs --out-dir dist --dts --exports",
 		"dev": "bun run build --watch",
 		"prepublishOnly": "bun run build",
-		"release:patch": "npm version patch && npm publish --access public",
-		"release:minor": "npm version minor && npm publish --access public",
-		"release:major": "npm version major && npm publish --access public"
+		"release:patch": "npm version patch --no-workspaces-update",
+		"release:minor": "npm version minor --no-workspaces-update",
+		"release:major": "npm version major --no-workspaces-update"
 	},
 	"exports": {
 		".": {
@@ -46,7 +46,7 @@
 	},
 	"type": "module",
 	"types": "./dist/index.d.ts",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"optionalDependencies": {
 		"ai": "^6",
 		"zod": "^4"
