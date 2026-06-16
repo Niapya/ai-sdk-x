@@ -1,5 +1,6 @@
 import type { IFileSystem } from "just-bash";
 import type { MemoryEntry, MemoryIndex } from "@/features/memory/types";
+import { memoryIndexSchema } from "@/features/memory/types";
 import {
 	initLockfile,
 	readLockfile,
@@ -27,14 +28,6 @@ export interface MemoryEntryRef {
 
 export async function readMemoryIndex(fs: IFileSystem, memoryMount: string): Promise<MemoryIndex> {
 	return readLockfile(memoryIndexLockfileOptions(fs, memoryMount));
-}
-
-export async function writeMemoryIndex(
-	fs: IFileSystem,
-	memoryMount: string,
-	index: MemoryIndex,
-): Promise<void> {
-	await writeLockfile(memoryIndexLockfileOptions(fs, memoryMount), index);
 }
 
 export async function initMemoryIndex(fs: IFileSystem, memoryMount: string): Promise<MemoryIndex> {
@@ -87,7 +80,7 @@ export async function upsertMemoryEntry(
 		await fs.mkdir(parentPath(resolvedPath), { recursive: true });
 		await fs.writeFile(resolvedPath, input.body);
 	}
-	await writeMemoryIndex(fs, memoryMount, index);
+	await writeLockfile(memoryIndexLockfileOptions(fs, memoryMount), index);
 	return { category, entry: categoryEntries[input.title], title: input.title };
 }
 
@@ -107,7 +100,7 @@ export async function deleteMemoryEntry(
 	if (Object.keys(entries).length === 0) {
 		delete index.categories[category];
 	}
-	await writeMemoryIndex(fs, memoryMount, index);
+	await writeLockfile(memoryIndexLockfileOptions(fs, memoryMount), index);
 	return true;
 }
 
@@ -221,61 +214,14 @@ function memoryIndexLockfileOptions(fs: IFileSystem, memoryMount: string) {
 		createEmpty: createEmptyMemoryIndex,
 		filename: MEMORY_INDEX_FILE,
 		fs,
-		isValid: isMemoryIndex,
 		mountPoint: memoryMount,
+		parse: parseMemoryIndex,
 	};
 }
 
-function isMemoryIndex(value: unknown): value is MemoryIndex {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		return false;
-	}
-
-	const version = Object.getOwnPropertyDescriptor(value, "version")?.value;
-	const categories = Object.getOwnPropertyDescriptor(value, "categories")?.value;
-	if (
-		version !== 1 ||
-		categories === null ||
-		typeof categories !== "object" ||
-		Array.isArray(categories)
-	) {
-		return false;
-	}
-
-	return Object.values(categories).every(isMemoryEntryRecord);
-}
-
-function isMemoryEntryRecord(value: unknown): value is Record<string, MemoryEntry> {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		return false;
-	}
-
-	return Object.values(value).every(isMemoryEntry);
-}
-
-function isMemoryEntry(value: unknown): value is MemoryEntry {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		return false;
-	}
-
-	const description = Object.getOwnPropertyDescriptor(value, "description")?.value;
-	const keywords = Object.getOwnPropertyDescriptor(value, "keywords")?.value;
-	const category = Object.getOwnPropertyDescriptor(value, "category")?.value;
-	const path = Object.getOwnPropertyDescriptor(value, "path")?.value;
-	const createAt = Object.getOwnPropertyDescriptor(value, "createAt")?.value;
-	const updateAt = Object.getOwnPropertyDescriptor(value, "updateAt")?.value;
-
-	return (
-		typeof category === "string" &&
-		typeof description === "string" &&
-		typeof path === "string" &&
-		Array.isArray(keywords) &&
-		keywords.every((keyword) => typeof keyword === "string") &&
-		typeof createAt === "number" &&
-		Number.isFinite(createAt) &&
-		typeof updateAt === "number" &&
-		Number.isFinite(updateAt)
-	);
+function parseMemoryIndex(value: unknown): MemoryIndex | undefined {
+	const parsed = memoryIndexSchema.safeParse(value);
+	return parsed.success ? parsed.data : undefined;
 }
 
 function createMemoryEntryPath(category: string, title: string, now: Date): string {

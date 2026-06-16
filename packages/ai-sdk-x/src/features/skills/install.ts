@@ -10,7 +10,7 @@ import { cloneSkillRepository } from "@/features/skills/utils/git";
 import {
 	collectSkillFiles,
 	toSkillsHomePath,
-	writeSkillIndexEntry,
+	upsertSkillIndexEntry,
 } from "@/features/skills/utils/lockfile";
 import { stringifyFrontmatter } from "@/features/skills/utils/metadata";
 import { renderSkillMetadata } from "@/features/skills/utils/output";
@@ -80,7 +80,7 @@ export async function installSkill(
 		const sourcePath = relativePathFromRoot(ctx.fs, source.value.rootPath, selected.path);
 
 		if (options.lockfile) {
-			await writeSkillIndexEntry(ctx.fs, options, {
+			await upsertSkillIndexEntry(ctx.fs, options, {
 				description: selected.description,
 				files,
 				frontmatter: stringifyFrontmatter(selected.frontmatter),

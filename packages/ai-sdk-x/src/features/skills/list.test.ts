@@ -57,6 +57,42 @@ describe("x-skills list", () => {
 		expect(description).toContain("...");
 		expect(description).not.toContain(longDescription);
 	});
+
+	it("allows extra fields in skills lockfile entries", async () => {
+		const x = X.init();
+		await x.fs.mkdir("/home/user/skills/alpha", { recursive: true });
+		await x.fs.writeFile(
+			"/home/user/skills/alpha/SKILL.md",
+			["---", "name: Alpha", "description: Alpha description", "---", ""].join("\n"),
+		);
+		await x.fs.writeFile(
+			"/home/user/skills/skills.json",
+			JSON.stringify(
+				{
+					extraRootField: "kept-compatible",
+					skills: {
+						alpha: {
+							createAt: 1,
+							description: "Alpha description",
+							extraEntryField: true,
+							files: ["$SKILLS_HOME/alpha/SKILL.md"],
+							skillPath: "$SKILLS_HOME/alpha/SKILL.md",
+							updateAt: 2,
+						},
+					},
+					version: 1,
+				},
+				null,
+				2,
+			),
+		);
+
+		const result = await x.exec("x-skills list");
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain("Title: alpha");
+		expect(result.stdout).toContain("Description: Alpha description");
+	});
 });
 
 async function writeLocalSkill(

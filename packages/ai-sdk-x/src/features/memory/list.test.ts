@@ -31,4 +31,39 @@ describe("x-memory list", () => {
 		expect(result.exitCode).toBe(1);
 		expect(result.stderr).toContain("only daily category is supported");
 	});
+
+	it("allows extra fields in memory lockfile entries", async () => {
+		const x = X.init();
+		await x.fs.mkdir("/home/user/memory", { recursive: true });
+		await x.fs.writeFile(
+			"/home/user/memory/memory.json",
+			JSON.stringify(
+				{
+					categories: {
+						daily: {
+							alpha: {
+								category: "daily",
+								createAt: 1,
+								description: "Alpha summary",
+								extraEntryField: true,
+								keywords: ["alpha"],
+								path: "$MEMORY_HOME/daily/2026-06-16/alpha.md",
+								updateAt: 2,
+							},
+						},
+					},
+					extraRootField: "kept-compatible",
+					version: 1,
+				},
+				null,
+				2,
+			),
+		);
+
+		const result = await x.exec("x-memory list");
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain("- alpha");
+		expect(result.stdout).toContain("Description: Alpha summary");
+	});
 });

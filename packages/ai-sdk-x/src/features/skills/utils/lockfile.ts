@@ -1,17 +1,17 @@
 import type { IFileSystem } from "just-bash";
 import type {
-	SkillIndexEntry,
 	SkillInstallTarget,
 	SkillsCommandOptions,
 	SkillsIndex,
 } from "@/features/skills/types";
+import { skillsIndexSchema } from "@/features/skills/types";
 import { readLockfile, resolveTokenPath, toTokenPath, writeLockfile } from "@/utils/lockfile";
 
 const SKILL_INDEX_FILE = "skills.json";
 const SKILLS_HOME_TOKEN = "$SKILLS_HOME";
 export const SKILL_MARKDOWN_FILENAMES = ["SKILLS.md", "SKILL.md"] as const;
 
-export interface WriteSkillIndexEntryInput {
+export interface UpsertSkillIndexEntryInput {
 	description?: string;
 	files: string[];
 	frontmatter?: Record<string, string>;
@@ -21,10 +21,10 @@ export interface WriteSkillIndexEntryInput {
 	target: SkillInstallTarget;
 }
 
-export async function writeSkillIndexEntry(
+export async function upsertSkillIndexEntry(
 	fs: IFileSystem,
 	options: SkillsCommandOptions,
-	input: WriteSkillIndexEntryInput,
+	input: UpsertSkillIndexEntryInput,
 ): Promise<void> {
 	const index = await readSkillsIndex(fs, options.mountPoint);
 	const now = Date.now();
@@ -46,7 +46,7 @@ export async function writeSkillIndexEntry(
 	};
 
 	await fs.mkdir(options.mountPoint, { recursive: true });
-	await writeSkillsIndex(fs, options.mountPoint, index);
+	await writeLockfile(skillsIndexLockfileOptions(fs, options.mountPoint), index);
 }
 
 export async function removeSkillIndexEntry(
@@ -60,16 +60,8 @@ export async function removeSkillIndexEntry(
 	}
 
 	delete index.skills[skillName];
-	await writeSkillsIndex(fs, skillsMount, index);
-	return true;
-}
-
-export async function writeSkillsIndex(
-	fs: IFileSystem,
-	skillsMount: string,
-	index: SkillsIndex,
-): Promise<void> {
 	await writeLockfile(skillsIndexLockfileOptions(fs, skillsMount), index);
+	return true;
 }
 
 export async function readSkillsIndex(fs: IFileSystem, skillsMount: string): Promise<SkillsIndex> {
@@ -127,18 +119,9 @@ async function collectSkillFilesInto(
 	}
 }
 
-function isSkillsIndex(value: unknown): value is SkillsIndex {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		return false;
-	}
-
-	const version = Object.getOwnPropertyDescriptor(value, "version")?.value;
-	const skills = Object.getOwnPropertyDescriptor(value, "skills")?.value;
-	if (version !== 1 || skills === null || typeof skills !== "object" || Array.isArray(skills)) {
-		return false;
-	}
-
-	return Object.values(skills).every(isSkillIndexEntry);
+function parseSkillsIndex(value: unknown): SkillsIndex | undefined {
+	const parsed = skillsIndexSchema.safeParse(value);
+	return parsed.success ? parsed.data : undefined;
 }
 
 function createEmptySkillsIndex(): SkillsIndex {
@@ -150,51 +133,7 @@ function skillsIndexLockfileOptions(fs: IFileSystem, skillsMount: string) {
 		createEmpty: createEmptySkillsIndex,
 		filename: SKILL_INDEX_FILE,
 		fs,
-		isValid: isSkillsIndex,
 		mountPoint: skillsMount,
+		parse: parseSkillsIndex,
 	};
-}
-
-function isSkillIndexEntry(value: unknown): value is SkillIndexEntry {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		return false;
-	}
-
-	const description = Object.getOwnPropertyDescriptor(value, "description")?.value;
-	const files = Object.getOwnPropertyDescriptor(value, "files")?.value;
-	const frontmatter = Object.getOwnPropertyDescriptor(value, "frontmatter")?.value;
-	const skillPath = Object.getOwnPropertyDescriptor(value, "skillPath")?.value;
-	const createAt = Object.getOwnPropertyDescriptor(value, "createAt")?.value;
-	const source = Object.getOwnPropertyDescriptor(value, "source")?.value;
-	const sourcePath = Object.getOwnPropertyDescriptor(value, "sourcePath")?.value;
-	const updateAt = Object.getOwnPropertyDescriptor(value, "updateAt")?.value;
-	const url = Object.getOwnPropertyDescriptor(value, "url")?.value;
-
-	if (description !== undefined && typeof description !== "string") {
-		return false;
-	}
-	if (frontmatter !== undefined && !isStringRecord(frontmatter)) {
-		return false;
-	}
-
-	return (
-		typeof skillPath === "string" &&
-		typeof createAt === "number" &&
-		Number.isFinite(createAt) &&
-		typeof updateAt === "number" &&
-		Number.isFinite(updateAt) &&
-		Array.isArray(files) &&
-		files.every((file) => typeof file === "string") &&
-		(source === undefined || source === "git" || source === "local") &&
-		(sourcePath === undefined || typeof sourcePath === "string") &&
-		(url === undefined || typeof url === "string")
-	);
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		return false;
-	}
-
-	return Object.values(value).every((entry) => typeof entry === "string");
 }

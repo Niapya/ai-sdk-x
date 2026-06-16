@@ -3,7 +3,7 @@ import type { SkillsCommandOptions } from "@/features/skills/types";
 import {
 	collectSkillFiles,
 	toSkillsHomePath,
-	writeSkillIndexEntry,
+	upsertSkillIndexEntry,
 } from "@/features/skills/utils/lockfile";
 import {
 	frontmatterDescription,
@@ -53,7 +53,7 @@ export async function addSkill(
 	const files = await collectSkillFiles(ctx.fs, destinationPath);
 
 	if (options.lockfile) {
-		await writeSkillIndexEntry(ctx.fs, options, {
+		await upsertSkillIndexEntry(ctx.fs, options, {
 			description,
 			files,
 			frontmatter: stringifyFrontmatter(frontmatter),

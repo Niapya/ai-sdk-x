@@ -6,7 +6,8 @@
 		"diff": "^9.0.0",
 		"just-bash": "^3.0.1",
 		"just-git": "^1.7.1",
-		"yaml": "^2"
+		"yaml": "^2",
+		"zod": "^4"
 	},
 	"scripts": {
 		"build": "bunup src/index.ts --format esm,cjs --out-dir dist --dts --exports",
@@ -48,7 +49,6 @@
 	"types": "./dist/index.d.ts",
 	"version": "1.0.1",
 	"optionalDependencies": {
-		"ai": "^6",
-		"zod": "^4"
+		"ai": "^6"
 	}
 }

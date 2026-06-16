@@ -1,4 +1,5 @@
 import type { IFileSystem } from "just-bash";
+import { z } from "zod";
 
 export interface MemoryOptions {
 	fs?: IFileSystem;
@@ -29,3 +30,17 @@ export interface MemoryIndex {
 	categories: Record<string, Record<string, MemoryEntry>>;
 	version: 1;
 }
+
+export const memoryEntrySchema = z.looseObject({
+	category: z.string(),
+	createAt: z.number(),
+	description: z.string(),
+	keywords: z.array(z.string()),
+	path: z.string(),
+	updateAt: z.number(),
+});
+
+export const memoryIndexSchema = z.looseObject({
+	categories: z.record(z.string(), z.record(z.string(), memoryEntrySchema)),
+	version: z.literal(1),
+});

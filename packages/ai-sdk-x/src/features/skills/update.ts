@@ -9,7 +9,7 @@ import { cloneSkillRepository } from "@/features/skills/utils/git";
 import {
 	collectSkillFiles,
 	readSkillsIndex,
-	writeSkillIndexEntry,
+	upsertSkillIndexEntry,
 } from "@/features/skills/utils/lockfile";
 import { stringifyFrontmatter } from "@/features/skills/utils/metadata";
 import { commandError, defineCliCommand } from "@/utils/command";
@@ -90,7 +90,7 @@ export async function updateSkills(
 			const sourcePath = relativePathFromRoot(ctx.fs, cloneRoot, selected.path);
 
 			if (options.lockfile) {
-				await writeSkillIndexEntry(ctx.fs, options, {
+				await upsertSkillIndexEntry(ctx.fs, options, {
 					description: selected.description,
 					files,
 					frontmatter: stringifyFrontmatter(selected.frontmatter),

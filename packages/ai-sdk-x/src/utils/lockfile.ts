@@ -4,8 +4,9 @@ export interface LockfileOptions<T> {
 	createEmpty: () => T;
 	filename: string;
 	fs: IFileSystem;
-	isValid: (value: unknown) => value is T;
+	isValid?: (value: unknown) => value is T;
 	mountPoint: string;
+	parse?: (value: unknown) => T | undefined;
 }
 
 export async function readLockfile<T>(options: LockfileOptions<T>): Promise<T> {
@@ -16,7 +17,11 @@ export async function readLockfile<T>(options: LockfileOptions<T>): Promise<T> {
 
 	try {
 		const parsed = JSON.parse(await options.fs.readFile(path));
-		return options.isValid(parsed) ? parsed : options.createEmpty();
+		if (options.parse) {
+			return options.parse(parsed) ?? options.createEmpty();
+		}
+
+		return options.isValid?.(parsed) ? parsed : options.createEmpty();
 	} catch {
 		return options.createEmpty();
 	}

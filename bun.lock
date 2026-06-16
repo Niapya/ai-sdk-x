@@ -13,16 +13,16 @@
     },
     "packages/ai-sdk-x": {
       "name": "ai-sdk-x",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "diff": "^9.0.0",
         "just-bash": "^3.0.1",
         "just-git": "^1.7.1",
         "yaml": "^2",
+        "zod": "^4",
       },
       "optionalDependencies": {
         "ai": "^6",
-        "zod": "^4",
       },
     },
     "packages/docs": {
