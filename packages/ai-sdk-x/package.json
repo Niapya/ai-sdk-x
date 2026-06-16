@@ -12,9 +12,9 @@
 		"build": "bunup src/index.ts --format esm,cjs --out-dir dist --dts --exports",
 		"dev": "bun run build --watch",
 		"prepublishOnly": "bun run build",
-		"release:patch": "npm version patch --no-workspaces-update && npm publish --access public",
-		"release:minor": "npm version minor --no-workspaces-update && npm publish --access public",
-		"release:major": "npm version major --no-workspaces-update && npm publish --access public"
+		"release:patch": "npm version patch --no-workspaces-update",
+		"release:minor": "npm version minor --no-workspaces-update",
+		"release:major": "npm version major --no-workspaces-update"
 	},
 	"exports": {
 		".": {
