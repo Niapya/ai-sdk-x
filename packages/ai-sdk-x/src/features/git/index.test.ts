@@ -23,6 +23,8 @@ describe("createGitFeature", () => {
 	it("describes git as a bash-only command with safety guidance", () => {
 		const description = createGitFeatureDescription();
 
-		expect(description).toContain("Git");
+		expect(description.environment).toBeUndefined();
+		expect(description.guidance).toContain("Git");
+		expect(description.guidance).toContain("commit message");
 	});
 });

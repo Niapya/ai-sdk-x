@@ -12,7 +12,12 @@ import { createUpdateSkillsCommand, updateSkills } from "@/features/skills/updat
 import { readSkillsIndex } from "@/features/skills/utils/lockfile";
 import { AsyncOnce } from "@/runtime/async-once";
 import { createSubpathFs } from "@/runtime/fs/subpath-fs";
-import type { ExecHookStartContext, Feature, FeatureSetupContext } from "@/types";
+import type {
+	ExecHookStartContext,
+	Feature,
+	FeatureInstructions,
+	FeatureSetupContext,
+} from "@/types";
 import { type CliTopicDefinition, createCommand } from "@/utils/command";
 
 export const DEFAULT_SKILLS_MOUNT = "/home/user/skills";
@@ -30,7 +35,7 @@ function truncateSkillDescription(description: string | undefined): string {
 export async function createSkillsFeatureDescription(
 	ctx: FeatureSetupContext,
 	mountPoint: string,
-): Promise<string> {
+): Promise<FeatureInstructions> {
 	const index = await readSkillsIndex(ctx.fs, mountPoint);
 	const installed = Object.entries(index.skills)
 		.sort(([left], [right]) => left.localeCompare(right))
@@ -48,23 +53,23 @@ export async function createSkillsFeatureDescription(
 			? `<available_skills>\n${installed.join("\n")}\n</available_skills>`
 			: "<available_skills>none</available_skills>";
 
-	return [
-		`Mounted skills directory($SKILLS_HOME): ${mountPoint}.`,
-		"Skills provide specialized capabilities, domain knowledge, and refined workflows for producing high-quality outputs. Each skill folder contains tested instructions for specific domains like testing strategies, API design, or performance optimization. Multiple skills can be combined when a task spans different domains.",
-		"When a skill applies to the user's request, you MUST load and read the SKILL.md file IMMEDIATELY as your first action, BEFORE generating any other response or taking action on the task.",
-		"NEVER just mention or reference a skill in your response without actually loading it first. If a skill is relevant, load it before proceeding.",
-
-		"How to determine if a skill applies:",
-		"1. Review the available skills below and match their descriptions against the user's request",
-		"2. If any skill's domain overlaps with the task, load that skill immediately",
-		"3. When multiple skills apply (e.g., a flowchart in documentation), load all relevant skills",
-
-		"`x-skills` commands are Bash commands.",
-		"Use `x-skills find` for installed/local skills and `x-skills search` for internet skill discovery. Install external skills from Git repositories with `x-skills install`. Add local skills with `x-skills add --stdin`, `x-skills add --file <path>`, or `x-skills import <directory>`. `x-skills list` and `x-skills find` expose skill paths; inspect those files when a skill is relevant.",
-		"Do not write directly into `$SKILLS_HOME` to add skills because the lockfile and metadata would be unmanaged.",
-
-		installedText,
-	].join("\n");
+	return {
+		guidance: [
+			"Skills provide specialized capabilities, domain knowledge, and refined workflows for producing high-quality outputs. Each skill folder contains tested instructions for specific domains like testing strategies, API design, or performance optimization. Multiple skills can be combined when a task spans different domains.",
+			"When a skill applies to the user's request, you MUST load and read the SKILL.md file IMMEDIATELY as your first action, BEFORE generating any other response or taking action on the task.",
+			"NEVER just mention or reference a skill in your response without actually loading it first. If a skill is relevant, load it before proceeding.",
+			"How to determine if a skill applies:",
+			"1. Review the available skills below and match their descriptions against the user's request",
+			"2. If any skill's domain overlaps with the task, load that skill immediately",
+			"3. When multiple skills apply (e.g., a flowchart in documentation), load all relevant skills",
+			"`x-skills` commands are Bash commands.",
+			"Use `x-skills find` for installed/local skills and `x-skills search` for internet skill discovery. Install external skills from Git repositories with `x-skills install`. Add local skills with `x-skills add --stdin`, `x-skills add --file <path>`, or `x-skills import <directory>`. `x-skills list` and `x-skills find` expose skill paths; inspect those files when a skill is relevant.",
+			"Do not write directly into `$SKILLS_HOME` to add skills because the lockfile and metadata would be unmanaged.",
+		].join("\n"),
+		environment: [`Mounted skills directory($SKILLS_HOME): ${mountPoint}.`, installedText].join(
+			"\n",
+		),
+	};
 }
 
 const SKILLS_COMMAND = {

@@ -36,13 +36,15 @@ describe("createWorkspaceFeature", () => {
 	it("description includes the mount point path and bash usage guidance", async () => {
 		const feature = createWorkspaceFeature(true);
 		const ctx = makeInitCtx();
-		const text = await feature.description?.(ctx);
-		expect(text).toContain(DEFAULT_WORKSPACE_MOUNT);
-		expect(text).toContain("ALL DURABLE WORK FILES AND DELIVERABLES");
-		expect(text).toContain("WORKSPACE_HOME");
-		expect(text).toContain("```text");
-		expect(text).toContain("```");
-		expect(text).toContain(`${DEFAULT_WORKSPACE_MOUNT}\n\n0 directories, 0 files`);
+		const description = await feature.description?.(ctx);
+		expect(typeof description).toBe("object");
+		const text = description as { guidance: string; environment: string };
+		expect(text.environment).toContain(DEFAULT_WORKSPACE_MOUNT);
+		expect(text.guidance).toContain("ALL DURABLE WORK FILES AND DELIVERABLES");
+		expect(text.guidance).toContain("WORKSPACE_HOME");
+		expect(text.environment).toContain("```text");
+		expect(text.environment).toContain("```");
+		expect(text.environment).toContain(`${DEFAULT_WORKSPACE_MOUNT}\n\n0 directories, 0 files`);
 	});
 
 	it("description embeds a tree output for workspace files up to 5 levels deep", async () => {
@@ -54,7 +56,9 @@ describe("createWorkspaceFeature", () => {
 		});
 		const fs = new MountableFs({ base });
 		const feature = createWorkspaceFeature(true);
-		const text = await feature.description?.(makeInitCtx(fs));
+		const description = await feature.description?.(makeInitCtx(fs));
+		expect(typeof description).toBe("object");
+		const text = (description as { environment: string }).environment;
 
 		expect(text).toContain("|-- a.txt");
 		expect(text).toContain("|-- dir");

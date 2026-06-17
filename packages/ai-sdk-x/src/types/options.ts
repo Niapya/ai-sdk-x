@@ -20,18 +20,22 @@ export interface GetToolsOptions {
 	 */
 	externalDescription?: string;
 	/**
-	 * Whether `getTools()` should embed the full generated Bash description in the
-	 * tool metadata. Set this to false when you add `await x.createToolDescription()`
-	 * to your model System Prompt instead.
+	 * Whether `getTools()` should embed the full generated Bash description in the tool metadata.
+	 * Set this to false when you add `await x.getInstructions()` to your model System Prompt instead.
 	 */
 	enableDescription?: boolean;
 	/**
 	 * Whether AI SDK should request approval before executing the Bash tool.
 	 * A function can decide dynamically from the tool input.
 	 */
-	needsApproval?: boolean | ((input: BashToolInput) => boolean | Promise<boolean>);
+	needsApproval?: boolean | ((input: BashToolInput) => Awaited<boolean>);
 	maxLines?: number;
 	maxOutput?: number;
+}
+
+export interface Instructions {
+	guidance: string;
+	environment: string;
 }
 
 export type XBashOptions = Omit<BashOptions, "customCommands" | "fs" | "network"> & {

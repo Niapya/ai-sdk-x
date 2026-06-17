@@ -41,42 +41,37 @@ const tools = await x.getTools({
 
 Options:
 
-- `externalDescription` appends application-specific instructions to the generated Bash description.
-- `enableDescription` controls whether the long generated description is embedded in tool metadata.
+- `externalDescription` appends application-specific environment notes to the generated Bash description.
+- `enableDescription` controls whether the combined generated description is embedded in tool metadata. When `false`, only environment notes are embedded.
 - `needsApproval` asks AI SDK to request approval before Bash executes. Use `true` for every call, or a function to decide from `{ command, cwd, stdin }`.
 - `maxLines` limits stdout and stderr by line count before size truncation. When output has more lines, AI SDK X keeps the first `maxLines` lines and appends a truncation hint.
 - `maxOutput` limits the combined stdout and stderr character budget after line limiting. If one stream already fits, the other stream is truncated to the remaining budget. If both streams exceed the budget, AI SDK X splits the budget across both and appends truncation hints.
 
-## Move the description into the system prompt
+## Split guidance and environment
 
-Some model providers handle long guidance better in the system prompt than in tool metadata.
+Some model providers handle long guidance better in the system prompt than in tool metadata, and stable guidance is a better fit for prompt caching.
 
 ```ts
-const system = await x.createToolDescription();
+const instructions = await x.getInstructions();
 const tools = await x.getTools({
   enableDescription: false,
 });
 
 const result = await generateText({
   model: openai("gpt-5.1"),
-  system,
+  system: instructions.guidance,
   tools,
   prompt: "Use Bash to inspect the project.",
 });
 ```
 
-When `enableDescription` is `false`, the Bash tool still works, but its metadata uses a compact fallback description.
+When `enableDescription` is `false`, the Bash tool still works, but its metadata uses only the environment part.
 
-## What the generated description contains
+## What the instructions contain
 
-`createToolDescription()` describes the runtime that exists at call time:
+`getInstructions()` returns the split instructions that exist at call time:
 
-- initial cwd
-- Bash usage rules
-- large file inspection guidance
-- network status
-- JavaScript and Python availability
-- each enabled feature's description
-- any `externalDescription`
+- `guidance` for stable system prompt rules and feature guidance
+- `environment` for runtime state and feature environment notes that change over time
 
 Feature commands are described as shell commands inside Bash, not as separate tools or function calls.

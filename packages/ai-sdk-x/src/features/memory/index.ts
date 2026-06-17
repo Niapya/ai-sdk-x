@@ -8,24 +8,28 @@ import { createUpdateMemoryCommand, updateMemory } from "@/features/memory/updat
 import { initMemoryIndex } from "@/features/memory/utils/lockfile";
 import { AsyncOnce } from "@/runtime/async-once";
 import { createSubpathFs } from "@/runtime/fs/subpath-fs";
-import type { ExecHookStartContext, Feature } from "@/types";
+import type { ExecHookStartContext, Feature, FeatureInstructions } from "@/types";
 import { type CliTopicDefinition, createCommand } from "@/utils/command";
 
 export const DEFAULT_MEMORY_MOUNT = "/home/user/memory";
 
-export function createMemoryFeatureDescription(mountPoint: string): string {
-	return [
-		`Persistent memory mount($MEMORY_HOME): ${mountPoint}.`,
-		"Memory provides persistent storage and retrieval of user preferences, project context, and key facts to maintain continuity and personalization across sessions.",
-		"When you need to look up past facts, user preferences, or any cross-session persistent information, consult Memory first.",
-		"Check these core files when relevant:",
-		"- `$MEMORY_HOME/AGENT.md` for Agent-side notes: AI execution strategies, known limitations, and working preferences",
-		"- `$MEMORY_HOME/USER.md` for User-side notes: user preferences, project conventions, and personal style",
-		"- `$MEMORY_HOME/MEMORY.md` for Shared context: general knowledge maintained by both sides",
-		"Daily memory works like a diary. When a task or key decision is completed, proactively write an entry recording what was done, what was decided, and what matters for the future. It is stored under $MEMORY_HOME/ daily/YYYY-MM-DD/title.md , organized by date and title。",
-		"`x-memory` commands are Bash commands. Use `x-memory list` and `x-memory find` to discover memory. Use `x-memory add`, `x-memory update`, and `x-memory delete` update memory",
-		"DO NOT add, update, or delete memory entries DIRECTLY with shell file writes — because the lockfile would not be maintained. Always USE the `x-memory` command INSTEAD.",
-	].join("\n");
+export function createMemoryFeatureDescription(mountPoint: string): FeatureInstructions {
+	return {
+		guidance: [
+			"Memory provides persistent storage and retrieval of user preferences, project context, and key facts to maintain continuity and personalization across sessions.",
+			"When you need to look up past facts, user preferences, or any cross-session persistent information, consult Memory first.",
+			"Daily memory works like a diary. When a task or key decision is completed, proactively write an entry recording what was done, what was decided, and what matters for the future. It is stored under $MEMORY_HOME/ daily/YYYY-MM-DD/title.md , organized by date and title。",
+			"`x-memory` commands are Bash commands. Use `x-memory list` and `x-memory find` to discover memory. Use `x-memory add`, `x-memory update`, and `x-memory delete` update memory",
+			"DO NOT add, update, or delete memory entries DIRECTLY with shell file writes — because the lockfile would not be maintained. Always USE the `x-memory` command INSTEAD.",
+		].join("\n"),
+		environment: [
+			`Persistent memory mount($MEMORY_HOME): ${mountPoint}.`,
+			"Check these core files when relevant:",
+			"- `$MEMORY_HOME/AGENT.md` for Agent-side notes: AI execution strategies, known limitations, and working preferences",
+			"- `$MEMORY_HOME/USER.md` for User-side notes: user preferences, project conventions, and personal style",
+			"- `$MEMORY_HOME/MEMORY.md` for Shared context: general knowledge maintained by both sides",
+		].join("\n"),
+	};
 }
 
 const MEMORY_COMMAND = {

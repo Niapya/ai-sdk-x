@@ -1,12 +1,14 @@
 import { createGit } from "just-git";
 import type { GitConfig, GitOptions } from "@/features/git/types";
-import type { Feature } from "@/types";
+import type { Feature, FeatureInstructions } from "@/types";
 
-export function createGitFeatureDescription(): string {
-	return [
-		"The Git command is on.",
-		"write a concise commit message matching the repository style.",
-	].join("\n");
+export function createGitFeatureDescription(): FeatureInstructions {
+	return {
+		guidance: [
+			"The Git command is on.",
+			"Write a concise commit message matching the repository style.",
+		].join("\n"),
+	};
 }
 
 export function createGitFeature(option: boolean | GitOptions | undefined = true): Feature {
