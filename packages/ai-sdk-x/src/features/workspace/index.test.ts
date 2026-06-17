@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { Bash, InMemoryFs, MountableFs } from "just-bash";
 import { createWorkspaceFeature, DEFAULT_WORKSPACE_MOUNT } from "@/features/workspace";
 import X from "@/index";
+import type { FeatureInstructions } from "@/types";
 
 function makeInitCtx(fs = new MountableFs({ base: new InMemoryFs() })) {
 	const env = new Map<string, string>();
@@ -13,6 +14,12 @@ function makeInitCtx(fs = new MountableFs({ base: new InMemoryFs() })) {
 		},
 		env,
 	};
+}
+
+function expectInstructions(value: unknown): FeatureInstructions {
+	expect(typeof value).toBe("object");
+	expect(value).not.toBeNull();
+	return value as FeatureInstructions;
 }
 
 describe("createWorkspaceFeature", () => {
@@ -31,6 +38,81 @@ describe("createWorkspaceFeature", () => {
 		const feature = createWorkspaceFeature(true);
 		expect(typeof feature.description).toBe("function");
 		expect(typeof feature.hooks?.onExecStart).toBe("function");
+	});
+
+	it("loads root agents instructions files into environment by default", async () => {
+		const base = new InMemoryFs({
+			"/home/user/workspace/agents.md": "# Workspace Agent\nRead this first.",
+		});
+		const feature = createWorkspaceFeature(true);
+		const description = expectInstructions(
+			await feature.description?.(makeInitCtx(new MountableFs({ base }))),
+		);
+
+		expect(description.guidance).toContain("workspace root `agents.md` file");
+		expect(description.environment).toContain("Workspace root agent instructions file:");
+		expect(description.environment).toContain(
+			"the agent file `/home/user/workspace/agents.md` is as follows:",
+		);
+		expect(description.environment).toContain("/home/user/workspace/agents.md");
+		expect(description.environment).toContain("Read this first.");
+	});
+
+	it("matches the known agent filenames case-insensitively and only reads the workspace root", async () => {
+		const base = new InMemoryFs({
+			"/home/user/workspace/AGENTS.MD": "# Upper Case\nUse this.",
+			"/home/user/workspace/subproject/AGENTS.md": "# Nested\nDo not preload this.",
+		});
+		const feature = createWorkspaceFeature(true);
+		const description = expectInstructions(
+			await feature.description?.(makeInitCtx(new MountableFs({ base }))),
+		);
+
+		expect(description.environment).toContain("/home/user/workspace/AGENTS.MD");
+		expect(description.environment).toContain(
+			"the agent file `/home/user/workspace/AGENTS.MD` is as follows:",
+		);
+		expect(description.environment).toContain("Use this.");
+		expect(description.environment).not.toContain("Do not preload this.");
+	});
+
+	it("falls back to agent.md and then claude.md", async () => {
+		const agentBase = new InMemoryFs({
+			"/home/user/workspace/agent.md": "# Agent Workspace\nFallback content.",
+			"/home/user/workspace/claude.md": "# Claude Workspace\nDo not use this.",
+		});
+		const agentFeature = createWorkspaceFeature(true);
+		const agentDescription = expectInstructions(
+			await agentFeature.description?.(makeInitCtx(new MountableFs({ base: agentBase }))),
+		);
+
+		expect(agentDescription.environment).toContain("/home/user/workspace/agent.md");
+		expect(agentDescription.environment).toContain("Fallback content.");
+		expect(agentDescription.environment).not.toContain("Do not use this.");
+
+		const base = new InMemoryFs({
+			"/home/user/workspace/claude.md": "# Claude Workspace\nClaude content.",
+		});
+		const feature = createWorkspaceFeature(true);
+		const description = expectInstructions(
+			await feature.description?.(makeInitCtx(new MountableFs({ base }))),
+		);
+
+		expect(description.environment).toContain("/home/user/workspace/claude.md");
+		expect(description.environment).toContain("Claude content.");
+	});
+
+	it("can disable loading agents instructions files", async () => {
+		const base = new InMemoryFs({
+			"/home/user/workspace/agents.md": "# Workspace Agent\nRead this first.",
+		});
+		const feature = createWorkspaceFeature({ loadAgentsMd: false });
+		const description = expectInstructions(
+			await feature.description?.(makeInitCtx(new MountableFs({ base }))),
+		);
+
+		expect(description.environment).not.toContain("Workspace root agent instructions file:");
+		expect(description.environment).not.toContain("Read this first.");
 	});
 
 	it("description includes the mount point path and bash usage guidance", async () => {
@@ -66,6 +148,19 @@ describe("createWorkspaceFeature", () => {
 		expect(text).toContain("`-- five.txt");
 		expect(text).toContain("|-- five");
 		expect(text).not.toContain("six.txt");
+	});
+
+	it("uses a custom workspace tree max depth", async () => {
+		const base = new InMemoryFs({
+			"/home/user/workspace/dir/nested/file.txt": "file",
+		});
+		const fs = new MountableFs({ base });
+		const feature = createWorkspaceFeature({ treeMaxDepth: 1 });
+		const description = expectInstructions(await feature.description?.(makeInitCtx(fs)));
+
+		expect(description.environment).toContain("`-- dir");
+		expect(description.environment).not.toContain("nested");
+		expect(description.environment).not.toContain("file.txt");
 	});
 
 	it("onExecStart creates the mount directory and sets env", async () => {

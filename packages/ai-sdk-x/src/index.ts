@@ -195,7 +195,7 @@ export class X {
 		const description =
 			options.enableDescription === false
 				? instructions.environment
-				: [instructions.guidance, instructions.environment].join("\n");
+				: [instructions.guidance, instructions.environment].filter(Boolean).join("\n\n");
 
 		const bash = await createBashTool(this.exec.bind(this), description, options);
 
@@ -331,8 +331,8 @@ export class X {
 	 * @deprecated Use `getInstructions()` instead.
 	 */
 	async createToolDescription(options: GetToolsOptions = {}): Promise<string> {
-		const instrutions = await this.getInstructions(options);
-		return instrutions.guidance;
+		const instructions = await this.getInstructions(options);
+		return [instructions.guidance, instructions.environment].filter(Boolean).join("\n\n");
 	}
 
 	private createFeatureContext(): FeatureSetupContext {
