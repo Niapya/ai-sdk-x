@@ -155,20 +155,13 @@ export class X {
 	}
 
 	registerCommand(command: Command): this {
-		const registeredCommand =
-			command.trusted === undefined
-				? {
-						...command,
-						trusted: true,
-					}
-				: command;
-		const existingIndex = this.commands.findIndex((item) => item.name === registeredCommand.name);
+		const existingIndex = this.commands.findIndex((item) => item.name === command.name);
 		if (existingIndex === -1) {
-			this.commands.push(registeredCommand);
+			this.commands.push(command);
 		} else {
-			this.commands[existingIndex] = registeredCommand;
+			this.commands[existingIndex] = command;
 		}
-		this.bash.registerCommand(registeredCommand);
+		this.bash.registerCommand(command);
 		return this;
 	}
 

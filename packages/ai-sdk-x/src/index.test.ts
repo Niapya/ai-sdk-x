@@ -665,12 +665,13 @@ describe("X registerCommand", () => {
 		const x = new X();
 		x.registerCommand({
 			name: "x-standalone",
-			trusted: true,
 			async execute() {
 				return { stdout: "standalone-output", stderr: "", exitCode: 0 };
 			},
 		});
-		expect(x.commands.some((c) => c.name === "x-standalone")).toBe(true);
+		const command = x.commands.find((c) => c.name === "x-standalone");
+		expect(command).toBeDefined();
+		expect(command?.trusted).toBeUndefined();
 		const result = await x.exec("x-standalone");
 		expect(result.stdout).toBe("standalone-output");
 	});

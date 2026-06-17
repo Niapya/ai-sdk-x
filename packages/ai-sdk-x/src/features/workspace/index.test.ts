@@ -50,9 +50,8 @@ describe("createWorkspaceFeature", () => {
 		);
 
 		expect(description.guidance).toContain("workspace root `agents.md` file");
-		expect(description.environment).toContain("Workspace root agent instructions file:");
 		expect(description.environment).toContain(
-			"the agent file `/home/user/workspace/agents.md` is as follows:",
+			"Workspace root agent instructions file `/home/user/workspace/agents.md` is as follows:",
 		);
 		expect(description.environment).toContain("/home/user/workspace/agents.md");
 		expect(description.environment).toContain("Read this first.");
@@ -70,7 +69,7 @@ describe("createWorkspaceFeature", () => {
 
 		expect(description.environment).toContain("/home/user/workspace/AGENTS.MD");
 		expect(description.environment).toContain(
-			"the agent file `/home/user/workspace/AGENTS.MD` is as follows:",
+			"Workspace root agent instructions file `/home/user/workspace/AGENTS.MD` is as follows:",
 		);
 		expect(description.environment).toContain("Use this.");
 		expect(description.environment).not.toContain("Do not preload this.");
