@@ -1,8 +1,9 @@
 import type { Tool } from "ai";
 import type { BashExecResult, ExecOptions } from "just-bash";
+import { z } from "zod";
 import { MAX_OUTPUT, type TruncateOutputOptions, truncateToolOutput } from "@/runtime/output";
 
-type BashToolInput = {
+export type BashToolInput = {
 	command: string;
 	cwd?: string;
 	stdin?: string;
@@ -14,19 +15,19 @@ type BashToolOutput = {
 	exitCode: number;
 };
 
+export type BashToolOptions = TruncateOutputOptions & {
+	needsApproval?: boolean | ((input: BashToolInput) => boolean | Promise<boolean>);
+};
+
 export async function createBashTool(
 	executeCommand: (command: string, options?: ExecOptions) => Promise<BashExecResult>,
 	description: string,
-	options: TruncateOutputOptions = {},
+	options: BashToolOptions = {},
 ): Promise<Tool<BashToolInput, BashToolOutput>> {
 	const { tool } = await import("ai");
-	const { z } = await import("zod");
 
 	if (!tool) {
 		throw new Error("Failed to load 'ai' package.");
-	}
-	if (!z) {
-		throw new Error("Failed to load 'zod' package.");
 	}
 
 	return tool({
@@ -50,6 +51,7 @@ export async function createBashTool(
 					"Optional raw stdin text passed to the executed process. Use this only when the command reads stdin.",
 				),
 		}),
+		...(options.needsApproval === undefined ? {} : { needsApproval: options.needsApproval }),
 		execute: async ({ command, cwd, stdin }) => {
 			const result = await executeCommand(command, {
 				...(cwd !== undefined ? { cwd } : {}),

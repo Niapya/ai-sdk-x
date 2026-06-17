@@ -33,6 +33,7 @@ const tools = await x.getTools({
   externalDescription:
     "Before editing files, inspect the target with targeted commands.",
   enableDescription: true,
+  needsApproval: ({ command }) => command.includes("rm "),
   maxLines: 400,
   maxOutput: 20_000,
 });
@@ -42,6 +43,7 @@ Options:
 
 - `externalDescription` appends application-specific instructions to the generated Bash description.
 - `enableDescription` controls whether the long generated description is embedded in tool metadata.
+- `needsApproval` asks AI SDK to request approval before Bash executes. Use `true` for every call, or a function to decide from `{ command, cwd, stdin }`.
 - `maxLines` limits stdout and stderr by line count before size truncation. When output has more lines, AI SDK X keeps the first `maxLines` lines and appends a truncation hint.
 - `maxOutput` limits the combined stdout and stderr character budget after line limiting. If one stream already fits, the other stream is truncated to the remaining budget. If both streams exceed the budget, AI SDK X splits the budget across both and appends truncation hints.
 

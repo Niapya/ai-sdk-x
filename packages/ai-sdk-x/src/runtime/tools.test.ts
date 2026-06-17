@@ -80,4 +80,37 @@ describe("createBashTool", () => {
 			exitCode: 0,
 		});
 	});
+
+	it("passes static needsApproval to the AI SDK tool", async () => {
+		const executeCommand = async (): Promise<BashExecResult> => ({
+			stdout: "",
+			stderr: "",
+			exitCode: 0,
+			env: {},
+		});
+
+		const tool = await createBashTool(executeCommand, "demo", {
+			needsApproval: true,
+		});
+
+		expect((tool as unknown as { needsApproval?: boolean }).needsApproval).toBe(true);
+	});
+
+	it("passes dynamic needsApproval to the AI SDK tool", async () => {
+		const executeCommand = async (): Promise<BashExecResult> => ({
+			stdout: "",
+			stderr: "",
+			exitCode: 0,
+			env: {},
+		});
+		const needsApproval = ({ command }: { command: string }) => command.startsWith("git push");
+
+		const tool = await createBashTool(executeCommand, "demo", {
+			needsApproval,
+		});
+		const approval = (tool as unknown as { needsApproval: typeof needsApproval }).needsApproval;
+
+		expect(approval({ command: "git push origin main" })).toBe(true);
+		expect(approval({ command: "git status" })).toBe(false);
+	});
 });

@@ -5,6 +5,7 @@ import type { PatchOptions } from "@/features/patch/types";
 import type { SkillsOptions } from "@/features/skills/types";
 import type { WorkspaceOptions } from "@/features/workspace/types";
 import type { EnvBackend } from "@/runtime/env";
+import type { BashToolInput } from "@/runtime/tools";
 import type { ExecHook } from "@/types/feature";
 
 export type { GitConfig, GitOptions } from "@/features/git/types";
@@ -24,6 +25,11 @@ export interface GetToolsOptions {
 	 * to your model System Prompt instead.
 	 */
 	enableDescription?: boolean;
+	/**
+	 * Whether AI SDK should request approval before executing the Bash tool.
+	 * A function can decide dynamically from the tool input.
+	 */
+	needsApproval?: boolean | ((input: BashToolInput) => boolean | Promise<boolean>);
 	maxLines?: number;
 	maxOutput?: number;
 }

@@ -416,6 +416,17 @@ describe("X getTools integration", () => {
 		expect(description).not.toContain("<feature:workspace>");
 	});
 
+	it("getTools passes needsApproval to the bash tool", async () => {
+		const x = new X();
+		const needsApproval = ({ command }: { command: string }) => command.startsWith("rm ");
+		const tools = await x.getTools({ needsApproval });
+
+		const approval = (tools.bash as unknown as { needsApproval: typeof needsApproval })
+			.needsApproval;
+		expect(approval({ command: "rm -rf tmp" })).toBe(true);
+		expect(approval({ command: "pwd" })).toBe(false);
+	});
+
 	it("getTools description does not list standalone registered commands", async () => {
 		const x = new X();
 		x.registerCommand({
