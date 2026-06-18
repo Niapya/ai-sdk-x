@@ -10,7 +10,7 @@ export async function createWorkspaceFeatureDescription(
 	ctx: FeatureSetupContext,
 	mountPoint: string,
 	loadAgentsMd = true,
-	treeMaxDepth = WORKSPACE_TREE_MAX_DEPTH,
+	treeMaxDepth: number = WORKSPACE_TREE_MAX_DEPTH,
 ): Promise<FeatureInstructions> {
 	const workspaceTree = await describeWorkspaceTree(ctx, mountPoint, treeMaxDepth);
 	const workspaceAgentInstructions = loadAgentsMd

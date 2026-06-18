@@ -42,7 +42,7 @@ export interface SkillsIndex {
 	version: 1;
 }
 
-export const skillIndexEntrySchema = z.looseObject({
+export const skillIndexEntrySchema: z.ZodType<SkillIndexEntry> = z.looseObject({
 	createAt: z.number(),
 	description: z.string().optional(),
 	files: z.array(z.string()),
@@ -54,7 +54,7 @@ export const skillIndexEntrySchema = z.looseObject({
 	url: z.string().optional(),
 });
 
-export const skillsIndexSchema = z.looseObject({
+export const skillsIndexSchema: z.ZodType<SkillsIndex> = z.looseObject({
 	skills: z.record(z.string(), skillIndexEntrySchema),
 	version: z.literal(1),
 });

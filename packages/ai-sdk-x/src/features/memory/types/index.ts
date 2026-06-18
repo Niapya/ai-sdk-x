@@ -31,7 +31,7 @@ export interface MemoryIndex {
 	version: 1;
 }
 
-export const memoryEntrySchema = z.looseObject({
+export const memoryEntrySchema: z.ZodType<MemoryEntry> = z.looseObject({
 	category: z.string(),
 	createAt: z.number(),
 	description: z.string(),
@@ -40,7 +40,7 @@ export const memoryEntrySchema = z.looseObject({
 	updateAt: z.number(),
 });
 
-export const memoryIndexSchema = z.looseObject({
+export const memoryIndexSchema: z.ZodType<MemoryIndex> = z.looseObject({
 	categories: z.record(z.string(), z.record(z.string(), memoryEntrySchema)),
 	version: z.literal(1),
 });
