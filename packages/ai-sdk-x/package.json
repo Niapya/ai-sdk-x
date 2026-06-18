@@ -47,7 +47,7 @@
 	},
 	"type": "module",
 	"types": "./dist/index.d.ts",
-	"version": "1.0.1",
+	"version": "1.1.0",
 	"optionalDependencies": {
 		"ai": "^6"
 	}
