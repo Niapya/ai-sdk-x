@@ -447,15 +447,49 @@ describe("X getTools integration", () => {
 		expect(description).not.toContain("Use structured tools when appropriate");
 	});
 
-	it("getTools passes needsApproval to the bash tool", async () => {
+	it("getTools passes approval rules to the bash tool", async () => {
 		const x = new X();
-		const needsApproval = ({ command }: { command: string }) => command.startsWith("rm ");
-		const tools = await x.getTools({ needsApproval });
+		const tools = await x.getTools({
+			approval: {
+				defaultAction: "ask",
+				rules: {
+					"rm *": "deny",
+					pwd: "allow",
+				},
+			},
+		});
 
-		const approval = (tools.bash as unknown as { needsApproval: typeof needsApproval })
-			.needsApproval;
+		const approval = (
+			tools.bash as unknown as { needsApproval: (input: { command: string }) => boolean }
+		).needsApproval;
 		expect(approval({ command: "rm -rf tmp" })).toBe(true);
 		expect(approval({ command: "pwd" })).toBe(false);
+		expect(approval({ command: "echo hi" })).toBe(true);
+	});
+
+	it("approval rules inspect nested commands and pipelines", async () => {
+		const x = new X();
+		const tools = await x.getTools({
+			approval: {
+				defaultAction: "allow",
+				dynamicAction: "ask",
+				rules: {
+					"rm *": "deny",
+					"git *": "allow",
+					"git push *": "deny",
+				},
+			},
+		});
+
+		const approval = (
+			tools.bash as unknown as { needsApproval: (input: { command: string }) => boolean }
+		).needsApproval;
+
+		expect(approval({ command: "echo hi | grep h && rm -rf build" })).toBe(true);
+		expect(approval({ command: "echo $(rm -rf build)" })).toBe(true);
+		expect(approval({ command: "git status --short" })).toBe(false);
+		expect(approval({ command: "git push origin main" })).toBe(true);
+		expect(approval({ command: "$CMD file | git status --short" })).toBe(true);
 	});
 
 	it("getTools description does not list standalone registered commands", async () => {

@@ -33,7 +33,15 @@ const tools = await x.getTools({
   externalDescription:
     "Before editing files, inspect the target with targeted commands.",
   enableDescription: true,
-  needsApproval: ({ command }) => command.includes("rm "),
+  approval: {
+    defaultAction: "allow",
+    dynamicAction: "ask",
+    rules: {
+      "rm * -rf *": "deny",
+      "curl *": "ask",
+      "npm publish *": "ask",
+    },
+  },
   maxLines: 400,
   maxOutput: 20_000,
 });
@@ -43,9 +51,32 @@ Options:
 
 - `externalDescription` appends application-specific environment notes to the generated Bash description.
 - `enableDescription` controls whether the combined generated description is embedded in tool metadata. When `false`, only environment notes are embedded.
-- `needsApproval` asks AI SDK to request approval before Bash executes. Use `true` for every call, or a function to decide from `{ command, cwd, stdin }`.
+- `approval` applies command-level allow/ask/deny rules before Bash executes. Direct `x.exec()` calls do not use this policy.
 - `maxLines` limits stdout and stderr by line count before size truncation. When output has more lines, AI SDK X keeps the first `maxLines` lines and appends a truncation hint.
 - `maxOutput` limits the combined stdout and stderr character budget after line limiting. If one stream already fits, the other stream is truncated to the remaining budget. If both streams exceed the budget, AI SDK X splits the budget across both and appends truncation hints.
+
+### Approval policy
+
+`approval` is evaluated per command after parsing Bash into an AST. Pipelines, `&&`, subshells, functions, control flow, and command substitutions are split into individual commands and folded as `deny > ask > allow`.
+
+Policy order:
+
+1. If `approval` is not configured, Bash tool calls are allowed without AI SDK approval.
+2. Dynamic or partially unanalyzable commands use `dynamicAction ?? defaultAction ?? "allow"`.
+3. Static commands use the last matching `rules` entry.
+4. Unmatched static commands use `defaultAction ?? "allow"`.
+
+Dynamic commands include parse failures, unsupported Bash syntax, dynamic command heads such as `$CMD file`, and commands with dynamic arguments such as `sh -c "$SCRIPT"`.
+
+Rules are structured command patterns. The first token matches the command head, and remaining tokens match arguments in order. `*` can consume zero or more argument tokens:
+
+```ts
+{
+  "rm * -rf *": "deny",
+  "curl *": "ask",
+  "npm publish *": "ask"
+}
+```
 
 ## Split guidance and environment
 

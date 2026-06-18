@@ -4,8 +4,8 @@ import type { MemoryOptions } from "@/features/memory/types";
 import type { PatchOptions } from "@/features/patch/types";
 import type { SkillsOptions } from "@/features/skills/types";
 import type { WorkspaceOptions } from "@/features/workspace/types";
+import type { BashApprovalOptions } from "@/runtime/approval";
 import type { EnvBackend } from "@/runtime/env";
-import type { BashToolInput } from "@/runtime/tools";
 import type { ExecHook } from "@/types/feature";
 
 export type { GitConfig, GitOptions } from "@/features/git/types";
@@ -25,10 +25,15 @@ export interface GetToolsOptions {
 	 */
 	enableDescription?: boolean;
 	/**
-	 * Whether AI SDK should request approval before executing the Bash tool.
-	 * A function can decide dynamically from the tool input.
+	 * Command-level approval rules for the Bash tool exposed through `getTools()`.
+	 *
+	 * Policy order is: omitted approval allows all tool calls; dynamic commands use
+	 * `dynamicAction`; static commands use matching `rules`; unmatched static commands
+	 * use `defaultAction`.
+	 *
+	 * Direct `x.exec()` calls are application-owned and do not use these rules.
 	 */
-	needsApproval?: boolean | ((input: BashToolInput) => Awaited<boolean>);
+	approval?: BashApprovalOptions;
 	maxLines?: number;
 	maxOutput?: number;
 }

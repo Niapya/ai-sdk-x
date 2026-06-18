@@ -1,6 +1,12 @@
 import type { Tool } from "ai";
 import type { BashExecResult, ExecOptions } from "just-bash";
 import { z } from "zod";
+import {
+	type ApprovalDecision,
+	analyzeBashApproval,
+	BashApprovalDeniedError,
+	type BashApprovalOptions,
+} from "@/runtime/approval";
 import { MAX_OUTPUT, type TruncateOutputOptions, truncateToolOutput } from "@/runtime/output";
 
 export type BashToolInput = {
@@ -16,7 +22,7 @@ type BashToolOutput = {
 };
 
 export type BashToolOptions = TruncateOutputOptions & {
-	needsApproval?: boolean | ((input: BashToolInput) => boolean | Promise<boolean>);
+	approval?: BashApprovalOptions;
 };
 
 export async function createBashTool(
@@ -29,6 +35,11 @@ export async function createBashTool(
 	if (!tool) {
 		throw new Error("Failed to load 'ai' package.");
 	}
+
+	const evaluateApproval = options.approval
+		? (input: BashToolInput): ApprovalDecision =>
+				analyzeBashApproval(input.command, options.approval)
+		: undefined;
 
 	return tool({
 		description,
@@ -51,8 +62,20 @@ export async function createBashTool(
 					"Optional raw stdin text passed to the executed process. Use this only when the command reads stdin.",
 				),
 		}),
-		...(options.needsApproval === undefined ? {} : { needsApproval: options.needsApproval }),
+		...(evaluateApproval
+			? {
+					needsApproval: (input: BashToolInput) => {
+						const decision = evaluateApproval(input);
+						return decision.action !== "allow";
+					},
+				}
+			: {}),
 		execute: async ({ command, cwd, stdin }) => {
+			const approval = evaluateApproval?.({ command, cwd, stdin });
+			if (approval?.action === "deny") {
+				throw new BashApprovalDeniedError(approval);
+			}
+
 			const result = await executeCommand(command, {
 				...(cwd !== undefined ? { cwd } : {}),
 				...(stdin !== undefined ? { stdin } : {}),

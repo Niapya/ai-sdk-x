@@ -439,6 +439,14 @@ export {
 	textOutput,
 	unsafeBytesFromLatin1,
 } from "just-bash";
+export type {
+	ApprovalAction,
+	ApprovalCommand,
+	ApprovalCommandDecision,
+	ApprovalDecision,
+	BashApprovalOptions,
+} from "@/runtime/approval";
+export { analyzeBashApproval, BashApprovalDeniedError } from "@/runtime/approval";
 export { AsyncOnce } from "@/runtime/async-once";
 export type { EnvBackend, EnvSnapshot } from "@/runtime/env";
 export {
