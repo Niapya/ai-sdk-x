@@ -29,6 +29,11 @@ export function createGitFeature(option: boolean | GitOptions | undefined = true
 	return {
 		name: "git",
 		description: createGitFeatureDescription,
-		command: [gitCommand],
+		command: [
+			{
+				...gitCommand,
+				trusted: true,
+			},
+		],
 	};
 }
