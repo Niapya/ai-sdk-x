@@ -43,7 +43,7 @@
 	"repository": {
 		"directory": "packages/ai-sdk-x",
 		"type": "git",
-		"url": "git+https://github.com/niapya/ai-sdk-x.git"
+		"url": "git+https://github.com/Niapya/ai-sdk-x.git"
 	},
 	"type": "module",
 	"types": "./dist/index.d.ts",

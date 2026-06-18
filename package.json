@@ -2,7 +2,7 @@
 	"name": "ai-sdk-x-monorepo",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/niapya/ai-sdk-x.git"
+		"url": "git+https://github.com/Niapya/ai-sdk-x.git"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
@@ -11,9 +11,9 @@
 		"typescript": "^6.0.3"
 	},
 	"bugs": {
-		"url": "https://github.com/niapya/ai-sdk-x/issues"
+		"url": "https://github.com/Niapya/ai-sdk-x/issues"
 	},
-	"homepage": "https://niapya.github.io/ai-sdk-x",
+	"homepage": "https://Niapya.github.io/ai-sdk-x",
 	"private": true,
 	"scripts": {
 		"build": "bun run --cwd packages/ai-sdk-x build",
