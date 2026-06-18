@@ -67,6 +67,70 @@ describe("x-skills install", () => {
 		expect(result.stderr).toContain("x-skills install: failed to clone /origin");
 		expect(result.stderr).toContain("git clone failed without output");
 	});
+
+	it("installs a local skill when the root contains SKILL.md", async () => {
+		const x = X.init();
+		await x.fs.mkdir("/local/root-skill", { recursive: true });
+		await x.fs.writeFile("/local/root-skill/SKILL.md", skillMarkdown("Root Skill", "Root desc"));
+
+		const result = await x.exec("x-skills install /local/root-skill");
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain("Skills Name: Root Skill");
+		expect(await x.fs.readFile("/home/user/skills/Root Skill/SKILL.md")).toContain("Root desc");
+	});
+
+	it("discovers skills in conventional local directories", async () => {
+		const x = X.init();
+		await writeSkillAt(x, "/repo/.codex/skills/codex", skillMarkdown("Codex", "Codex desc"));
+		await writeSkillAt(x, "/repo/.agents/skills/agent", skillMarkdown("Agent", "Agent desc"));
+
+		const codex = await x.exec("x-skills install /repo@codex");
+		const agent = await x.exec("x-skills install /repo@Agent");
+
+		expect(codex.exitCode).toBe(0);
+		expect(agent.exitCode).toBe(0);
+		expect(await x.fs.exists("/home/user/skills/codex/SKILL.md")).toBe(true);
+		expect(await x.fs.exists("/home/user/skills/Agent/SKILL.md")).toBe(true);
+	});
+
+	it("returns an error when multiple skills are found without @name", async () => {
+		const x = X.init();
+		await writeSkillAt(x, "/repo/skills/one", skillMarkdown("One", "One desc"));
+		await writeSkillAt(x, "/repo/skills/two", skillMarkdown("Two", "Two desc"));
+
+		const result = await x.exec("x-skills install /repo");
+
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr).toContain("multiple skills found; pass @name");
+	});
+
+	it("does not install invalid skill frontmatter", async () => {
+		const x = X.init();
+		await writeSkillAt(x, "/repo/skills/invalid", ["---", "name: Invalid", "---", ""].join("\n"));
+
+		const result = await x.exec("x-skills install /repo@invalid");
+
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr).toContain("no installable skills found");
+		expect(await x.fs.exists("/home/user/skills/invalid/SKILL.md")).toBe(false);
+	});
+
+	it("writes sourcePath for git installs", async () => {
+		const x = X.init();
+		await initializeSkillRepo(
+			x,
+			"/origin",
+			"demo",
+			skillMarkdown("Demo Frontmatter", "Demo description"),
+		);
+
+		const result = await x.exec("x-skills install /origin@demo");
+		const index = JSON.parse(await x.fs.readFile("/home/user/skills/skills.json"));
+
+		expect(result.exitCode).toBe(0);
+		expect(index.skills.demo.sourcePath).toBe("skills/demo");
+	});
 });
 
 async function initializeSkillRepo(
@@ -96,7 +160,10 @@ async function writeSkillToRepo(
 	selector: string,
 	markdown: string,
 ): Promise<void> {
-	const skillPath = `${repoPath}/skills/${selector}`;
+	await writeSkillAt(x, `${repoPath}/skills/${selector}`, markdown);
+}
+
+async function writeSkillAt(x: X, skillPath: string, markdown: string): Promise<void> {
 	await x.fs.mkdir(skillPath, { recursive: true });
 	await x.fs.writeFile(`${skillPath}/SKILL.md`, markdown);
 }

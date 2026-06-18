@@ -4,7 +4,7 @@ import {
 	collectSkillFiles,
 	findSkillMarkdownFile,
 	toSkillsHomePath,
-	writeSkillIndexEntry,
+	upsertSkillIndexEntry,
 } from "@/features/skills/utils/lockfile";
 import {
 	frontmatterDescription,
@@ -62,7 +62,7 @@ export async function importSkill(
 	const files = await collectSkillFiles(ctx.fs, destinationPath);
 
 	if (options.lockfile) {
-		await writeSkillIndexEntry(ctx.fs, options, {
+		await upsertSkillIndexEntry(ctx.fs, options, {
 			description,
 			files,
 			frontmatter: stringifyFrontmatter(frontmatter),

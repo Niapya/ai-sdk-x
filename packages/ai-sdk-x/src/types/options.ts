@@ -4,6 +4,7 @@ import type { MemoryOptions } from "@/features/memory/types";
 import type { PatchOptions } from "@/features/patch/types";
 import type { SkillsOptions } from "@/features/skills/types";
 import type { WorkspaceOptions } from "@/features/workspace/types";
+import type { BashApprovalOptions } from "@/runtime/approval";
 import type { EnvBackend } from "@/runtime/env";
 import type { ExecHook } from "@/types/feature";
 
@@ -19,13 +20,27 @@ export interface GetToolsOptions {
 	 */
 	externalDescription?: string;
 	/**
-	 * Whether `getTools()` should embed the full generated Bash description in the
-	 * tool metadata. Set this to false when you add `await x.createToolDescription()`
-	 * to your model System Prompt instead.
+	 * Whether `getTools()` should embed the full generated Bash description in the tool metadata.
+	 * Set this to false when you add `await x.getInstructions()` to your model System Prompt instead.
 	 */
 	enableDescription?: boolean;
+	/**
+	 * Command-level approval rules for the Bash tool exposed through `getTools()`.
+	 *
+	 * Policy order is: omitted approval allows all tool calls; dynamic commands use
+	 * `dynamicAction`; static commands use matching `rules`; unmatched static commands
+	 * use `defaultAction`.
+	 *
+	 * Direct `x.exec()` calls are application-owned and do not use these rules.
+	 */
+	approval?: BashApprovalOptions;
 	maxLines?: number;
 	maxOutput?: number;
+}
+
+export interface Instructions {
+	guidance: string;
+	environment: string;
 }
 
 export type XBashOptions = Omit<BashOptions, "customCommands" | "fs" | "network"> & {

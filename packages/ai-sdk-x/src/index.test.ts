@@ -412,8 +412,84 @@ describe("X getTools integration", () => {
 		expect(description).toBeString();
 		expect(description.length).toBeGreaterThan(0);
 		expect(description).not.toContain("<bash_tool>");
-		expect(description).not.toContain("<features>");
-		expect(description).not.toContain("<feature:workspace>");
+		expect(description).not.toContain("<bash_tool_guidance>");
+		expect(description).toContain("<feature:workspace>");
+	});
+
+	it("getInstructions splits guidance and environment", async () => {
+		const x = X.init({ workspace: { mountPoint: "/project" } });
+		const instructions = await x.getInstructions({ externalDescription: "Extra policy." });
+
+		expect(instructions.guidance).toContain("<bash_tool_guidance>");
+		expect(instructions.guidance).toContain("Use structured tools when appropriate");
+		expect(instructions.guidance).toContain("<feature:patch>");
+		expect(instructions.guidance).toContain("<feature:git>");
+		expect(instructions.guidance).not.toContain("/project");
+
+		expect(instructions.environment).toContain("<bash_tool_environment>");
+		expect(instructions.environment).toContain("initial cwd:");
+		expect(instructions.environment).toContain("<feature:workspace>");
+		expect(instructions.environment).toContain("/project");
+		expect(instructions.environment).toContain("Extra policy.");
+		expect(instructions.environment).not.toContain("Use structured tools when appropriate");
+
+		expect(Object.keys(instructions).sort()).toEqual(["environment", "guidance"]);
+	});
+
+	it("getTools with enableDescription false only uses environment instructions", async () => {
+		const x = X.init({ workspace: { mountPoint: "/project" } });
+		const tools = await x.getTools({ enableDescription: false });
+		const description = tools.bash.description as string;
+
+		expect(description).toContain("<bash_tool_environment>");
+		expect(description).toContain("/project");
+		expect(description).not.toContain("<bash_tool_guidance>");
+		expect(description).not.toContain("Use structured tools when appropriate");
+	});
+
+	it("getTools passes approval rules to the bash tool", async () => {
+		const x = new X();
+		const tools = await x.getTools({
+			approval: {
+				defaultAction: "ask",
+				rules: {
+					"rm *": "deny",
+					pwd: "allow",
+				},
+			},
+		});
+
+		const approval = (
+			tools.bash as unknown as { needsApproval: (input: { command: string }) => boolean }
+		).needsApproval;
+		expect(approval({ command: "rm -rf tmp" })).toBe(true);
+		expect(approval({ command: "pwd" })).toBe(false);
+		expect(approval({ command: "echo hi" })).toBe(true);
+	});
+
+	it("approval rules inspect nested commands and pipelines", async () => {
+		const x = new X();
+		const tools = await x.getTools({
+			approval: {
+				defaultAction: "allow",
+				dynamicAction: "ask",
+				rules: {
+					"rm *": "deny",
+					"git *": "allow",
+					"git push *": "deny",
+				},
+			},
+		});
+
+		const approval = (
+			tools.bash as unknown as { needsApproval: (input: { command: string }) => boolean }
+		).needsApproval;
+
+		expect(approval({ command: "echo hi | grep h && rm -rf build" })).toBe(true);
+		expect(approval({ command: "echo $(rm -rf build)" })).toBe(true);
+		expect(approval({ command: "git status --short" })).toBe(false);
+		expect(approval({ command: "git push origin main" })).toBe(true);
+		expect(approval({ command: "$CMD file | git status --short" })).toBe(true);
 	});
 
 	it("getTools description does not list standalone registered commands", async () => {
@@ -434,19 +510,15 @@ describe("X getTools integration", () => {
 	it("creates a dynamic tool description from enabled runtime options", async () => {
 		const x = new X({ bash: { javascript: false, network: false, python: false } });
 		const description = await x.createToolDescription();
-		expect(description).toStartWith("<bash_tool>");
-		expect(description).toContain("<environment>");
-		expect(description).toContain("</environment>");
-		expect(description).toContain("<usage>");
-		expect(description).toContain("</usage>");
-		expect(description).toContain("<large_files>");
-		expect(description).toContain("</large_files>");
-		expect(description).toContain("<features>\n</features>");
+		expect(description).toStartWith("<bash_tool_guidance>");
+		expect(description).toContain("<bash_tool_environment>");
 		expect(description).not.toContain("<network>");
 		expect(description).not.toContain("<javascript>");
 		expect(description).not.toContain("<python>");
 		expect(description).not.toContain("undefined");
-		expect(description).toEndWith("</bash_tool>");
+		expect(description).toContain("</bash_tool_guidance>\n\n<bash_tool_environment>");
+		expect(description).toContain("</bash_tool_environment>");
+		expect(description).toEndWith("</bash_tool_environment>");
 	});
 
 	it("includes network, JavaScript, Python, feature metadata XML, and custom options when enabled", async () => {
@@ -470,8 +542,16 @@ describe("X getTools integration", () => {
 		expect(description).toContain("<feature:git>");
 		expect(description).toContain("</feature:git>");
 		expect(description).toContain("Extra policy.");
-		expect(description).not.toContain("Feature guidance");
 		expect(description).not.toContain("\n\n\n");
+	});
+
+	it("createToolDescription returns the combined instruction bundle", async () => {
+		const x = X.init({ workspace: { mountPoint: "/project" } });
+		const description = await x.createToolDescription({ externalDescription: "Extra policy." });
+
+		expect(description).toContain("<bash_tool_guidance>");
+		expect(description).toContain("<bash_tool_environment>");
+		expect(description).toContain("Extra policy.");
 	});
 
 	it("bash tool executes and returns stdout/exitCode", async () => {
@@ -619,12 +699,13 @@ describe("X registerCommand", () => {
 		const x = new X();
 		x.registerCommand({
 			name: "x-standalone",
-			trusted: true,
 			async execute() {
 				return { stdout: "standalone-output", stderr: "", exitCode: 0 };
 			},
 		});
-		expect(x.commands.some((c) => c.name === "x-standalone")).toBe(true);
+		const command = x.commands.find((c) => c.name === "x-standalone");
+		expect(command).toBeDefined();
+		expect(command?.trusted).toBeUndefined();
 		const result = await x.exec("x-standalone");
 		expect(result.stdout).toBe("standalone-output");
 	});

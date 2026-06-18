@@ -29,6 +29,7 @@ import { type EnvBackend, type EnvSnapshot, MemoryEnvBackend, mergeEnv } from "@
 import { BootstrappableMountableFs } from "@/runtime/fs";
 import { MAX_OUTPUT } from "@/runtime/output";
 import { createBashTool } from "@/runtime/tools";
+import type { Instructions } from "@/types/options";
 
 export class X {
 	readonly bash: Bash;
@@ -154,20 +155,13 @@ export class X {
 	}
 
 	registerCommand(command: Command): this {
-		const registeredCommand =
-			command.trusted === undefined
-				? {
-						...command,
-						trusted: true,
-					}
-				: command;
-		const existingIndex = this.commands.findIndex((item) => item.name === registeredCommand.name);
+		const existingIndex = this.commands.findIndex((item) => item.name === command.name);
 		if (existingIndex === -1) {
-			this.commands.push(registeredCommand);
+			this.commands.push(command);
 		} else {
-			this.commands[existingIndex] = registeredCommand;
+			this.commands[existingIndex] = command;
 		}
-		this.bash.registerCommand(registeredCommand);
+		this.bash.registerCommand(command);
 		return this;
 	}
 
@@ -190,10 +184,11 @@ export class X {
 	async getTools(
 		options: GetToolsOptions = {},
 	): Promise<{ bash: Awaited<ReturnType<typeof createBashTool>> }> {
+		const instructions = await this.getInstructions(options);
 		const description =
 			options.enableDescription === false
-				? "The bash tool in a virtual bash."
-				: await this.createToolDescription(options);
+				? instructions.environment
+				: [instructions.guidance, instructions.environment].filter(Boolean).join("\n\n");
 
 		const bash = await createBashTool(this.exec.bind(this), description, options);
 
@@ -202,34 +197,62 @@ export class X {
 		};
 	}
 
-	async createToolDescription(options: GetToolsOptions = {}): Promise<string> {
+	async getInstructions(options: GetToolsOptions = {}): Promise<Instructions> {
 		const featureContext = this.createFeatureContext();
 		const networkEnabled = Boolean(this.bashConfig.fetch || this.bashConfig.network);
 		const javascriptEnabled = Boolean(this.bashConfig.javascript);
 		const pythonEnabled = Boolean(this.bashConfig.python);
 
-		const featureDescriptions = (
-			await Promise.all(
-				this.features.map(async (feature) => {
-					const description = await feature.description?.(featureContext);
-					if (!description) return "";
+		const featureInstructions = await Promise.all(
+			this.features.map(async (feature) => {
+				const description = await feature.description?.(featureContext);
+				if (!description) {
+					return {
+						guidance: "",
+						environment: "",
+					};
+				}
 
-					return [`<feature:${feature.name}>`, description, `</feature:${feature.name}>`].join(
-						"\n",
-					);
-				}),
-			)
-		).join("\n\n");
+				const instructions =
+					typeof description === "string"
+						? { guidance: "", environment: description }
+						: {
+								guidance: description.guidance ?? "",
+								environment: description.environment ?? "",
+							};
 
-		const sections = [
-			"<bash_tool>",
-			"<environment>",
-			"Bash tool is a virtual bash shell for running Unix-style commands and scripts inside a sandboxed environment.",
-			`initial cwd: ${featureContext.bash.getCwd()}`,
-			"</environment>",
+				return {
+					guidance: instructions.guidance
+						? [
+								`<feature:${feature.name}>`,
+								instructions.guidance,
+								`</feature:${feature.name}>`,
+							].join("\n")
+						: "",
+					environment: instructions.environment
+						? [
+								`<feature:${feature.name}>`,
+								instructions.environment,
+								`</feature:${feature.name}>`,
+							].join("\n")
+						: "",
+				};
+			}),
+		);
 
+		const featureGuidance = featureInstructions
+			.map((instructions) => instructions.guidance)
+			.filter(Boolean)
+			.join("\n\n");
+		const featureEnvironment = featureInstructions
+			.map((instructions) => instructions.environment)
+			.filter(Boolean)
+			.join("\n\n");
+
+		const guidance = [
+			"<bash_tool_guidance>",
 			"<usage>",
-			"This description applies to the Bash tool.",
+			"This guidance applies to the Bash tool.",
 			"The feature entries below describe shell commands and mounted paths available inside Bash. They are NOT separate tools or function calls.",
 			"Put shell syntax in the Bash tool's `command` argument. Use `cwd` instead of `cd` when changing directories for a command.",
 			"Use `stdin` only for raw input to commands that read stdin; do not put shell code in `stdin`.",
@@ -241,6 +264,19 @@ export class X {
 			"Examples: `rg --files`, `rg -n \"pattern\" <path>`, `grep -n \"pattern\" <file>`, `sed -n '120,180p' <file>`, `nl -ba <file> | sed -n '120,180p'`, `wc -l <file>`.",
 			"Use structured tools when appropriate: `jq` for JSON, `yq` for YAML/TOML/XML/CSV, `sqlite3` for SQLite, and `awk`, `sort`, `uniq`, `cut`, `xargs` for text pipelines.",
 			"</large_files>",
+
+			featureGuidance ? ["<features>", featureGuidance, "</features>"].join("\n") : "",
+			"</bash_tool_guidance>",
+		]
+			.filter(Boolean)
+			.join("\n");
+
+		const environment = [
+			"<bash_tool_environment>",
+			"<environment>",
+			"Bash tool is a virtual bash shell for running Unix-style commands and scripts inside a sandboxed environment.",
+			`initial cwd: ${featureContext.bash.getCwd()}`,
+			"</environment>",
 
 			networkEnabled
 				? [
@@ -268,17 +304,28 @@ export class X {
 					].join("\n")
 				: "",
 
-			`<features>`,
-			featureDescriptions,
-			`</features>`,
+			"<features>",
+			featureEnvironment,
+			"</features>",
 
 			options.externalDescription ?? "",
-			"</bash_tool>",
+			"</bash_tool_environment>",
 		]
 			.filter(Boolean)
 			.join("\n");
 
-		return sections;
+		return {
+			guidance,
+			environment,
+		};
+	}
+
+	/**
+	 * @deprecated Use `getInstructions()` instead.
+	 */
+	async createToolDescription(options: GetToolsOptions = {}): Promise<string> {
+		const instructions = await this.getInstructions(options);
+		return [instructions.guidance, instructions.environment].filter(Boolean).join("\n\n");
 	}
 
 	private createFeatureContext(): FeatureSetupContext {
@@ -392,6 +439,14 @@ export {
 	textOutput,
 	unsafeBytesFromLatin1,
 } from "just-bash";
+export type {
+	ApprovalAction,
+	ApprovalCommand,
+	ApprovalCommandDecision,
+	ApprovalDecision,
+	BashApprovalOptions,
+} from "@/runtime/approval";
+export { analyzeBashApproval, BashApprovalDeniedError } from "@/runtime/approval";
 export { AsyncOnce } from "@/runtime/async-once";
 export type { EnvBackend, EnvSnapshot } from "@/runtime/env";
 export {

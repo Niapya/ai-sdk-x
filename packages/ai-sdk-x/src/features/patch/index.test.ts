@@ -16,14 +16,15 @@ describe("createPatchFeature", () => {
 	it("describes x-patch as the required structured file editing command", () => {
 		const description = createPatchFeatureDescription();
 
-		expect(description).toContain("IMPORTANT: YOU MUST USE x-patch");
-		expect(description).toContain("x-patch [content...]");
-		expect(description).toContain("x-patch <<EOF");
-		expect(description).toContain("*** Add File:");
-		expect(description).toContain("*** Update File:");
-		expect(description).toContain("*** Delete File:");
-		expect(description).toContain("*** Move to:");
-		expect(description).toContain("four headers/directives");
+		expect(description.environment).toBeUndefined();
+		expect(description.guidance).toContain("IMPORTANT: YOU MUST USE x-patch");
+		expect(description.guidance).toContain("x-patch [content...]");
+		expect(description.guidance).toContain("x-patch <<EOF");
+		expect(description.guidance).toContain("*** Add File:");
+		expect(description.guidance).toContain("*** Update File:");
+		expect(description.guidance).toContain("*** Delete File:");
+		expect(description.guidance).toContain("*** Move to:");
+		expect(description.guidance).toContain("four headers/directives");
 	});
 });
 

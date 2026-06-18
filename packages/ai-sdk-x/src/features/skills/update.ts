@@ -1,15 +1,18 @@
 import type { CommandContext, ExecResult } from "just-bash";
-import type { SkillsCommandOptions } from "@/features/skills/types";
+import type { SkillIndexEntry, SkillsCommandOptions } from "@/features/skills/types";
+import {
+	discoverSkills,
+	relativePathFromRoot,
+	selectDiscoveredSkill,
+} from "@/features/skills/utils/discover";
 import { cloneSkillRepository } from "@/features/skills/utils/git";
 import {
 	collectSkillFiles,
-	findSkillMarkdownFile,
 	readSkillsIndex,
-	writeSkillIndexEntry,
+	upsertSkillIndexEntry,
 } from "@/features/skills/utils/lockfile";
-import { frontmatterDescription, stringifyFrontmatter } from "@/features/skills/utils/metadata";
+import { stringifyFrontmatter } from "@/features/skills/utils/metadata";
 import { commandError, defineCliCommand } from "@/utils/command";
-import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
 
 export async function updateSkills(
 	ctx: CommandContext,
@@ -70,37 +73,34 @@ export async function updateSkills(
 				return commandError(`x-skills update: missing clone for ${entry.url}\n`, 1);
 			}
 
-			const sourcePath = ctx.fs.resolvePath(cloneRoot, `skills/${selector}`);
-			const sourceSkillFilePath = await findSkillMarkdownFile(ctx.fs, sourcePath);
-			if (!sourceSkillFilePath) {
-				return commandError(
-					`x-skills update: missing /skills/${selector}/SKILL.md or /skills/${selector}/SKILLS.md in ${entry.url}\n`,
-					1,
-				);
+			const selected = await findUpdateSkill(ctx, cloneRoot, selector, entry);
+			if ("error" in selected) {
+				return commandError(`x-skills update: ${selected.error} in ${entry.url}\n`, 1);
 			}
 
-			const markdown = await ctx.fs.readFile(sourceSkillFilePath);
-			const { frontmatter } = parseMarkdownFrontmatter(markdown);
-			const description = frontmatterDescription(frontmatter);
 			const destinationPath = ctx.fs.resolvePath(options.mountPoint, selector);
-
 			await ctx.fs.rm(destinationPath, { force: true, recursive: true });
-			await ctx.fs.cp(sourcePath, destinationPath, { recursive: true });
+			await ctx.fs.cp(selected.path, destinationPath, { recursive: true });
 
 			const skillPath = ctx.fs.resolvePath(
 				destinationPath,
-				sourceSkillFilePath.slice(sourcePath.length).replace(/^\/+/, ""),
+				selected.skillFilePath.slice(selected.path.length).replace(/^\/+/, ""),
 			);
+			const files = await collectSkillFiles(ctx.fs, destinationPath);
+			const sourcePath = relativePathFromRoot(ctx.fs, cloneRoot, selected.path);
+
 			if (options.lockfile) {
-				await writeSkillIndexEntry(ctx.fs, options, {
-					description,
-					files: await collectSkillFiles(ctx.fs, destinationPath),
-					frontmatter: stringifyFrontmatter(frontmatter),
+				await upsertSkillIndexEntry(ctx.fs, options, {
+					description: selected.description,
+					files,
+					frontmatter: stringifyFrontmatter(selected.frontmatter),
 					skillPath,
 					source: "git",
+					sourcePath,
 					target: {
 						repoUrl: entry.url,
 						selector,
+						sourcePath,
 					},
 				});
 			}
@@ -121,6 +121,32 @@ export async function updateSkills(
 			await ctx.fs.rm(cloneRoot, { force: true, recursive: true });
 		}
 	}
+}
+
+async function findUpdateSkill(
+	ctx: CommandContext,
+	cloneRoot: string,
+	selector: string,
+	entry: SkillIndexEntry,
+) {
+	if (entry.sourcePath) {
+		const sourcePath = ctx.fs.resolvePath(cloneRoot, entry.sourcePath);
+		const sourcePathSkills = await discoverSkills(ctx.fs, sourcePath);
+		const selected = selectDiscoveredSkill(sourcePathSkills, undefined);
+		if (!("error" in selected)) {
+			return selected;
+		}
+	}
+
+	const legacyPath = ctx.fs.resolvePath(cloneRoot, `skills/${selector}`);
+	const legacySkills = await discoverSkills(ctx.fs, legacyPath);
+	const legacySelected = selectDiscoveredSkill(legacySkills, undefined);
+	if (!("error" in legacySelected)) {
+		return legacySelected;
+	}
+
+	const discovered = await discoverSkills(ctx.fs, cloneRoot);
+	return selectDiscoveredSkill(discovered, selector);
 }
 
 function withTrailingNewline(value: string): string {

@@ -33,16 +33,16 @@ describe("x-memory feature", () => {
 		expect(help.stdout).not.toContain("  init");
 		expect(help.stdout).not.toContain("  search");
 
-		expect(description).toContain("$MEMORY_HOME/AGENT.md");
-		expect(description).toContain("$MEMORY_HOME/USER.md");
-		expect(description).toContain("$MEMORY_HOME/MEMORY.md");
-		expect(description).toContain("daily/YYYY-MM-DD/title.md");
-		expect(description).toContain("x-memory list");
-		expect(description).toContain("x-memory find");
-		expect(description).toContain("x-memory add");
-		expect(description).toContain("x-memory update");
-		expect(description).toContain("x-memory delete");
-		expect(description).toContain("DO NOT add, update, or delete memory entries DIRECTLY");
-		expect(description).toContain("lockfile");
+		expect(description.environment).toContain("$MEMORY_HOME/AGENT.md");
+		expect(description.environment).toContain("$MEMORY_HOME/USER.md");
+		expect(description.environment).toContain("$MEMORY_HOME/MEMORY.md");
+		expect(description.guidance).toContain("daily/YYYY-MM-DD/title.md");
+		expect(description.guidance).toContain("x-memory list");
+		expect(description.guidance).toContain("x-memory find");
+		expect(description.guidance).toContain("x-memory add");
+		expect(description.guidance).toContain("x-memory update");
+		expect(description.guidance).toContain("x-memory delete");
+		expect(description.guidance).toContain("DO NOT add, update, or delete memory entries DIRECTLY");
+		expect(description.guidance).toContain("lockfile");
 	});
 });

@@ -51,7 +51,7 @@ const helloCommand: Command = {
 x.registerCommand(helloCommand);
 ```
 
-Commands registered through `registerCommand()` are trusted by default. If you need a command to be untrusted, set `trusted: false` on the command object.
+Commands registered through `registerCommand()` are untrusted by default. If you need a command to be trusted, set `trusted: true` on the command object.
 
 ## Register hooks
 

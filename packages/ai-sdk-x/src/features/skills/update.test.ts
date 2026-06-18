@@ -37,6 +37,39 @@ describe("x-skills update", () => {
 		expect(await x.fs.readFile("/home/user/skills/one/SKILL.md")).toContain("One v2");
 		expect(await x.fs.readFile("/home/user/skills/two/SKILL.md")).toContain("Two v1");
 	});
+
+	it("uses sourcePath when updating installed git skills", async () => {
+		const x = X.init();
+		await x.fs.mkdir("/origin", { recursive: true });
+		await writeSkillAt(x, "/origin/.codex/skills/demo", skillMarkdown("Demo", "Version 1"));
+		await initRepo(x, "/origin");
+		await x.exec("x-skills install /origin@demo");
+		await writeSkillAt(x, "/origin/.codex/skills/demo", skillMarkdown("Demo", "Version 2"));
+		await commitRepo(x, "/origin", "update-demo");
+
+		const result = await x.exec("x-skills update demo");
+		const index = JSON.parse(await x.fs.readFile("/home/user/skills/skills.json"));
+
+		expect(result.exitCode).toBe(0);
+		expect(await x.fs.readFile("/home/user/skills/demo/SKILL.md")).toContain("Version 2");
+		expect(index.skills.demo.sourcePath).toBe(".codex/skills/demo");
+	});
+
+	it("falls back to legacy skills/<selector> when sourcePath is missing", async () => {
+		const x = X.init();
+		await initializeSkillRepo(x, "/origin", "demo", skillMarkdown("Demo", "Version 1"));
+		await x.exec("x-skills install /origin@demo");
+		const index = JSON.parse(await x.fs.readFile("/home/user/skills/skills.json"));
+		delete index.skills.demo.sourcePath;
+		await x.fs.writeFile("/home/user/skills/skills.json", `${JSON.stringify(index, null, 2)}\n`);
+		await writeSkillToRepo(x, "/origin", "demo", skillMarkdown("Demo", "Version 2"));
+		await commitRepo(x, "/origin", "update-demo");
+
+		const result = await x.exec("x-skills update demo");
+
+		expect(result.exitCode).toBe(0);
+		expect(await x.fs.readFile("/home/user/skills/demo/SKILL.md")).toContain("Version 2");
+	});
 });
 
 async function initializeSkillRepo(
@@ -47,7 +80,10 @@ async function initializeSkillRepo(
 ): Promise<void> {
 	await x.fs.mkdir(repoPath, { recursive: true });
 	await writeSkillToRepo(x, repoPath, selector, markdown);
+	await initRepo(x, repoPath);
+}
 
+async function initRepo(x: X, repoPath: string): Promise<void> {
 	const initResult = await x.exec(
 		'git init && git config user.name "Test User" && git config user.email "test@example.com"',
 		{ cwd: repoPath },
@@ -63,7 +99,10 @@ async function writeSkillToRepo(
 	selector: string,
 	markdown: string,
 ): Promise<void> {
-	const skillPath = `${repoPath}/skills/${selector}`;
+	await writeSkillAt(x, `${repoPath}/skills/${selector}`, markdown);
+}
+
+async function writeSkillAt(x: X, skillPath: string, markdown: string): Promise<void> {
 	await x.fs.mkdir(skillPath, { recursive: true });
 	await x.fs.writeFile(`${skillPath}/SKILL.md`, markdown);
 }

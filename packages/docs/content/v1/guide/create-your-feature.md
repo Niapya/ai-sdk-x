@@ -11,7 +11,9 @@ import type { Feature } from "ai-sdk-x";
 
 interface Feature {
   readonly name: string;
-  readonly description?: (ctx: FeatureSetupContext) => string | Promise<string>;
+  readonly description?: (
+    ctx: FeatureSetupContext,
+  ) => string | { guidance?: string; environment?: string } | Promise<string | { guidance?: string; environment?: string }>;
   readonly command?: Command[];
   readonly hooks?: ExecHook;
 }
@@ -20,23 +22,31 @@ interface Feature {
 Each field has one job:
 
 - `name` is the stable feature id.
-- `description` is injected into the generated Bash tool description.
+- `description` should return an object when possible.
+- Put stable, permanent instructions in `guidance`.
+- Put current runtime state in `environment`.
+- `guidance` and `environment` are both optional. Some fixed features only need `guidance`; some stateful features only need `environment`.
+- String values are kept for backwards compatibility and are treated as `environment` only.
 - `command` registers Bash commands while the feature is enabled.
 - `hooks` run around command execution and can initialize mounts or env.
 
 ## Description is part of the prompt
 
-When you call `x.getTools()` or `x.createToolDescription()`, AI SDK X calls each enabled feature's `description()` and wraps the result in a feature block.
+When you call `x.getInstructions()`, AI SDK X calls each enabled feature's `description()` and splits the result into system guidance and tool environment notes.
+Use `guidance` for content that should stay stable over time and move into the system prompt so it can benefit from prompt caching.
+Use `environment` for content that changes with the current runtime, mounted paths, or discovered files.
 
 ```ts
 const projectFeature: Feature = {
   name: "project",
-  description: () =>
-    "Project files are mounted at $PROJECT_HOME. Use `project-info` for metadata.",
+  description: () => ({
+    guidance: "Use `project-info` for metadata.",
+    environment: "Project files are mounted at $PROJECT_HOME.",
+  }),
 };
 ```
 
-Use the description for model-facing behavior: available commands, mounted paths, important rules, and inspection hints.
+Use `guidance` for model-facing behavior and `environment` for available commands, mounted paths, and inspection hints.
 
 ## Add a command
 
@@ -118,4 +128,3 @@ function createProjectFeature(): ProjectFeature {
 ```
 
 Use actions for application-owned workflows. Use Bash commands for model-driven workflows that should be discoverable through shell help and tool descriptions.
-

@@ -6,7 +6,7 @@ import { type Command, type CommandContext, decodeBytesToUtf8, type ExecResult }
 import type { Hunk, PatchCommandOptions, PatchConfig, PatchOptions } from "@/features/patch/types";
 import { deriveNewContentsFromChunks } from "@/features/patch/utils/apply";
 import { parsePatch } from "@/features/patch/utils/parser";
-import type { Feature } from "@/types";
+import type { Feature, FeatureInstructions } from "@/types";
 import {
 	type CliCommandDefinition,
 	commandError,
@@ -85,12 +85,14 @@ It is important to remember:
 - Prefer heredoc input for multi-file patches
 - Paths are resolved relative to the current command cwd`;
 
-export function createPatchFeatureDescription(): string {
-	return [
-		"`x-patch` is the Bash command for modifying files with structured patches.",
-		PATCH_DESCRIPTION,
-		"Invocation examples: run `x-patch --help`;",
-	].join("\n");
+export function createPatchFeatureDescription(): FeatureInstructions {
+	return {
+		guidance: [
+			"`x-patch` is the Bash command for modifying files with structured patches.",
+			PATCH_DESCRIPTION,
+			"Invocation examples: run `x-patch --help`;",
+		].join("\n"),
+	};
 }
 
 const PATCH_FLAGS = {} as const;

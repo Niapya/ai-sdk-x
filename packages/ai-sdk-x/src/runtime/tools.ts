@@ -1,8 +1,15 @@
 import type { Tool } from "ai";
 import type { BashExecResult, ExecOptions } from "just-bash";
+import { z } from "zod";
+import {
+	type ApprovalDecision,
+	analyzeBashApproval,
+	BashApprovalDeniedError,
+	type BashApprovalOptions,
+} from "@/runtime/approval";
 import { MAX_OUTPUT, type TruncateOutputOptions, truncateToolOutput } from "@/runtime/output";
 
-type BashToolInput = {
+export type BashToolInput = {
 	command: string;
 	cwd?: string;
 	stdin?: string;
@@ -14,20 +21,25 @@ type BashToolOutput = {
 	exitCode: number;
 };
 
+export type BashToolOptions = TruncateOutputOptions & {
+	approval?: BashApprovalOptions;
+};
+
 export async function createBashTool(
 	executeCommand: (command: string, options?: ExecOptions) => Promise<BashExecResult>,
 	description: string,
-	options: TruncateOutputOptions = {},
+	options: BashToolOptions = {},
 ): Promise<Tool<BashToolInput, BashToolOutput>> {
 	const { tool } = await import("ai");
-	const { z } = await import("zod");
 
 	if (!tool) {
 		throw new Error("Failed to load 'ai' package.");
 	}
-	if (!z) {
-		throw new Error("Failed to load 'zod' package.");
-	}
+
+	const evaluateApproval = options.approval
+		? (input: BashToolInput): ApprovalDecision =>
+				analyzeBashApproval(input.command, options.approval)
+		: undefined;
 
 	return tool({
 		description,
@@ -50,7 +62,20 @@ export async function createBashTool(
 					"Optional raw stdin text passed to the executed process. Use this only when the command reads stdin.",
 				),
 		}),
+		...(evaluateApproval
+			? {
+					needsApproval: (input: BashToolInput) => {
+						const decision = evaluateApproval(input);
+						return decision.action !== "allow";
+					},
+				}
+			: {}),
 		execute: async ({ command, cwd, stdin }) => {
+			const approval = evaluateApproval?.({ command, cwd, stdin });
+			if (approval?.action === "deny") {
+				throw new BashApprovalDeniedError(approval);
+			}
+
 			const result = await executeCommand(command, {
 				...(cwd !== undefined ? { cwd } : {}),
 				...(stdin !== undefined ? { stdin } : {}),

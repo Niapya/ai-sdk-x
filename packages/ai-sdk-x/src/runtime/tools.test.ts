@@ -80,4 +80,125 @@ describe("createBashTool", () => {
 			exitCode: 0,
 		});
 	});
+
+	it("does not request approval when approval is omitted", async () => {
+		const executeCommand = async (): Promise<BashExecResult> => ({
+			stdout: "",
+			stderr: "",
+			exitCode: 0,
+			env: {},
+		});
+
+		const tool = await createBashTool(executeCommand, "demo");
+
+		expect((tool as unknown as { needsApproval?: unknown }).needsApproval).toBeUndefined();
+	});
+
+	it("passes approval rules to the AI SDK tool", async () => {
+		const executeCommand = async (): Promise<BashExecResult> => ({
+			stdout: "",
+			stderr: "",
+			exitCode: 0,
+			env: {},
+		});
+
+		const tool = await createBashTool(executeCommand, "demo", {
+			approval: {
+				defaultAction: "ask",
+				rules: {
+					pwd: "allow",
+				},
+			},
+		});
+
+		const approval = (
+			tool as unknown as { needsApproval?: (input: { command: string }) => boolean }
+		).needsApproval;
+		expect(approval?.({ command: "pwd" })).toBe(false);
+		expect(approval?.({ command: "rm -rf tmp" })).toBe(true);
+	});
+
+	it("uses dynamicAction for dynamic command approvals", async () => {
+		const executeCommand = async (): Promise<BashExecResult> => ({
+			stdout: "",
+			stderr: "",
+			exitCode: 0,
+			env: {},
+		});
+
+		const tool = await createBashTool(executeCommand, "demo", {
+			approval: {
+				defaultAction: "allow",
+				dynamicAction: "ask",
+				rules: {
+					"grep *": "allow",
+				},
+			},
+		});
+
+		const approval = (
+			tool as unknown as { needsApproval?: (input: { command: string }) => boolean }
+		).needsApproval;
+		expect(approval?.({ command: "grep h" })).toBe(false);
+		expect(approval?.({ command: "$CMD file | grep h" })).toBe(true);
+	});
+
+	it("denies execution for deny rules", async () => {
+		const calls: string[] = [];
+		const executeCommand = async (command: string): Promise<BashExecResult> => {
+			calls.push(command);
+			return {
+				stdout: "",
+				stderr: "",
+				exitCode: 0,
+				env: {},
+			};
+		};
+
+		const tool = await createBashTool(executeCommand, "demo", {
+			approval: {
+				defaultAction: "allow",
+				rules: {
+					"git push *": "deny",
+				},
+			},
+		});
+		const executableTool = tool as unknown as {
+			execute: (input: { command: string }) => Promise<unknown>;
+		};
+		await expect(executableTool.execute({ command: "git push origin main" })).rejects.toThrow(
+			"Bash command denied by approval rules",
+		);
+		expect(calls).toEqual([]);
+	});
+
+	it("denies execution when any pipeline or nested command is denied", async () => {
+		const calls: string[] = [];
+		const executeCommand = async (command: string): Promise<BashExecResult> => {
+			calls.push(command);
+			return {
+				stdout: "",
+				stderr: "",
+				exitCode: 0,
+				env: {},
+			};
+		};
+
+		const tool = await createBashTool(executeCommand, "demo", {
+			approval: {
+				defaultAction: "allow",
+				rules: {
+					"rm *": "deny",
+				},
+			},
+		});
+		const executableTool = tool as unknown as {
+			execute: (input: { command: string }) => Promise<unknown>;
+		};
+
+		await expect(
+			executableTool.execute({ command: "echo safe | grep safe && echo $(rm -rf build)" }),
+		).rejects.toThrow("rm -rf build");
+		expect(calls).toEqual([]);
+	});
 });

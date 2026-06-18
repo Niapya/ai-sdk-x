@@ -1,17 +1,37 @@
 import type { CommandContext, ExecResult } from "just-bash";
 import type { SkillsCommandOptions } from "@/features/skills/types";
+import {
+	discoverSkills,
+	relativePathFromRoot,
+	sanitizeSkillName,
+	selectDiscoveredSkill,
+} from "@/features/skills/utils/discover";
 import { cloneSkillRepository } from "@/features/skills/utils/git";
 import {
 	collectSkillFiles,
-	findSkillMarkdownFile,
 	toSkillsHomePath,
-	writeSkillIndexEntry,
+	upsertSkillIndexEntry,
 } from "@/features/skills/utils/lockfile";
-import { frontmatterDescription, stringifyFrontmatter } from "@/features/skills/utils/metadata";
+import { stringifyFrontmatter } from "@/features/skills/utils/metadata";
 import { renderSkillMetadata } from "@/features/skills/utils/output";
-import { parseSkillInstallTarget } from "@/features/skills/utils/parser";
+import {
+	normalizeSkillSource,
+	type ParsedSkillInstallSpec,
+	parseSkillInstallSpec,
+} from "@/features/skills/utils/parser";
 import { commandError, defineCliCommand } from "@/utils/command";
-import { parseMarkdownFrontmatter } from "@/utils/frontmatter";
+import { resolveCliPath } from "@/utils/path";
+
+const SKILLS_API_BASE = process.env.SKILLS_API_URL || "https://skills.sh";
+
+interface InstallSource {
+	cloneRoot?: string;
+	preferredPath?: string;
+	repoUrl?: string;
+	rootPath: string;
+	sourceLabel: string;
+	sourceType: "git" | "local";
+}
 
 export async function installSkill(
 	spec: string,
@@ -19,58 +39,59 @@ export async function installSkill(
 	options: SkillsCommandOptions,
 ): Promise<ExecResult> {
 	if (!spec) {
-		return commandError("x-skills install: missing <repo>@<skill-name>\n", 1);
+		return commandError("x-skills install: missing <source>[@name]\n", 1);
 	}
 
-	const target = parseSkillInstallTarget(spec);
-	if (!target) {
-		return commandError(
-			"x-skills install: expected <repo>@<skill-name>; installing an entire repository is not supported\n",
-			1,
-		);
+	const parsed = parseSkillInstallSpec(spec);
+	if (!parsed) {
+		return commandError("x-skills install: expected <source>[@name]\n", 1);
 	}
 
-	const { clonePath, result: clone } = await cloneSkillRepository(target.repoUrl, ctx);
-	if (clone.exitCode !== 0) {
-		return commandError(
-			`x-skills install: failed to clone ${target.repoUrl}\n${withTrailingNewline(clone.stderr || clone.stdout || "git clone failed without output")}`,
-			clone.exitCode,
-		);
+	const source = await resolveInstallSource(parsed, ctx);
+	if ("error" in source) {
+		return source.error;
 	}
-
-	const cloneRoot = clonePath;
-	const sourcePath = ctx.fs.resolvePath(cloneRoot, `skills/${target.selector}`);
-	const destinationPath = ctx.fs.resolvePath(options.mountPoint, target.selector);
 
 	try {
-		const sourceSkillFilePath = await findSkillMarkdownFile(ctx.fs, sourcePath);
-		if (!sourceSkillFilePath) {
+		const discoveryRoot = await resolveDiscoveryRoot(source.value, ctx);
+		const skills = await discoverSkills(ctx.fs, discoveryRoot);
+		const selected = selectDiscoveredSkill(skills, parsed.selector);
+		if ("error" in selected) {
 			return commandError(
-				`x-skills install: missing /skills/${target.selector}/SKILL.md or /skills/${target.selector}/SKILLS.md in ${target.repoUrl}\n`,
+				`x-skills install: ${selected.error} in ${source.value.sourceLabel}\n`,
 				1,
 			);
 		}
 
-		const markdown = await ctx.fs.readFile(sourceSkillFilePath);
-		const { frontmatter } = parseMarkdownFrontmatter(markdown);
-		const description = frontmatterDescription(frontmatter);
+		const installName = sanitizeSkillName(parsed.selector ?? selected.name);
+		if (!installName) {
+			return commandError("x-skills install: selected skill has an empty install name\n", 1);
+		}
 
+		const destinationPath = ctx.fs.resolvePath(options.mountPoint, installName);
 		await ctx.fs.rm(destinationPath, { force: true, recursive: true });
-		await ctx.fs.cp(sourcePath, destinationPath, { recursive: true });
+		await ctx.fs.cp(selected.path, destinationPath, { recursive: true });
 
 		const skillPath = ctx.fs.resolvePath(
 			destinationPath,
-			sourceSkillFilePath.slice(sourcePath.length).replace(/^\/+/, ""),
+			selected.skillFilePath.slice(selected.path.length).replace(/^\/+/, ""),
 		);
 		const files = await collectSkillFiles(ctx.fs, destinationPath);
+		const sourcePath = relativePathFromRoot(ctx.fs, source.value.rootPath, selected.path);
+
 		if (options.lockfile) {
-			await writeSkillIndexEntry(ctx.fs, options, {
-				description,
+			await upsertSkillIndexEntry(ctx.fs, options, {
+				description: selected.description,
 				files,
-				frontmatter: stringifyFrontmatter(frontmatter),
+				frontmatter: stringifyFrontmatter(selected.frontmatter),
 				skillPath,
-				source: "git",
-				target,
+				source: source.value.sourceType,
+				sourcePath,
+				target: {
+					repoUrl: source.value.repoUrl ?? "",
+					selector: installName,
+					sourcePath,
+				},
 			});
 		}
 
@@ -83,18 +104,150 @@ export async function installSkill(
 				"Skill installed successfully.",
 				"",
 				renderSkillMetadata({
-					description,
+					description: selected.description,
 					files: outputFiles,
 					skillFile: outputSkillPath,
-					skillsName: target.selector,
-					source: target.repoUrl,
+					skillsName: installName,
+					source: source.value.sourceLabel,
 				}),
 			].join("\n")}\n`,
 			stderr: "",
 			exitCode: 0,
 		};
 	} finally {
-		await ctx.fs.rm(cloneRoot, { force: true, recursive: true });
+		if (source.value.cloneRoot) {
+			await ctx.fs.rm(source.value.cloneRoot, { force: true, recursive: true });
+		}
+	}
+}
+
+async function resolveInstallSource(
+	parsed: ParsedSkillInstallSpec,
+	ctx: CommandContext,
+): Promise<{ value: InstallSource } | { error: ExecResult }> {
+	const wellKnown = await resolveWellKnownSource(parsed.source);
+	if ("error" in wellKnown) {
+		return { error: wellKnown.error };
+	}
+
+	const source = wellKnown.source;
+	const localPath = resolveCliPath(source, ctx);
+	if (await ctx.fs.exists(localPath)) {
+		const stat = await ctx.fs.stat(localPath);
+		if (!stat.isDirectory) {
+			return { error: commandError(`x-skills install: expected a directory: ${source}\n`, 1) };
+		}
+
+		if (await ctx.fs.exists(ctx.fs.resolvePath(localPath, ".git"))) {
+			const { clonePath, result: clone } = await cloneSkillRepository(localPath, ctx);
+			if (clone.exitCode !== 0) {
+				return {
+					error: commandError(
+						`x-skills install: failed to clone ${localPath}\n${withTrailingNewline(clone.stderr || clone.stdout || "git clone failed without output")}`,
+						clone.exitCode,
+					),
+				};
+			}
+
+			return {
+				value: {
+					cloneRoot: clonePath,
+					repoUrl: localPath,
+					rootPath: clonePath,
+					sourceLabel: source,
+					sourceType: "git",
+				},
+			};
+		}
+
+		return {
+			value: {
+				rootPath: localPath,
+				sourceLabel: source,
+				sourceType: "local",
+			},
+		};
+	}
+
+	const normalized = normalizeSkillSource(source);
+	const cloneUrl = normalized.cloneUrl ?? (parsed.selector ? source : undefined);
+	if (!cloneUrl) {
+		return {
+			error: commandError(`x-skills install: path not found or unsupported source: ${source}\n`, 1),
+		};
+	}
+
+	const { clonePath, result: clone } = await cloneSkillRepository(cloneUrl, ctx);
+	if (clone.exitCode !== 0) {
+		return {
+			error: commandError(
+				`x-skills install: failed to clone ${cloneUrl}\n${withTrailingNewline(clone.stderr || clone.stdout || "git clone failed without output")}`,
+				clone.exitCode,
+			),
+		};
+	}
+
+	return {
+		value: {
+			cloneRoot: clonePath,
+			preferredPath: normalized.preferredPath,
+			repoUrl: cloneUrl,
+			rootPath: clonePath,
+			sourceLabel: normalized.source,
+			sourceType: "git",
+		},
+	};
+}
+
+async function resolveDiscoveryRoot(source: InstallSource, ctx: CommandContext): Promise<string> {
+	if (!source.preferredPath) {
+		return source.rootPath;
+	}
+
+	const preferredRoot = ctx.fs.resolvePath(source.rootPath, source.preferredPath);
+	if (await ctx.fs.exists(ctx.fs.resolvePath(preferredRoot, "SKILL.md"))) {
+		return preferredRoot;
+	}
+
+	return source.rootPath;
+}
+
+async function resolveWellKnownSource(
+	source: string,
+): Promise<{ source: string } | { error: ExecResult }> {
+	const normalized = normalizeSkillSource(source);
+	if (normalized.type !== "skills-sh") {
+		return { source };
+	}
+
+	try {
+		const slug = new URL(source).pathname.split("/").filter(Boolean)[0];
+		const response = await fetch(`${SKILLS_API_BASE}/api/skills/${encodeURIComponent(slug)}`);
+		if (!response.ok) {
+			return {
+				error: commandError(
+					`x-skills install: failed to resolve ${source}: skills.sh returned ${response.status}\n`,
+					1,
+				),
+			};
+		}
+
+		const data = (await response.json()) as { source?: unknown };
+		if (typeof data.source !== "string" || !data.source.trim()) {
+			return {
+				error: commandError(
+					`x-skills install: failed to resolve ${source}: missing source metadata\n`,
+					1,
+				),
+			};
+		}
+
+		return { source: data.source.trim() };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "unknown error";
+		return {
+			error: commandError(`x-skills install: failed to resolve ${source}: ${message}\n`, 1),
+		};
 	}
 }
 
@@ -108,19 +261,19 @@ export function createInstallSkillCommand(
 	return defineCliCommand({
 		id: "install",
 		type: "command",
-		summary: "Install a skill from a repository selector.",
-		usage: "x-skills install <repo@skill-name>",
+		summary: "Install a skill from a local path, repository, or skills.sh URL.",
+		usage: "x-skills install <source>[@name]",
 		args: [
 			{
 				name: "spec",
 				required: true,
-				summary: "Repository selector with the skill selector suffix.",
+				summary: "Install source with an optional skill selector suffix.",
 			},
 		],
 		examples: [
-			{
-				command: "x-skills install intellectronica/agent-skills@context7",
-			},
+			{ command: "x-skills install intellectronica/agent-skills@context7" },
+			{ command: "x-skills install ./skills/my-skill" },
+			{ command: "x-skills install https://github.com/owner/repo/tree/main/.codex/skills/demo" },
 		],
 		run: ({ args: { spec } }, ctx) => installSkill(spec, ctx, options),
 	});

@@ -62,6 +62,27 @@ describe("lockfile utils", () => {
 		).toEqual(createEmpty());
 	});
 
+	it("returns parsed lockfile values when a parser is provided", async () => {
+		const fs = new InMemoryFs({
+			"/store/index.json": JSON.stringify({ extra: true, items: ["a"], version: 1 }),
+		});
+
+		const value = await readLockfile({
+			createEmpty,
+			filename: "index.json",
+			fs,
+			mountPoint: "/store",
+			parse(input) {
+				if (isTestIndex(input)) {
+					return { version: input.version, items: input.items };
+				}
+				return undefined;
+			},
+		});
+
+		expect(value).toEqual({ version: 1, items: ["a"] });
+	});
+
 	it("writes formatted JSON and ensures the mount directory exists", async () => {
 		const fs = new InMemoryFs();
 
